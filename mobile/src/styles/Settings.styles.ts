@@ -1,0 +1,140 @@
+import { StyleSheet } from 'react-native';
+import { theme } from './theme';
+import { globalStyles } from './globalStyles';
+
+export const settingsStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1, borderBottomColor: theme.colors.border,
+  },
+  logoText: { fontSize: theme.typography.sizes.lg, fontWeight: '800', color: theme.colors.text.primary },
+  cancelBtn: { paddingHorizontal: 14, paddingVertical: 7, marginRight: 8 },
+  cancelText: { fontSize: 12, color: theme.colors.text.secondary, fontWeight: '600' },
+  saveBtn: {
+    backgroundColor: theme.colors.text.primary,
+    paddingHorizontal: 18, paddingVertical: 8,
+    borderRadius: theme.borderRadius.full,
+  },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  scroll: { padding: theme.spacing.xl, paddingBottom: 40 },
+  profileCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.lg, padding: theme.spacing.md,
+    borderWidth: 1, borderColor: theme.colors.border,
+    ...globalStyles.shadow, marginBottom: theme.spacing.xl,
+  },
+  profileAvatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: theme.colors.border },
+  profileName: { fontSize: theme.typography.sizes.md, fontWeight: '800', color: theme.colors.text.primary },
+  profileEmail: { fontSize: 11, color: theme.colors.text.secondary },
+  editBtn: {
+    backgroundColor: theme.colors.inputBackground,
+    paddingHorizontal: 12, paddingVertical: 4,
+    borderRadius: theme.borderRadius.full, borderWidth: 1, borderColor: theme.colors.border,
+  },
+  editBtnText: { fontSize: 11, fontWeight: '600', color: theme.colors.text.primary },
+  changePwText: { fontSize: 11, color: theme.colors.primary, fontWeight: '600' },
+  section: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg,
+    borderWidth: 1, borderColor: theme.colors.border, ...globalStyles.shadow,
+    marginBottom: theme.spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    marginBottom: 16, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: theme.colors.border,
+  },
+  sectionTitle: { fontSize: theme.typography.sizes.md, fontWeight: '800', color: theme.colors.text.primary, marginBottom: 2 },
+  sectionDesc: { fontSize: 11, color: theme.colors.text.secondary },
+  subSectionTitle: {
+    fontSize: theme.typography.sizes.sm, fontWeight: '700', color: theme.colors.text.secondary,
+    marginTop: 12, marginBottom: 8,
+  },
+  termsRow: { gap: 8, paddingVertical: 4, marginBottom: 12 },
+  termChip: {
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.inputBackground,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  termChipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  termChipText: { fontSize: 12, fontWeight: '600', color: theme.colors.text.secondary },
+  termChipTextActive: { color: '#fff' },
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.border + '80',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border + '80',
+  },
+  actionRowTextWrap: {
+    flex: 1,
+    minWidth: 180,
+    paddingRight: 8,
+  },
+  actionRowButtonWrap: {
+    marginLeft: 'auto',
+  },
+  settingTitle: { fontSize: theme.typography.sizes.sm, fontWeight: '600', color: theme.colors.text.primary, marginBottom: 2 },
+  settingDesc: { fontSize: 11, color: theme.colors.text.secondary },
+  thresholdRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4,
+  },
+  thresholdInput: {
+    width: 60, textAlign: 'center',
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.border,
+    padding: 8, fontSize: 18, fontWeight: '800', color: theme.colors.text.primary,
+    marginTop: 6,
+  },
+  scaleRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: theme.colors.border + '60',
+  },
+  activeBadge: {
+    backgroundColor: '#34C75920', paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: theme.borderRadius.full,
+  },
+  activeBadgeText: { fontSize: 11, fontWeight: '700', color: '#34C759' },
+  selectText: { fontSize: 12, color: theme.colors.primary, fontWeight: '600' },
+  lmsRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: theme.colors.border + '60',
+  },
+  exportRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  exportBtn: {
+    backgroundColor: theme.colors.text.primary,
+    paddingVertical: 10, borderRadius: theme.borderRadius.full, alignItems: 'center',
+  },
+  exportBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  exportBtnOutline: {
+    backgroundColor: theme.colors.background,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  exportBtnOutlineText: { color: theme.colors.text.primary, fontWeight: '700', fontSize: 13 },
+  openText: { fontSize: 12, color: theme.colors.primary, fontWeight: '700' },
+  versionText: { fontSize: 11, color: theme.colors.text.secondary },
+  darkPill: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.text.primary,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: theme.borderRadius.full,
+  },
+  darkPillText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  outlinePill: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  outlinePillText: { fontSize: 11, fontWeight: '600', color: theme.colors.text.secondary },
+});
