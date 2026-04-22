@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, Modal, Pressable, TextInput, Alert, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, Modal, Pressable, TextInput, Alert, FlatList, Platform, Animated, Easing } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ThresholdDatePicker } from '../../src/components/ThresholdDatePicker';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { globalStyles } from '../../src/styles/globalStyles';
 import { theme } from '../../src/styles/theme';
 import { dashboardStyles as styles } from '../../src/styles/Dashboard.styles';
-import { createSubject, getCurrentUserProfile, getSubjects, type Subject, type UserProfile } from '../../src/services/api';
+import { createSubject, getCurrentUserProfile, getSubjects, createAssessment, getAssessments, getPredictedSubject, getTodaySchedules, createSchedule, deleteSchedule, getAllSchedules, type Subject, type UserProfile, type Assessment } from '../../src/services/api';
 
 const SUBJECT_COLORS = [
   '#E7EDF8', '#DDE7FF', '#EAF4EE', '#FCEFD9', '#F7E9EE', '#ECE8FF',
@@ -54,17 +55,82 @@ export default function HybridDashboardScreen() {
   const [selectedColor, setSelectedColor] = useState(SUBJECT_COLORS[0]);
   const [selectedIcon, setSelectedIcon] = useState<(typeof SUBJECT_ICONS)[number]>('book-outline');
   const subjectsCarouselRef = useRef<FlatList<any> | null>(null);
+
+  // Quick Add Menu states
+  const [isQuickAddMenuVisible, setIsQuickAddMenuVisible] = useState(false);
+  const [isGradeModalVisible, setIsGradeModalVisible] = useState(false);
+  const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
+  
+  // Grade Form states
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
+  const [gradeName, setGradeName] = useState('');
+  const [gradeValue, setGradeValue] = useState('');
+  const [gradePercentage, setGradePercentage] = useState('');
+  const [isSavingGrade, setIsSavingGrade] = useState(false);
+  
+  // Task Form states
+  const [taskName, setTaskName] = useState('');
+  const [taskDate, setTaskDate] = useState(() => {
+    const now = new Date();
+    const d = now.getDate().toString().padStart(2, '0');
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const y = now.getFullYear();
+    return `${d}-${m}-${y}`;
+  });
+  const [isSavingTask, setIsSavingTask] = useState(false);
+
+  // Subject Selector state
+  const [isSubjectSelectorVisible, setIsSubjectSelectorVisible] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<any>(null);
+
+  // Toast state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [nextAssessment, setNextAssessment] = useState<Assessment | null>(null);
+  const [todaySchedules, setTodaySchedules] = useState<any[]>([]);
+  const [isScheduleModalVisible, setIsScheduleModalVisible] = useState(false);
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [scheduleDraftKeys, setScheduleDraftKeys] = useState<Set<string>>(new Set());
+  const [allSchedules, setAllSchedules] = useState<any[]>([]);
+
+  const loadData = async () => {
+    const [userProfile, userSubjects, schedulesToday, schedulesAll] = await Promise.all([
+      getCurrentUserProfile(),
+      getSubjects(),
+      getTodaySchedules(),
+      getAllSchedules(),
+    ]);
+
+    setProfile(userProfile);
+    setSubjects(userSubjects || []);
+    setTodaySchedules(schedulesToday || []);
+    setAllSchedules(schedulesAll || []);
+
+    // Find next assessment across all subjects
+    if (userSubjects && userSubjects.length > 0) {
+      try {
+        const allAssessments = await Promise.all(
+          userSubjects.map((s: Subject) => getAssessments(s.id))
+        );
+        const incomplete = allAssessments.flat().filter((a: Assessment) => !a.is_completed && a.date);
+        const sorted = incomplete.sort((a: any, b: any) => {
+          try {
+            const [da, ma, ya] = a.date.split('-').map(Number);
+            const [db, mb, yb] = b.date.split('-').map(Number);
+            if (ya && ma && da && yb && mb && db) {
+              return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+            }
+          } catch (e) {}
+          return 0;
+        });
+        setNextAssessment(sorted[0] || null);
+      } catch (err) {
+        console.warn('Error fetching next assessments:', err);
+      }
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      const [userProfile, userSubjects] = await Promise.all([
-        getCurrentUserProfile(),
-        getSubjects(),
-      ]);
-
-      setProfile(userProfile);
-      setSubjects(userSubjects || []);
-    };
-
     loadData();
   }, []);
 
@@ -175,6 +241,231 @@ export default function HybridDashboardScreen() {
     }
   };
 
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const buildScheduleKey = (day: number, startTime: string) => `${day}-${startTime}`;
+
+  const selectedScheduleSubject = useMemo(
+    () => subjects.find((s) => s.id === selectedSubjectId) || null,
+    [selectedSubjectId, subjects],
+  );
+
+  const existingScheduleRowsForSelectedSubject = useMemo(() => {
+    if (!selectedSubjectId) return [] as any[];
+    return allSchedules.filter((s) => s.subject_id === selectedSubjectId);
+  }, [allSchedules, selectedSubjectId]);
+
+  const existingScheduleKeysForSelectedSubject = useMemo(
+    () =>
+      new Set(
+        existingScheduleRowsForSelectedSubject.map((s) =>
+          buildScheduleKey(s.day_of_week, s.start_time),
+        ),
+      ),
+    [existingScheduleRowsForSelectedSubject],
+  );
+
+  const scheduleHasChanges = useMemo(() => {
+    if (scheduleDraftKeys.size !== existingScheduleKeysForSelectedSubject.size) return true;
+    for (const key of scheduleDraftKeys) {
+      if (!existingScheduleKeysForSelectedSubject.has(key)) return true;
+    }
+    return false;
+  }, [existingScheduleKeysForSelectedSubject, scheduleDraftKeys]);
+
+  useEffect(() => {
+    if (!isScheduleModalVisible) {
+      setScheduleDraftKeys(new Set());
+      return;
+    }
+
+    if (!selectedSubjectId) {
+      setScheduleDraftKeys(new Set());
+      return;
+    }
+
+    setScheduleDraftKeys(new Set(existingScheduleKeysForSelectedSubject));
+  }, [
+    existingScheduleKeysForSelectedSubject,
+    isScheduleModalVisible,
+    selectedSubjectId,
+  ]);
+
+  const handleCloseSchedulePlanner = () => {
+    setIsScheduleModalVisible(false);
+    setSelectedSubjectId(null);
+    setScheduleDraftKeys(new Set());
+  };
+
+  const handleOpenSchedulePlanner = () => {
+    // Start clean every time to avoid carrying selection from a previous subject.
+    setSelectedSubjectId(null);
+    setScheduleDraftKeys(new Set());
+    setIsScheduleModalVisible(true);
+  };
+
+  const handleOpenQuickAdd = async () => {
+    setIsQuickAddMenuVisible(true);
+    try {
+      const predicted = await getPredictedSubject();
+      if (predicted) {
+        setSelectedSubjectId(predicted.id);
+      } else {
+        setSelectedSubjectId(null);
+      }
+    } catch (e) {
+      console.warn('Prediction error:', e);
+    }
+  };
+
+  const handleToggleScheduleSlot = (day: number, hour: number) => {
+    if (!selectedSubjectId) {
+      Alert.alert(t('common.error'), t('dashboard.selectSubjectFirst'));
+      return;
+    }
+
+    const startTime = `${hour.toString().padStart(2, '0')}:00`;
+
+    setScheduleDraftKeys((prev) => {
+      const next = new Set(prev);
+      const key = buildScheduleKey(day, startTime);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleSaveSchedule = async () => {
+    if (!selectedSubjectId) {
+      Alert.alert(t('common.error'), t('dashboard.selectSubjectFirst'));
+      return;
+    }
+
+    if (!scheduleHasChanges) {
+      showToast(t('dashboard.schedulePlanner.noChanges'));
+      handleCloseSchedulePlanner();
+      return;
+    }
+
+    const toDelete = existingScheduleRowsForSelectedSubject.filter(
+      (s) => !scheduleDraftKeys.has(buildScheduleKey(s.day_of_week, s.start_time)),
+    );
+
+    const toCreate = Array.from(scheduleDraftKeys)
+      .filter((key) => !existingScheduleKeysForSelectedSubject.has(key))
+      .map((key) => {
+        const [day, start] = key.split('-');
+        const hour = Number(start.split(':')[0]);
+        return {
+          subject_id: selectedSubjectId,
+          day_of_week: Number(day),
+          start_time: start,
+          end_time: `${(hour + 1).toString().padStart(2, '0')}:00`,
+        };
+      });
+
+    try {
+      setIsSavingSchedule(true);
+      await Promise.all([
+        ...toDelete.map((s) => deleteSchedule(s.id)),
+        ...toCreate.map((payload) => createSchedule(payload)),
+      ]);
+
+      const [today, all] = await Promise.all([getTodaySchedules(), getAllSchedules()]);
+      setTodaySchedules(today || []);
+      setAllSchedules(all || []);
+      showToast(t('dashboard.scheduleSuccess'));
+      handleCloseSchedulePlanner();
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error?.message || t('dashboard.schedulePlanner.saveError'));
+    } finally {
+      setIsSavingSchedule(false);
+    }
+  };
+
+  const handleSaveGrade = async () => {
+    if (!selectedSubjectId || !gradeName.trim() || !gradeValue.trim() || !gradePercentage.trim()) {
+      Alert.alert(t('common.error'), t('dashboard.quickAddMenu.errors.fillFields'));
+      return;
+    }
+
+    try {
+      setIsSavingGrade(true);
+      await createAssessment({
+        subject_id: selectedSubjectId,
+        name: gradeName.trim(),
+        grade_value: Number(gradeValue),
+        percentage: Number(gradePercentage),
+        is_completed: true,
+        type: 'grade',
+      });
+
+      const subjectName = subjects.find(s => s.id === selectedSubjectId)?.name || '';
+      showToast(t('dashboard.quickAddMenu.grade.success', { subject: subjectName }));
+      setIsGradeModalVisible(false);
+      
+      // Reset form
+      setGradeName('');
+      setGradeValue('');
+      setGradePercentage('');
+      setSelectedSubjectId(null);
+      
+      // Refresh subjects to update averages
+      const userSubjects = await getSubjects();
+      setSubjects(userSubjects || []);
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error?.message || t('dashboard.quickAddMenu.grade.errorSave'));
+    } finally {
+      setIsSavingGrade(false);
+    }
+  };
+
+  const handleSaveTask = async () => {
+    if (!selectedSubjectId || !taskName.trim()) {
+      Alert.alert(t('common.error'), t('dashboard.quickAddMenu.errors.fillFields'));
+      return;
+    }
+
+    try {
+      setIsSavingTask(true);
+      await createAssessment({
+        subject_id: selectedSubjectId,
+        name: taskName.trim(),
+        date: taskDate,
+        is_completed: false,
+        type: 'task',
+      });
+
+      showToast(t('dashboard.quickAddMenu.task.success'));
+      setIsTaskModalVisible(false);
+      setTaskName('');
+      setSelectedSubjectId(null);
+      
+      // Refresh next assessment
+      loadData();
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error?.message || t('dashboard.quickAddMenu.task.errorSave'));
+    } finally {
+      setIsSavingTask(false);
+    }
+  };
+
+  const onDateChange = (_event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const d = selectedDate.getDate().toString().padStart(2, '0');
+      const m = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+      const y = selectedDate.getFullYear();
+      setTaskDate(`${d}-${m}-${y}`);
+    }
+  };
+
   // ----- SUB-COMPONENTS -----
   const SubjectTile = ({ subject }: { subject: Subject }) => {
     const avg = typeof subject.avg_score === 'number' ? subject.avg_score : 0;
@@ -197,18 +488,60 @@ export default function HybridDashboardScreen() {
     );
   };
 
-  const MetricCard = ({ title, value, subtext, icon, color }: any) => (
-    <View style={styles.metricCard}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{title}</Text>
-        <View style={[styles.iconBox, { backgroundColor: color + '20' }]}>
-          <Ionicons name={icon} size={20} color={color} />
+  const MetricCard = ({ title, value, subtext, icon, color, showMood, onPress }: any) => {
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+      if (showMood) {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseAnim, { 
+              toValue: 1.15, 
+              duration: 150, 
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true 
+            }),
+            Animated.timing(pulseAnim, { 
+              toValue: 1, 
+              duration: 1000, 
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true 
+            }),
+          ])
+        ).start();
+      } else {
+        pulseAnim.setValue(1);
+      }
+    }, [showMood]);
+
+    return (
+      <TouchableOpacity 
+        style={styles.metricCard} 
+        activeOpacity={0.7}
+        onPress={onPress || (() => setSelectedMetric({ title, value, subtext, icon, color }))}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
+          <Animated.View style={[
+            styles.iconBox, 
+            { backgroundColor: color + '20' },
+            showMood && { transform: [{ scale: pulseAnim }] }
+          ]}>
+            <Ionicons name={icon} size={20} color={color} />
+          </Animated.View>
         </View>
-      </View>
-      <Text style={styles.cardValue}>{value}</Text>
-      <Text style={styles.cardSubtext}>{subtext}</Text>
-    </View>
-  );
+        <Text 
+          style={styles.cardValue} 
+          numberOfLines={1} 
+          adjustsFontSizeToFit 
+          minimumFontScale={0.7}
+        >
+          {value}
+        </Text>
+        <Text style={styles.cardSubtext} numberOfLines={1}>{subtext}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const ActionCircle = ({ title, icon, color }: any) => (
     <TouchableOpacity style={styles.actionItem}>
@@ -224,14 +557,15 @@ export default function HybridDashboardScreen() {
       <Text style={styles.perfRank}>#{rank}</Text>
       <View style={styles.perfUser}>
         <Ionicons name={icon} size={20} color={iconColor} style={{ marginRight: 8 }} />
-        <Text style={[styles.perfName, isYou && { fontWeight: 'bold' }]}>{name}</Text>
+        <Text style={[styles.perfName, isYou && { fontWeight: '600' }]}>{name}</Text>
       </View>
       <Text style={styles.perfGpa}>{t('dashboard.gpa')} {gpa}</Text>
     </View>
   );
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
+    <>
+      <SafeAreaView style={globalStyles.safeArea}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         {/* 1. HEADER */}
@@ -304,20 +638,31 @@ export default function HybridDashboardScreen() {
               <Text style={styles.quickAddTitle}>{t('dashboard.quickAdd')}</Text>
             </View>
             <Text style={styles.quickAddDesc}>{t('dashboard.quickAddDesc')}</Text>
-            <TouchableOpacity style={styles.quickAddBtn}>
+            <TouchableOpacity style={styles.quickAddBtn} onPress={() => setIsQuickAddMenuVisible(true)}>
               <Text style={styles.quickAddBtnText}>{t('dashboard.addBtn')}</Text>
             </TouchableOpacity>
           </View>
 
           <Text style={styles.sectionTitle}>{t('dashboard.nextClass')}</Text>
           <View style={styles.nextClassCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '20', marginRight: 12 }]}>
-                <Ionicons name="calculator-outline" size={20} color={theme.colors.primary} />
+            <View style={styles.nextClassInfo}>
+              <View style={styles.nextClassBadge}>
+                <Ionicons name="time-outline" size={24} color={theme.colors.primary} />
               </View>
               <View>
-                <Text style={styles.nextClassTitle}>{t('dashboard.calculus')}</Text>
-                <Text style={styles.nextClassRoom}>{t('dashboard.room')} 204 • {t('dashboard.classTime')}</Text>
+                {todaySchedules.length > 0 ? (
+                  <>
+                    <Text style={styles.nextClassTitle}>{todaySchedules[0].name}</Text>
+                    <Text style={styles.nextClassRoom}>
+                      {todaySchedules[0].start_time} - {todaySchedules[0].end_time}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.nextClassTitle}>{t('dashboard.noClasses')}</Text>
+                    <Text style={styles.nextClassRoom}>{t('dashboard.enjoyDay')}</Text>
+                  </>
+                )}
               </View>
             </View>
             <TouchableOpacity style={styles.openBtn}>
@@ -330,8 +675,37 @@ export default function HybridDashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('dashboard.overview')}</Text>
           <View style={styles.grid}>
-            <MetricCard title={t('dashboard.todaysSchedule')} value="2" subtext={t('dashboard.classes')} icon="calendar-outline" color="#FF9500" />
-            <MetricCard title={t('dashboard.nextAssignment')} value={t('dashboard.nextAssignmentMock')} subtext={t('dashboard.tomorrow')} icon="document-text-outline" color="#5856D6" />
+            <MetricCard 
+              title={t('dashboard.todaysSchedule')} 
+              value={todaySchedules.length.toString()} 
+              subtext={t('dashboard.classes')} 
+              icon="calendar-outline" 
+              color="#FF9500" 
+              onPress={handleOpenSchedulePlanner}
+            />
+            {(() => {
+              const mood = nextAssessment?.date ? (() => {
+                const [d, m, y] = nextAssessment.date.split('-').map(Number);
+                const dueDate = new Date(y, m - 1, d);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays <= 1) return { color: '#FF3B30', show: true };
+                if (diffDays <= 3) return { color: '#FF9500', show: true };
+                return { color: '#34C759', show: true };
+              })() : { color: '#5856D6', show: false };
+
+              return (
+                <MetricCard 
+                  title={t('dashboard.nextAssignment')} 
+                  value={nextAssessment ? nextAssessment.name : t('dashboard.nextAssignmentMock')} 
+                  subtext={nextAssessment ? nextAssessment.date : t('dashboard.tomorrow')} 
+                  icon="document-text-outline" 
+                  color={mood.color}
+                  showMood={mood.show}
+                />
+              );
+            })()}
           </View>
         </View>
 
@@ -449,7 +823,447 @@ export default function HybridDashboardScreen() {
 
       </ScrollView>
     </SafeAreaView>
+      
+      {/* TOAST FEEDBACK */}
+      {toastMessage && (
+        <View style={styles.toastContainer}>
+          <Ionicons name="checkmark-circle" size={18} color={theme.colors.white} style={{ marginRight: 8 }} />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </View>
+      )}
+
+      {/* QUICK ADD MENU (ACTION SHEET) */}
+      <Modal
+        visible={isQuickAddMenuVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsQuickAddMenuVisible(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setIsQuickAddMenuVisible(false)}>
+          <Pressable style={styles.sheetContent} onPress={() => null}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.title')}</Text>
+            <Text style={styles.sheetSubtitle}>{t('dashboard.quickAddDesc')}</Text>
+
+            <View style={styles.quickAddMenuContainer}>
+              <TouchableOpacity 
+                style={styles.quickAddMenuItem} 
+                onPress={() => {
+                  setIsQuickAddMenuVisible(false);
+                  setIsGradeModalVisible(true);
+                }}
+              >
+                <View style={styles.quickAddMenuIcon}>
+                  <MaterialCommunityIcons name="calculator" size={24} color={theme.colors.primary} />
+                </View>
+                <View style={styles.quickAddMenuInfo}>
+                  <Text style={styles.quickAddMenuText}>{t('dashboard.quickAddMenu.registerGrade')}</Text>
+                  <Text style={styles.quickAddMenuSubtext}>{t('dashboard.quickAddMenu.registerGradeSubtext')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.colors.text.placeholder} style={styles.quickAddMenuChevron} />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.quickAddMenuItem}
+                onPress={() => {
+                  setIsQuickAddMenuVisible(false);
+                  setIsTaskModalVisible(true);
+                }}
+              >
+                <View style={styles.quickAddMenuIcon}>
+                  <MaterialCommunityIcons name="clipboard-text-outline" size={24} color="#34C759" />
+                </View>
+                <View style={styles.quickAddMenuInfo}>
+                  <Text style={styles.quickAddMenuText}>{t('dashboard.quickAddMenu.newTask')}</Text>
+                  <Text style={styles.quickAddMenuSubtext}>{t('dashboard.quickAddMenu.newTaskSubtext')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.colors.text.placeholder} style={styles.quickAddMenuChevron} />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.quickAddMenuItem}
+                onPress={() => {
+                  setIsQuickAddMenuVisible(false);
+                  Alert.alert(t('dashboard.quickAddMenu.cameraSoonTitle'), t('dashboard.quickAddMenu.cameraSoonMessage'));
+                }}
+              >
+                <View style={styles.quickAddMenuIcon}>
+                  <MaterialCommunityIcons name="camera-outline" size={24} color="#FF9500" />
+                </View>
+                <View style={styles.quickAddMenuInfo}>
+                  <Text style={styles.quickAddMenuText}>{t('dashboard.quickAddMenu.takePhoto')}</Text>
+                  <Text style={styles.quickAddMenuSubtext}>{t('dashboard.quickAddMenu.takePhotoSubtext')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.colors.text.placeholder} style={styles.quickAddMenuChevron} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={[styles.sheetCancelBtn, { marginTop: 20 }]} onPress={() => setIsQuickAddMenuVisible(false)}>
+              <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* REGISTRAR CALIFICACIÓN MODAL */}
+      <Modal
+        visible={isGradeModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsGradeModalVisible(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setIsGradeModalVisible(false)}>
+          <Pressable style={styles.sheetContent} onPress={() => null}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.grade.title')}</Text>
+            
+            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.subject')}</Text>
+            <TouchableOpacity 
+              style={styles.dropdownSelector} 
+              onPress={() => setIsSubjectSelectorVisible(true)}
+            >
+              <Text style={[
+                styles.dropdownSelectorText, 
+                !selectedSubjectId && styles.dropdownPlaceholder
+              ]}>
+                {selectedSubjectId 
+                  ? subjects.find(s => s.id === selectedSubjectId)?.name 
+                  : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={theme.colors.text.placeholder} />
+            </TouchableOpacity>
+
+            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.name')}</Text>
+            <TextInput
+              value={gradeName}
+              onChangeText={setGradeName}
+              style={styles.sheetInput}
+              placeholder={t('dashboard.quickAddMenu.grade.namePlaceholder')}
+              placeholderTextColor={theme.colors.text.placeholder}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.grade')}</Text>
+                <TextInput
+                  value={gradeValue}
+                  onChangeText={setGradeValue}
+                  style={styles.sheetInput}
+                  keyboardType="numeric"
+                  placeholder={t('dashboard.quickAddMenu.grade.gradePlaceholder')}
+                  placeholderTextColor={theme.colors.text.placeholder}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.percentage')}</Text>
+                <TextInput
+                  value={gradePercentage}
+                  onChangeText={setGradePercentage}
+                  style={styles.sheetInput}
+                  keyboardType="numeric"
+                  placeholder={t('dashboard.quickAddMenu.grade.percentagePlaceholder')}
+                  placeholderTextColor={theme.colors.text.placeholder}
+                />
+              </View>
+            </View>
+
+            <View style={styles.sheetActions}>
+              <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsGradeModalVisible(false)}>
+                <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sheetSaveBtn, isSavingGrade && { opacity: 0.6 }]}
+                onPress={handleSaveGrade}
+                disabled={isSavingGrade}
+              >
+                <Text style={styles.sheetSaveText}>
+                  {isSavingGrade ? t('dashboard.newSubject.saving') : t('dashboard.quickAddMenu.grade.save')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* NUEVA TAREA MODAL */}
+      <Modal
+        visible={isTaskModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsTaskModalVisible(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setIsTaskModalVisible(false)}>
+          <Pressable style={styles.sheetContent} onPress={() => null}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.task.title')}</Text>
+
+            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.subject')}</Text>
+            <TouchableOpacity 
+              style={styles.dropdownSelector} 
+              onPress={() => setIsSubjectSelectorVisible(true)}
+            >
+              <Text style={[
+                styles.dropdownSelectorText, 
+                !selectedSubjectId && styles.dropdownPlaceholder
+              ]}>
+                {selectedSubjectId 
+                  ? subjects.find(s => s.id === selectedSubjectId)?.name 
+                  : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={theme.colors.text.placeholder} />
+            </TouchableOpacity>
+
+            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.task.name')}</Text>
+            <TextInput
+              value={taskName}
+              onChangeText={setTaskName}
+              style={styles.sheetInput}
+              placeholder={t('dashboard.quickAddMenu.task.namePlaceholder')}
+              placeholderTextColor={theme.colors.text.placeholder}
+            />
+
+            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.task.date')}</Text>
+            <Pressable 
+              style={[styles.dropdownSelector, { paddingVertical: 0 }]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <TextInput
+                value={taskDate}
+                onChangeText={setTaskDate}
+                style={[styles.sheetInput, { borderWidth: 0, flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }]}
+                placeholder={t('dashboard.quickAddMenu.task.dateFormat')}
+                placeholderTextColor={theme.colors.text.placeholder}
+                editable={true}
+              />
+              <Ionicons name="calendar-outline" size={20} color={theme.colors.text.placeholder} />
+
+              {showDatePicker && (
+                <ThresholdDatePicker
+                  value={(() => {
+                    try {
+                      const [d, m, y] = taskDate.split('-').map(Number);
+                      return new Date(y, m - 1, d);
+                    } catch (e) {
+                      return new Date();
+                    }
+                  })()}
+                  mode="date"
+                  onChange={onDateChange}
+                />
+              )}
+            </Pressable>
+
+            <View style={styles.sheetActions}>
+              <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsTaskModalVisible(false)}>
+                <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sheetSaveBtn, isSavingTask && { opacity: 0.6 }]}
+                onPress={handleSaveTask}
+                disabled={isSavingTask}
+              >
+                <Text style={styles.sheetSaveText}>
+                  {isSavingTask ? t('dashboard.newSubject.saving') : t('dashboard.quickAddMenu.task.save')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* GESTIONAR HORARIO MODAL (GRILLA SEMANAL) */}
+      <Modal
+        visible={isScheduleModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={handleCloseSchedulePlanner}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={handleCloseSchedulePlanner}>
+          <View style={[styles.sheetContent, { paddingBottom: 20 }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>{t('dashboard.weeklySchedule')}</Text>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <TouchableOpacity 
+                style={[styles.dropdownSelector, { flex: 1, marginRight: 12 }]} 
+                onPress={() => setIsSubjectSelectorVisible(true)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {selectedSubjectId && (
+                    <View style={[styles.dot, { backgroundColor: subjects.find(s => s.id === selectedSubjectId)?.color || theme.colors.primary, marginRight: 8 }]} />
+                  )}
+                  <Text style={[styles.dropdownSelectorText, !selectedSubjectId && styles.dropdownPlaceholder]} numberOfLines={1}>
+                    {selectedSubjectId 
+                      ? subjects.find(s => s.id === selectedSubjectId)?.name 
+                      : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={16} color={theme.colors.text.placeholder} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetCancelBtn} onPress={handleCloseSchedulePlanner}>
+                <Text style={styles.sheetCancelText}>{t('common.close')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {!selectedSubjectId && (
+              <Text style={styles.scheduleHintText}>{t('dashboard.schedulePlanner.selectSubjectHint')}</Text>
+            )}
+            {selectedSubjectId && scheduleHasChanges && (
+              <Text style={styles.scheduleHintText}>{t('dashboard.schedulePlanner.unsavedHint')}</Text>
+            )}
+
+            <View style={styles.gridContainer}>
+              {/* Header: Days */}
+              <View style={styles.gridHeader}>
+                <View style={styles.hourColHeader} />
+                {(Array.isArray(t('common.daysShort', { returnObjects: true })) 
+                  ? (t('common.daysShort', { returnObjects: true }) as string[])
+                  : ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+                ).map((d, i) => (
+                  <View key={`${d}-${i}`} style={styles.dayColHeader}>
+                    <Text style={styles.dayHeaderText}>{d}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {Array.from({ length: 17 }, (_, i) => i + 6).map((hour) => (
+                  <View key={hour} style={styles.gridRow}>
+                    <View style={styles.hourCol}>
+                      <Text style={styles.hourText}>{`${hour}:00`}</Text>
+                    </View>
+                    {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+                      const startTime = `${hour.toString().padStart(2, '0')}:00`;
+                      const slotData = selectedSubjectId
+                        ? scheduleDraftKeys.has(buildScheduleKey(day, startTime))
+                        : false;
+                      
+                      return (
+                        <TouchableOpacity 
+                          key={`${day}-${hour}`} 
+                          style={styles.gridCell}
+                          onPress={() => {
+                            if (!selectedSubjectId) {
+                              setIsSubjectSelectorVisible(true);
+                              return;
+                            }
+                            handleToggleScheduleSlot(day, hour);
+                          }}
+                        >
+                          {slotData && (
+                            <View style={[styles.slotIndicator, { backgroundColor: selectedScheduleSubject?.color || theme.colors.primary }]} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
+                <View style={{ height: 20 }} />
+              </ScrollView>
+            </View>
+
+            <View style={[styles.sheetActions, { marginTop: 16 }]}> 
+              <TouchableOpacity style={styles.sheetCancelBtn} onPress={handleCloseSchedulePlanner}>
+                <Text style={styles.sheetCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.sheetSaveBtn,
+                  (!selectedSubjectId || isSavingSchedule) && { opacity: 0.55 },
+                ]}
+                onPress={handleSaveSchedule}
+                disabled={!selectedSubjectId || isSavingSchedule}
+              >
+                <Text style={styles.sheetSaveText}>
+                  {isSavingSchedule ? t('dashboard.newSubject.saving') : t('dashboard.schedulePlanner.save')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* SUBJECT SELECTOR MODAL */}
+      <Modal
+        visible={isSubjectSelectorVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsSubjectSelectorVisible(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setIsSubjectSelectorVisible(false)}>
+          <View style={[styles.sheetContent, { maxHeight: '60%' }]}>
+            <Text style={[styles.sheetTitle, { marginBottom: 16 }]}>{t('dashboard.quickAddMenu.grade.subjectPlaceholder')}</Text>
+            <FlatList
+              data={subjects}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={[
+                    styles.quickAddMenuItem, 
+                    { marginBottom: 12, padding: 16 },
+                    selectedSubjectId === item.id && { borderColor: theme.colors.primary, borderWidth: 2 }
+                  ]}
+                  onPress={() => {
+                    setSelectedSubjectId(item.id);
+                    setIsSubjectSelectorVisible(false);
+                  }}
+                >
+                  <View style={[styles.subjectBadge, { backgroundColor: item.color || '#CCCCCC', marginBottom: 0, marginRight: 16, width: 44, height: 44, borderRadius: 12 }]}>
+                    <MaterialCommunityIcons name={(item.icon as any) || 'book-outline'} size={22} color={theme.colors.text.primary} />
+                  </View>
+                  <View style={styles.quickAddMenuInfo}>
+                    <Text style={styles.quickAddMenuText}>{item.name}</Text>
+                    <Text style={styles.quickAddMenuSubtext}>{item.professor || t('dashboard.newSubject.noProfessor')}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsSubjectSelectorVisible(false)}>
+              <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+      {/* METRIC DETAIL MODAL */}
+      <Modal
+        visible={!!selectedMetric}
+        transparent
+        animationType="fade"
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setSelectedMetric(null)}>
+          <View style={[styles.sheetContent, { marginHorizontal: 20, marginBottom: 'auto', marginTop: 'auto', borderRadius: 32 }]}>
+            <View style={styles.sheetHandle} />
+            {selectedMetric && (
+              <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                <View style={[styles.iconBox, { backgroundColor: selectedMetric.color + '20', width: 60, height: 60, borderRadius: 20, marginBottom: 16 }]}>
+                  <Ionicons name={selectedMetric.icon} size={30} color={selectedMetric.color} />
+                </View>
+                <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>{selectedMetric.title}</Text>
+                <Text style={[styles.cardValue, { fontSize: 22, textAlign: 'center', paddingHorizontal: 10 }]}>
+                  {selectedMetric.value}
+                </Text>
+                <Text style={[styles.greetingSubtext, { marginTop: 8 }]}>
+                  {selectedMetric.subtext}
+                </Text>
+                
+                <TouchableOpacity 
+                  style={[styles.sheetSaveBtn, { width: '100%', marginTop: 32 }]} 
+                  onPress={() => setSelectedMetric(null)}
+                >
+                  <Text style={styles.sheetSaveText}>{t('common.close')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+      {/* FAB - BOTÓN MAESTRO */}
+      <TouchableOpacity 
+        style={styles.fab} 
+        onPress={handleOpenQuickAdd}
+      >
+        <Ionicons name="add" size={32} color={theme.colors.white} />
+      </TouchableOpacity>
+    </>
   );
 }
-
-

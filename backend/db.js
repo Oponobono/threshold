@@ -178,6 +178,18 @@ const initializeDb = () => {
       )
     `);
 
+    // 6. Tabla de Horarios (Schedules)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject_id INTEGER NOT NULL,
+        day_of_week INTEGER NOT NULL, -- 1=Lun, 2=Mar, ..., 7=Dom
+        start_time TEXT NOT NULL, -- "HH:MM" 24h
+        end_time TEXT NOT NULL,   -- "HH:MM" 24h
+        FOREIGN KEY (subject_id) REFERENCES subjects(id)
+      )
+    `);
+
     // Usuario semilla de desarrollo para no repetir registros en cada cambio de esquema.
     db.get(`SELECT id FROM users WHERE email = ?`, ['user'], (err, existingUser) => {
       if (err) {

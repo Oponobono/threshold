@@ -114,6 +114,20 @@ export type Subject = {
   completion_percent?: number | null;
 };
 
+export type Assessment = {
+  id?: number;
+  subject_id: number;
+  name: string;
+  type?: string | null;
+  date?: string | null;
+  weight?: string | null;
+  out_of?: number | null;
+  score?: number | null;
+  percentage?: number | null;
+  grade_value?: number | null;
+  is_completed?: boolean;
+};
+
 /**
  * Obtiene o crea un identificador único persistente para el dispositivo
  */
@@ -300,6 +314,94 @@ export const getAssessments = async (subjectId: number) => {
 };
 
 /**
+ * Obtiene la materia sugerida según el horario actual
+ */
+export const getPredictedSubject = async (): Promise<Subject | null> => {
+  const userId = await getUserId();
+  if (!userId) return null;
+  const response = await fetchWithFallback(`/prediction/${userId}`);
+  return await parseJsonSafely(response);
+};
+
+/**
+ * Obtiene los horarios de hoy
+ */
+export const getTodaySchedules = async (): Promise<any[]> => {
+  const userId = await getUserId();
+  if (!userId) return [];
+  const response = await fetchWithFallback(`/schedules/today/${userId}`);
+  return (await parseJsonSafely(response)) || [];
+};
+
+/**
+ * Crea un nuevo horario (soporta repetición enviando múltiples peticiones si es necesario)
+ */
+export const createSchedule = async (payload: { subject_id: number, day_of_week: number, start_time: string, end_time: string }) => {
+  const response = await fetchWithFallback('/schedules', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await parseJsonSafely(response);
+  if (!response.ok) {
+    throw new Error(data?.error || 'No se pudo crear el horario.');
+  }
+
+  return data;
+};
+
+/**
+ * Elimina un horario
+ */
+export const deleteSchedule = async (id: number) => {
+  const response = await fetchWithFallback(`/schedules/${id}`, {
+    method: 'DELETE',
+  });
+  return await parseJsonSafely(response);
+};
+
+/**
+ * Obtiene horarios por materia
+ */
+export const getSchedulesBySubject = async (subjectId: number): Promise<any[]> => {
+  const response = await fetchWithFallback(`/schedules/subject/${subjectId}`);
+  return (await parseJsonSafely(response)) || [];
+};
+
+/**
+ * Obtiene todos los horarios del usuario
+ */
+export const getAllSchedules = async (): Promise<any[]> => {
+  const userId = await getUserId();
+  if (!userId) return [];
+  const response = await fetchWithFallback(`/schedules/user/${userId}`);
+  return (await parseJsonSafely(response)) || [];
+};
+
+/**
+ * Crea una nueva evaluación o tarea
+ */
+export const createAssessment = async (payload: Assessment) => {
+  const response = await fetchWithFallback('/assessments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await parseJsonSafely(response);
+  if (!response.ok) {
+    throw new Error(data?.error || 'No se pudo crear la evaluación.');
+  }
+
+  return data;
+};
+
+/**
  * Obtiene ítems de la galería
  */
 export const getGalleryItems = async () => {
@@ -316,7 +418,6 @@ export const trackGuestVisit = async () => {
   try {
     // En dispositivo físico, 127.0.0.1 apunta al propio celular y no al backend de la PC.
     if (Platform.OS !== 'web' && DEFAULT_LAN_IP === '127.0.0.1') {
-      console.warn('[Guest] Visita no enviada: configura EXPO_PUBLIC_API_HOST con la IP LAN de tu PC.');
       return { skipped: true };
     }
 
@@ -330,12 +431,8 @@ export const trackGuestVisit = async () => {
     });
 
     const data = await parseJsonSafely(response);
-    if (!response.ok) {
-      console.warn('Advertencia en track-guest:', data?.error);
-    }
     return data;
   } catch (error) {
-    console.warn('No se pudo registrar la visita de invitado (continuando sin bloqueo):', error);
     return { skipped: true };
   }
 };

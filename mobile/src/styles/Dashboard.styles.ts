@@ -15,14 +15,15 @@ export const dashboardStyles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
   },
   greetingText: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: '800',
+    fontSize: theme.typography.sizes.lg + 2,
+    fontWeight: '600',
     color: theme.colors.text.primary,
+    letterSpacing: -0.5,
   },
   greetingSubtext: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.text.secondary,
-    fontWeight: '600',
+    fontWeight: '400',
     marginTop: 4,
   },
   avatar: {
@@ -36,10 +37,12 @@ export const dashboardStyles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
   },
   sectionTitle: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '500',
     color: theme.colors.text.secondary,
     marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   subjectsRow: {
     gap: 16,
@@ -82,8 +85,8 @@ export const dashboardStyles = StyleSheet.create({
     zIndex: 2,
   },
   subjectTileName: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontSize: theme.typography.sizes.sm + 1,
+    fontWeight: '600',
     color: theme.colors.text.primary,
   },
   subjectTileMeta: {
@@ -136,7 +139,7 @@ export const dashboardStyles = StyleSheet.create({
   },
   quickAddTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: '600',
     color: theme.colors.text.primary,
   },
   quickAddDesc: {
@@ -167,9 +170,22 @@ export const dashboardStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  nextClassInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  nextClassBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: theme.colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   nextClassTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: '600',
     color: theme.colors.text.primary,
   },
   nextClassRoom: {
@@ -221,10 +237,11 @@ export const dashboardStyles = StyleSheet.create({
     alignItems: 'center',
   },
   cardValue: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '600',
     color: theme.colors.text.primary,
     marginBottom: 2,
+    letterSpacing: -0.5,
   },
   cardSubtext: {
     fontSize: 11,
@@ -252,7 +269,7 @@ export const dashboardStyles = StyleSheet.create({
   },
   actionText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: '500',
     color: theme.colors.text.secondary,
   },
   allChip: {
@@ -263,7 +280,7 @@ export const dashboardStyles = StyleSheet.create({
   },
   allChipText: {
     color: theme.colors.white,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: 12,
   },
   perfContainer: {
@@ -276,11 +293,12 @@ export const dashboardStyles = StyleSheet.create({
   },
   sheetContent: {
     backgroundColor: theme.colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: theme.spacing.xl,
+    paddingBottom: theme.spacing.xl + 10,
     maxHeight: '85%',
+    ...globalStyles.shadow,
   },
   sheetHandle: {
     width: 42,
@@ -291,9 +309,10 @@ export const dashboardStyles = StyleSheet.create({
     marginBottom: 12,
   },
   sheetTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '600',
     color: theme.colors.text.primary,
+    letterSpacing: -0.5,
   },
   sheetSubtitle: {
     marginTop: 4,
@@ -364,7 +383,7 @@ export const dashboardStyles = StyleSheet.create({
   },
   sheetCancelText: {
     color: theme.colors.text.secondary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   sheetSaveBtn: {
     flex: 1,
@@ -375,7 +394,7 @@ export const dashboardStyles = StyleSheet.create({
   },
   sheetSaveText: {
     color: theme.colors.white,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   perfRow: {
     flexDirection: 'row',
@@ -392,7 +411,7 @@ export const dashboardStyles = StyleSheet.create({
   },
   perfRank: {
     width: 40,
-    fontWeight: '800',
+    fontWeight: '600',
     color: theme.colors.text.secondary,
   },
   perfUser: {
@@ -406,7 +425,171 @@ export const dashboardStyles = StyleSheet.create({
   },
   perfGpa: {
     fontSize: theme.typography.sizes.sm,
+    fontWeight: '600',
+    color: theme.colors.text.secondary,
+  },
+  quickAddMenuContainer: {
+    marginTop: 20,
+    gap: 16,
+  },
+  quickAddMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  quickAddMenuIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  quickAddMenuInfo: {
+    flex: 1,
+  },
+  quickAddMenuText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: theme.colors.text.primary,
+  },
+  quickAddMenuSubtext: {
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+    marginTop: 1,
+    fontWeight: '400',
+  },
+  quickAddMenuChevron: {
+    opacity: 0.3,
+  },
+  // DROPDOWN / PICKER REPLACEMENT
+  dropdownSelector: {
+    backgroundColor: theme.colors.inputBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  dropdownSelectorText: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.text.primary,
+  },
+  dropdownPlaceholder: {
+    color: theme.colors.text.placeholder,
+  },
+  // TOAST STYLE (Simple)
+  toastContainer: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...globalStyles.shadow,
+    zIndex: 999,
+  },
+  toastText: {
+    color: theme.colors.white,
+    fontWeight: '700',
+    fontSize: theme.typography.sizes.sm,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...globalStyles.shadow,
+    elevation: 8,
+    zIndex: 900,
+  },
+  gridContainer: {
+    height: 460,
+    backgroundColor: theme.colors.background,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 10,
+  },
+  gridHeader: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.inputBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  hourColHeader: {
+    width: 50,
+  },
+  dayColHeader: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border + '40',
+  },
+  dayHeaderText: {
+    fontSize: 10,
     fontWeight: '700',
     color: theme.colors.text.secondary,
+    textTransform: 'uppercase',
+  },
+  scheduleHintText: {
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+    marginBottom: 10,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    height: 44,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border + '40',
+  },
+  hourCol: {
+    width: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.inputBackground + '50',
+  },
+  hourText: {
+    fontSize: 10,
+    color: theme.colors.text.secondary,
+    fontWeight: '600',
+  },
+  gridCell: {
+    flex: 1,
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  slotIndicator: {
+    width: '80%',
+    height: '80%',
+    borderRadius: 4,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });
