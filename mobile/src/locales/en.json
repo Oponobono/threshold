@@ -35,7 +35,12 @@
     "success": "Success",
     "error": "Error",
     "enterValidNumbers": "Enter valid numbers.",
-    "enterValidScorePossible": "Enter valid score and possible values."
+    "enterValidScorePossible": "Enter valid score and possible values.",
+    "close": "Close",
+    "done": "Done",
+    "cancel": "Cancel",
+    "save": "Save",
+    "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "features": {
     "swipeToExplore": "Swipe to explore features",
@@ -72,7 +77,46 @@
     "reqNumber": "One number",
     "reqSpecial": "One special character (@$!%*?&)",
     "errors": {
-      "registerTitle": "Registration Error"
+      "registerTitle": "Registration Error",
+      "generic": "We could not create your account right now. Please try again."
+    },
+    "success": {
+      "accountCreated": "Your account is ready. Welcome to Threshold!"
+    },
+    "examplePrefix": "Ex:",
+    "actions": {
+      "continue": "Continue",
+      "skipAndContinue": "Skip and continue"
+    },
+    "step1": {
+      "title": "Set Up Your Profile",
+      "subtitle": "Let's start with your name so we can personalize your experience.",
+      "firstNameLabel": "First name",
+      "firstNamePlaceholder": "Ex: Maria",
+      "lastNameLabel": "Last name",
+      "lastNamePlaceholder": "Ex: Sanchez",
+      "usernameLabel": "Username or nickname",
+      "usernamePlaceholder": "Ex: marias99"
+    },
+    "step2": {
+      "title": "Grading Preferences",
+      "subtitle": "Tell us how your school grades so we can calculate your progress correctly.",
+      "gradingScaleLabel": "Grading scale",
+      "approvalThresholdLabel": "What is the minimum passing grade?"
+    },
+    "step3": {
+      "title": "Academic Context",
+      "subtitle": "This helps us tailor your dashboard. You can skip it for now.",
+      "majorLabel": "Major / program (optional)",
+      "majorPlaceholder": "Ex: Software Engineering",
+      "universityLabel": "University / institution (optional)",
+      "universityPlaceholder": "Ex: National University",
+      "emptyState": "Add your university to get more relevant recommendations later."
+    },
+    "step4": {
+      "title": "Secure Your Account",
+      "subtitle": "Final step. Create your login to protect your information.",
+      "finishBtn": "Create Account"
     }
   },
   "dashboard": {
@@ -110,6 +154,21 @@
     "nextAssignment": "Next Assignment",
     "upcomingExams": "Upcoming Exams",
     "classes": "Classes",
+    "manageSchedule": "Manage Schedule",
+    "weeklySchedule": "Weekly Schedule",
+    "scheduleSuccess": "Schedule updated successfully",
+    "schedulePlanner": {
+      "selectSubjectHint": "Select a subject to start adding time blocks.",
+      "unsavedHint": "You have unsaved schedule changes.",
+      "save": "Save changes",
+      "noChanges": "No changes to save",
+      "saveError": "We could not save your schedule changes."
+    },
+    "addScheduleSlot": "Add Schedule Slot",
+    "currentSchedules": "Saved Schedules",
+    "selectSubjectFirst": "Select a subject first",
+    "noClasses": "No classes today",
+    "enjoyDay": "Enjoy your day!",
     "filterToday": "Today",
     "filterWeek": "Week",
     "filterAll": "All",
@@ -123,6 +182,44 @@
     "subjectCardAvg": "Average: {{avg}}",
     "subjectCardCompletion": "{{completion}}% completed",
     "openSettings": "Open settings",
+    "quickAddMenu": {
+      "title": "Quick Add",
+      "registerGrade": "Register Grade",
+      "registerGradeSubtext": "Record a new grade in your history",
+      "newTask": "New Task",
+      "newTaskSubtext": "Add a reminder or pending item",
+      "takePhoto": "Take Photo",
+      "takePhotoSubtext": "Capture whiteboard or your notes",
+      "cameraSoonTitle": "Camera Coming Soon",
+      "cameraSoonMessage": "Photo scan will be available in the next update.",
+      "grade": {
+        "title": "Register Grade",
+        "subject": "Subject",
+        "subjectPlaceholder": "Select subject",
+        "name": "Assessment Name",
+        "namePlaceholder": "Ex: Midterm 1",
+        "grade": "Grade",
+        "gradePlaceholder": "0.0",
+        "percentage": "Percentage (%)",
+        "percentagePlaceholder": "Ex: 20",
+        "success": "Grade saved for {{subject}}",
+        "save": "Save grade",
+        "errorSave": "We could not save this grade. Please try again."
+      },
+      "task": {
+        "title": "New Task",
+        "name": "Task Description",
+        "namePlaceholder": "Ex: Study for exam",
+        "date": "Due Date",
+        "dateFormat": "MM-DD-YYYY",
+        "save": "Save Task",
+        "success": "Task saved successfully",
+        "errorSave": "We could not save this task. Please try again."
+      },
+      "errors": {
+        "fillFields": "Please fill in all required fields."
+      }
+    },
     "newSubject": {
       "title": "New subject",
       "subtitle": "Set the academic baseline for this course.",

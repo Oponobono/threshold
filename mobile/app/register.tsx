@@ -110,10 +110,10 @@ export default function RegisterScreen() {
         major,
         university
       });
-      Alert.alert(t('common.success'), 'Cuenta creada correctamente.');
+      Alert.alert(t('common.success'), t('register.success.accountCreated'));
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert(t('common.error'), error?.message || t('register.errors.generic'));
     } finally {
       setIsLoading(false);
     }
@@ -174,37 +174,37 @@ export default function RegisterScreen() {
             {step === 1 && (
               <View>
                 <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>Configuración de Espacio de Trabajo</Text>
+                  <Text style={loginStyles.welcomeTitle}>{t('register.step1.title')}</Text>
                   <Text style={loginStyles.welcomeSubtitle}>
-                    Comencemos por tu nombre. Así es como te saludaremos cada día.
+                    {t('register.step1.subtitle')}
                   </Text>
                 </View>
 
                 <View style={[loginStyles.formContainer, { marginTop: theme.spacing.lg }]}>
                   <CustomInput
-                    label="Nombre(s)"
-                    placeholder="Ej. María"
+                    label={t('register.step1.firstNameLabel')}
+                    placeholder={t('register.step1.firstNamePlaceholder')}
                     value={name}
                     onChangeText={setName}
                     autoCapitalize="words"
                   />
                   <CustomInput
-                    label="Apellido(s)"
-                    placeholder="Ej. Sánchez"
+                    label={t('register.step1.lastNameLabel')}
+                    placeholder={t('register.step1.lastNamePlaceholder')}
                     value={lastname}
                     onChangeText={setLastname}
                     autoCapitalize="words"
                   />
                   <CustomInput
-                    label="Username o apodo"
-                    placeholder="Ej. marias99"
+                    label={t('register.step1.usernameLabel')}
+                    placeholder={t('register.step1.usernamePlaceholder')}
                     value={username}
                     onChangeText={setUsername}
                     autoCapitalize="none"
                   />
                   
                   <CustomButton 
-                    title="Continuar" 
+                    title={t('register.actions.continue')} 
                     onPress={handleNext} 
                     disabled={!isStep1Valid}
                     style={{ marginTop: theme.spacing.md }}
@@ -216,14 +216,14 @@ export default function RegisterScreen() {
             {step === 2 && (
               <View>
                 <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>Parámetros de Cálculo</Text>
+                  <Text style={loginStyles.welcomeTitle}>{t('register.step2.title')}</Text>
                   <Text style={loginStyles.welcomeSubtitle}>
-                    Define el motor de cálculo según la escala de tu universidad.
+                    {t('register.step2.subtitle')}
                   </Text>
                 </View>
 
                 <View style={[loginStyles.formContainer, { marginTop: theme.spacing.lg }]}>
-                  <Text style={{ fontSize: theme.typography.sizes.sm, color: theme.colors.text.secondary, marginBottom: theme.spacing.xs }}>Escala de Calificación</Text>
+                  <Text style={{ fontSize: theme.typography.sizes.sm, color: theme.colors.text.secondary, marginBottom: theme.spacing.xs }}>{t('register.step2.gradingScaleLabel')}</Text>
                   <View style={localStyles.segmentedControl}>
                     {['0-5.0', '0-10', '0-100'].map((scale) => (
                       <TouchableOpacity 
@@ -239,15 +239,15 @@ export default function RegisterScreen() {
                   </View>
 
                   <CustomInput
-                    label="¿Cuál es el umbral de aprobación?"
-                    placeholder={`Ej. ${gradingScale === '0-5.0' ? '3.0' : gradingScale === '0-10' ? '6.0' : '60'}`}
+                    label={t('register.step2.approvalThresholdLabel')}
+                    placeholder={`${t('register.examplePrefix')} ${gradingScale === '0-5.0' ? '3.0' : gradingScale === '0-10' ? '6.0' : '60'}`}
                     value={approvalThreshold}
                     onChangeText={setApprovalThreshold}
                     keyboardType="numeric"
                   />
                   
                   <CustomButton 
-                    title="Continuar" 
+                    title={t('register.actions.continue')} 
                     onPress={handleNext} 
                     disabled={!isStep2Valid}
                     style={{ marginTop: theme.spacing.md }}
@@ -259,22 +259,22 @@ export default function RegisterScreen() {
             {step === 3 && (
               <View>
                 <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>Contexto Académico</Text>
+                  <Text style={loginStyles.welcomeTitle}>{t('register.step3.title')}</Text>
                   <Text style={loginStyles.welcomeSubtitle}>
-                    Para adaptar recomendaciones. Puedes omitir esto por ahora.
+                    {t('register.step3.subtitle')}
                   </Text>
                 </View>
 
                 <View style={[loginStyles.formContainer, { marginTop: theme.spacing.lg }]}>
                   <CustomInput
-                    label="Carrera / Especialidad (Opcional)"
-                    placeholder="Ej. Ingeniería de Software"
+                    label={t('register.step3.majorLabel')}
+                    placeholder={t('register.step3.majorPlaceholder')}
                     value={major}
                     onChangeText={setMajor}
                   />
                   <CustomInput
-                    label="Universidad / Institución (Opcional)"
-                    placeholder="Ej. Universidad Nacional"
+                    label={t('register.step3.universityLabel')}
+                    placeholder={t('register.step3.universityPlaceholder')}
                     value={university}
                     onChangeText={setUniversity}
                   />
@@ -283,13 +283,13 @@ export default function RegisterScreen() {
                     <View style={localStyles.emptyState}>
                       <Feather name="book-open" size={32} color={theme.colors.border} />
                       <Text style={localStyles.emptyStateText}>
-                        Agrega tu institución para futuras analíticas colaborativas.
+                        {t('register.step3.emptyState')}
                       </Text>
                     </View>
                   )}
 
                   <CustomButton 
-                    title={major || university ? "Continuar" : "Omitir y Continuar"} 
+                    title={major || university ? t('register.actions.continue') : t('register.actions.skipAndContinue')} 
                     onPress={handleNext} 
                     disabled={!isStep3Valid}
                     style={{ marginTop: theme.spacing.xl }}
@@ -301,9 +301,9 @@ export default function RegisterScreen() {
             {step === 4 && (
               <View>
                 <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>Protege tu Espacio</Text>
+                  <Text style={loginStyles.welcomeTitle}>{t('register.step4.title')}</Text>
                   <Text style={loginStyles.welcomeSubtitle}>
-                    Último paso. Asegura tu información.
+                    {t('register.step4.subtitle')}
                   </Text>
                 </View>
 
@@ -345,7 +345,7 @@ export default function RegisterScreen() {
                   </View>
 
                   <CustomButton 
-                    title="Crear Espacio de Trabajo" 
+                    title={t('register.step4.finishBtn')} 
                     onPress={handleNext} 
                     loading={isLoading}
                     style={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.lg }}
