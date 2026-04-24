@@ -9,6 +9,7 @@ import { registerStyles as localStyles } from '../src/styles/Register.styles';
 import { theme } from '../src/styles/theme';
 import { CustomInput } from '../src/components/CustomInput';
 import { CustomButton } from '../src/components/CustomButton';
+import { MapuviaFooter } from '../src/components/MapuviaFooter';
 import { registerUser } from '../src/services/api';
 import { Alert } from 'react-native';
 
@@ -357,6 +358,11 @@ export default function RegisterScreen() {
             )}
 
           </Animated.View>
+
+          {/* Footer en Registro */}
+          <View style={{ marginTop: theme.spacing.md }}>
+            <MapuviaFooter />
+          </View>
 
         </ScrollView>
       </KeyboardAvoidingView>

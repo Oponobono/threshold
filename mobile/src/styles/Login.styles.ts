@@ -132,7 +132,7 @@ export const loginStyles = StyleSheet.create({
     textAlign: 'center',
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.text.secondary,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
   },
   copyrightText: {
     textAlign: 'center',
