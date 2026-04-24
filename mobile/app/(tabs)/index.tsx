@@ -7,7 +7,11 @@ import { useRouter } from 'expo-router';
 import { globalStyles } from '../../src/styles/globalStyles';
 import { theme } from '../../src/styles/theme';
 import { dashboardStyles as styles } from '../../src/styles/Dashboard.styles';
-import { createSubject, getCurrentUserProfile, getSubjects, createAssessment, getAssessments, getPredictedSubject, getTodaySchedules, createSchedule, deleteSchedule, getAllSchedules, type Subject, type UserProfile, type Assessment } from '../../src/services/api';
+import { createSubject, getCurrentUserProfile, getSubjects, createAssessment, getAssessments, getPredictedSubject, getTodaySchedules, createSchedule, deleteSchedule, getAllSchedules, createPhoto, type Subject, type UserProfile, type Assessment } from '../../src/services/api';
+
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as MediaLibrary from 'expo-media-library';
+import * as LegacyFS from 'expo-file-system/legacy';
 
 const SUBJECT_COLORS = [
   '#E7EDF8', '#DDE7FF', '#EAF4EE', '#FCEFD9', '#F7E9EE', '#ECE8FF',
@@ -92,6 +96,14 @@ export default function HybridDashboardScreen() {
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
   const [scheduleDraftKeys, setScheduleDraftKeys] = useState<Set<string>>(new Set());
   const [allSchedules, setAllSchedules] = useState<any[]>([]);
+
+  // Camera states
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isCameraVisible, setIsCameraVisible] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [isPhotoSubjectSelectorVisible, setIsPhotoSubjectSelectorVisible] = useState(false);
+  const cameraRef = useRef<any>(null);
 
   const loadData = async () => {
     const [userProfile, userSubjects, schedulesToday, schedulesAll] = await Promise.all([
@@ -321,6 +333,83 @@ export default function HybridDashboardScreen() {
     }
   };
 
+  const handleTakePhoto = async () => {
+    if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) {
+        Alert.alert(t('common.error'), t('dashboard.quickAddMenu.camera.permissionError'));
+        return;
+      }
+    }
+    setIsQuickAddMenuVisible(false);
+    setIsCameraVisible(true);
+  };
+
+  const capturePhoto = async () => {
+    if (cameraRef.current && !isCapturing) {
+      try {
+        setIsCapturing(true);
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+          base64: false,
+          skipProcessing: false,
+        });
+        
+        setCapturedImageUri(photo.uri);
+        setIsCameraVisible(false);
+        
+        // Paso C: Selector de Materia
+        setIsPhotoSubjectSelectorVisible(true);
+      } catch (error) {
+        console.error('Error capturando foto:', error);
+        Alert.alert(t('common.error'), t('dashboard.quickAddMenu.camera.captureError'));
+      } finally {
+        setIsCapturing(false);
+      }
+    }
+  };
+
+  const handleSavePhotoToSubject = async (subjectId: number) => {
+    if (!capturedImageUri) return;
+
+    try {
+      setIsCapturing(true);
+
+      // 1. Construir ruta permanente: documentDirectory/Threshold/data/subjects/{subjectId}/
+      //    El subjectId actúa como identificador único de la carpeta
+      const subjectDir = `${LegacyFS.documentDirectory}Threshold/data/subjects/${subjectId}/`;
+
+      // 2. Asegurar que la carpeta existe (crea todos los padres si no existen)
+      const folderInfo = await LegacyFS.getInfoAsync(subjectDir);
+      if (!folderInfo.exists) {
+        await LegacyFS.makeDirectoryAsync(subjectDir, { intermediates: true });
+      }
+
+      // 3. Mover la foto del caché temporal a la ubicación permanente
+      //    Nombre: img_{timestamp}.jpg → único y ordenable cronológicamente
+      const fileName     = `img_${Date.now()}.jpg`;
+      const permanentUri = `${subjectDir}${fileName}`;
+      await LegacyFS.moveAsync({ from: capturedImageUri, to: permanentUri });
+
+      // 4. Registrar la ruta permanente en SQLite vía API backend
+      await createPhoto({
+        subject_id: subjectId,
+        local_uri: permanentUri,
+        es_favorita: 0,
+      });
+
+      const subjectName = subjects.find(s => s.id === subjectId)?.name || '';
+      showToast(t('dashboard.quickAddMenu.camera.saveSuccess', { subject: subjectName }));
+      setIsPhotoSubjectSelectorVisible(false);
+      setCapturedImageUri(null);
+    } catch (error: any) {
+      console.error('Error guardando foto:', error);
+      Alert.alert(t('common.error'), error.message || t('dashboard.quickAddMenu.camera.saveError'));
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
   const handleToggleScheduleSlot = (day: number, hour: number) => {
     if (!selectedSubjectId) {
       Alert.alert(t('common.error'), t('dashboard.selectSubjectFirst'));
@@ -472,7 +561,11 @@ export default function HybridDashboardScreen() {
     const completion = typeof subject.completion_percent === 'number' ? subject.completion_percent : 0;
 
     return (
-      <View style={styles.subjectTile}>
+      <TouchableOpacity 
+        style={styles.subjectTile} 
+        activeOpacity={0.7}
+        onPress={() => router.push(`/subjects/${subject.id}`)}
+      >
         <View style={[styles.subjectBadge, { backgroundColor: subject.color || '#CCCCCC' }]}>
           <MaterialCommunityIcons name={(subject.icon as any) || 'book-outline'} size={20} color={theme.colors.text.primary} />
         </View>
@@ -484,7 +577,7 @@ export default function HybridDashboardScreen() {
           <Text style={styles.subjectTileStats}>{t('dashboard.subjectCardAvg', { avg: avg.toFixed(1) })}</Text>
           <Text style={styles.subjectTileStats}>{t('dashboard.subjectCardCompletion', { completion: completion.toFixed(0) })}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -544,9 +637,9 @@ export default function HybridDashboardScreen() {
   };
 
   const ActionCircle = ({ title, icon, color }: any) => (
-    <TouchableOpacity style={styles.actionItem}>
-      <View style={[styles.actionCircle, { backgroundColor: theme.colors.inputBackground }]}>
-        <MaterialCommunityIcons name={icon} size={32} color={color} />
+    <TouchableOpacity style={styles.actionItem} activeOpacity={0.65}>
+      <View style={[styles.actionCircle, { backgroundColor: color + '08', borderColor: color + '20' }]}>
+        <MaterialCommunityIcons name={icon} size={28} color={color} />
       </View>
       <Text style={styles.actionText}>{title}</Text>
     </TouchableOpacity>
@@ -563,6 +656,14 @@ export default function HybridDashboardScreen() {
     </View>
   );
 
+  const nextClass = useMemo(() => {
+    if (!todaySchedules || todaySchedules.length === 0) return null;
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    // Encuentra la primera clase que termina en el futuro (o ahora)
+    return todaySchedules.find((s: any) => s.end_time >= currentTime) || null;
+  }, [todaySchedules]);
+
   return (
     <>
       <SafeAreaView style={globalStyles.safeArea}>
@@ -578,7 +679,7 @@ export default function HybridDashboardScreen() {
             <Text style={styles.greetingSubtext}>{profileSubtitle}</Text>
           </View>
           <TouchableOpacity
-            onPress={() => router.push('/(tabs)/settings')}
+            onPress={() => router.push('/settings')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel={t('dashboard.openSettings')}
@@ -650,24 +751,34 @@ export default function HybridDashboardScreen() {
                 <Ionicons name="time-outline" size={24} color={theme.colors.primary} />
               </View>
               <View>
-                {todaySchedules.length > 0 ? (
+                {nextClass ? (
                   <>
-                    <Text style={styles.nextClassTitle}>{todaySchedules[0].name}</Text>
+                    <Text style={styles.nextClassTitle}>{nextClass.name}</Text>
                     <Text style={styles.nextClassRoom}>
-                      {todaySchedules[0].start_time} - {todaySchedules[0].end_time}
+                      {nextClass.start_time} - {nextClass.end_time}
                     </Text>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.nextClassTitle}>{t('dashboard.noClasses')}</Text>
+                    <Text style={styles.nextClassTitle}>{todaySchedules.length > 0 ? "¡Terminaste por hoy!" : t('dashboard.noClasses')}</Text>
                     <Text style={styles.nextClassRoom}>{t('dashboard.enjoyDay')}</Text>
                   </>
                 )}
               </View>
             </View>
-            <TouchableOpacity style={styles.openBtn}>
-              <Text style={styles.openBtnText}>{t('dashboard.openBtn')}</Text>
-            </TouchableOpacity>
+            {nextClass && (
+              <TouchableOpacity
+                style={styles.openBtn}
+                onPress={() => {
+                  const nextSubjectId = nextClass?.subject_id;
+                  if (nextSubjectId) {
+                    router.push(`/subjects/${nextSubjectId}`);
+                  }
+                }}
+              >
+                <Text style={styles.openBtnText}>{t('dashboard.openBtn')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -709,14 +820,14 @@ export default function HybridDashboardScreen() {
           </View>
         </View>
 
-        {/* 5. QUICK ACTIONS (Circular 2x2) */}
+        {/* 5. STUDY TOOLS (Fixed Row) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
+          <Text style={styles.sectionTitle}>{t('dashboard.studyTools')}</Text>
           <View style={styles.actionsGrid}>
             <ActionCircle title={t('dashboard.studyTimer')} icon="timer-outline" color="#FF9500" />
             <ActionCircle title={t('dashboard.flashcards')} icon="cards-outline" color="#AF52DE" />
-            <ActionCircle title={t('dashboard.assignments')} icon="clipboard-text-outline" color="#34C759" />
-            <ActionCircle title={t('dashboard.grades')} icon="calculator" color="#5856D6" />
+            <ActionCircle title={t('dashboard.audioRecorder')} icon="microphone-outline" color="#34C759" />
+            <ActionCircle title={t('dashboard.documentScanner')} icon="file-document-outline" color="#5856D6" />
           </View>
         </View>
 
@@ -747,61 +858,63 @@ export default function HybridDashboardScreen() {
               <Text style={styles.sheetTitle}>{t('dashboard.newSubject.title')}</Text>
               <Text style={styles.sheetSubtitle}>{t('dashboard.newSubject.subtitle')}</Text>
 
-              <Text style={styles.sheetLabel}>{t('dashboard.newSubject.name')}</Text>
-              <TextInput
-                value={subjectName}
-                onChangeText={setSubjectName}
-                style={styles.sheetInput}
-                placeholder={t('dashboard.newSubject.namePlaceholder')}
-                placeholderTextColor={theme.colors.text.placeholder}
-              />
+              <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 10 }}>
+                <Text style={styles.sheetLabel}>{t('dashboard.newSubject.name')}</Text>
+                <TextInput
+                  value={subjectName}
+                  onChangeText={setSubjectName}
+                  style={styles.sheetInput}
+                  placeholder={t('dashboard.newSubject.namePlaceholder')}
+                  placeholderTextColor={theme.colors.text.placeholder}
+                />
 
-              <Text style={styles.sheetLabel}>{t('dashboard.newSubject.professor')}</Text>
-              <TextInput
-                value={subjectProfessor}
-                onChangeText={setSubjectProfessor}
-                style={styles.sheetInput}
-                placeholder={t('dashboard.newSubject.professorPlaceholder')}
-                placeholderTextColor={theme.colors.text.placeholder}
-              />
+                <Text style={styles.sheetLabel}>{t('dashboard.newSubject.professor')}</Text>
+                <TextInput
+                  value={subjectProfessor}
+                  onChangeText={setSubjectProfessor}
+                  style={styles.sheetInput}
+                  placeholder={t('dashboard.newSubject.professorPlaceholder')}
+                  placeholderTextColor={theme.colors.text.placeholder}
+                />
 
-              <Text style={styles.sheetLabel}>{t('dashboard.newSubject.targetGrade')}</Text>
-              <TextInput
-                value={subjectTarget}
-                onChangeText={setSubjectTarget}
-                style={styles.sheetInput}
-                keyboardType="numeric"
-                placeholder={t('dashboard.newSubject.targetGradePlaceholder')}
-                placeholderTextColor={theme.colors.text.placeholder}
-              />
+                <Text style={styles.sheetLabel}>{t('dashboard.newSubject.targetGrade')}</Text>
+                <TextInput
+                  value={subjectTarget}
+                  onChangeText={setSubjectTarget}
+                  style={styles.sheetInput}
+                  keyboardType="numeric"
+                  placeholder={t('dashboard.newSubject.targetGradePlaceholder')}
+                  placeholderTextColor={theme.colors.text.placeholder}
+                />
 
-              <Text style={styles.sheetLabel}>{t('dashboard.newSubject.color')}</Text>
-              <View style={styles.optionsRow}>
-                {SUBJECT_COLORS.map((color) => (
-                  <TouchableOpacity
-                    key={color}
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: color },
-                      selectedColor === color && styles.colorOptionSelected,
-                    ]}
-                    onPress={() => setSelectedColor(color)}
-                  />
-                ))}
-              </View>
+                <Text style={styles.sheetLabel}>{t('dashboard.newSubject.color')}</Text>
+                <View style={styles.optionsRow}>
+                  {SUBJECT_COLORS.map((color) => (
+                    <TouchableOpacity
+                      key={color}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color },
+                        selectedColor === color && styles.colorOptionSelected,
+                      ]}
+                      onPress={() => setSelectedColor(color)}
+                    />
+                  ))}
+                </View>
 
-              <Text style={styles.sheetLabel}>{t('dashboard.newSubject.icon')}</Text>
-              <View style={styles.optionsRow}>
-                {SUBJECT_ICONS.map((iconName) => (
-                  <TouchableOpacity
-                    key={iconName}
-                    style={[styles.iconOption, selectedIcon === iconName && styles.iconOptionSelected]}
-                    onPress={() => setSelectedIcon(iconName)}
-                  >
-                    <MaterialCommunityIcons name={iconName} size={18} color={theme.colors.text.primary} />
-                  </TouchableOpacity>
-                ))}
-              </View>
+                <Text style={styles.sheetLabel}>{t('dashboard.newSubject.icon')}</Text>
+                <View style={styles.optionsRow}>
+                  {SUBJECT_ICONS.map((iconName) => (
+                    <TouchableOpacity
+                      key={iconName}
+                      style={[styles.iconOption, selectedIcon === iconName && styles.iconOptionSelected]}
+                      onPress={() => setSelectedIcon(iconName)}
+                    >
+                      <MaterialCommunityIcons name={iconName} size={18} color={theme.colors.text.primary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
 
               <View style={styles.sheetActions}>
                 <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsSubjectModalVisible(false)}>
@@ -882,10 +995,7 @@ export default function HybridDashboardScreen() {
 
               <TouchableOpacity 
                 style={styles.quickAddMenuItem}
-                onPress={() => {
-                  setIsQuickAddMenuVisible(false);
-                  Alert.alert(t('dashboard.quickAddMenu.cameraSoonTitle'), t('dashboard.quickAddMenu.cameraSoonMessage'));
-                }}
+                onPress={handleTakePhoto}
               >
                 <View style={styles.quickAddMenuIcon}>
                   <MaterialCommunityIcons name="camera-outline" size={24} color="#FF9500" />
@@ -917,55 +1027,57 @@ export default function HybridDashboardScreen() {
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.grade.title')}</Text>
             
-            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.subject')}</Text>
-            <TouchableOpacity 
-              style={styles.dropdownSelector} 
-              onPress={() => setIsSubjectSelectorVisible(true)}
-            >
-              <Text style={[
-                styles.dropdownSelectorText, 
-                !selectedSubjectId && styles.dropdownPlaceholder
-              ]}>
-                {selectedSubjectId 
-                  ? subjects.find(s => s.id === selectedSubjectId)?.name 
-                  : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
-              </Text>
-              <Ionicons name="chevron-down" size={18} color={theme.colors.text.placeholder} />
-            </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 10 }}>
+              <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.subject')}</Text>
+              <TouchableOpacity 
+                style={styles.dropdownSelector} 
+                onPress={() => setIsSubjectSelectorVisible(true)}
+              >
+                <Text style={[
+                  styles.dropdownSelectorText, 
+                  !selectedSubjectId && styles.dropdownPlaceholder
+                ]}>
+                  {selectedSubjectId 
+                    ? subjects.find(s => s.id === selectedSubjectId)?.name 
+                    : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={theme.colors.text.placeholder} />
+              </TouchableOpacity>
 
-            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.name')}</Text>
-            <TextInput
-              value={gradeName}
-              onChangeText={setGradeName}
-              style={styles.sheetInput}
-              placeholder={t('dashboard.quickAddMenu.grade.namePlaceholder')}
-              placeholderTextColor={theme.colors.text.placeholder}
-            />
+              <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.name')}</Text>
+              <TextInput
+                value={gradeName}
+                onChangeText={setGradeName}
+                style={styles.sheetInput}
+                placeholder={t('dashboard.quickAddMenu.grade.namePlaceholder')}
+                placeholderTextColor={theme.colors.text.placeholder}
+              />
 
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.grade')}</Text>
-                <TextInput
-                  value={gradeValue}
-                  onChangeText={setGradeValue}
-                  style={styles.sheetInput}
-                  keyboardType="numeric"
-                  placeholder={t('dashboard.quickAddMenu.grade.gradePlaceholder')}
-                  placeholderTextColor={theme.colors.text.placeholder}
-                />
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.grade')}</Text>
+                  <TextInput
+                    value={gradeValue}
+                    onChangeText={setGradeValue}
+                    style={styles.sheetInput}
+                    keyboardType="numeric"
+                    placeholder={t('dashboard.quickAddMenu.grade.gradePlaceholder')}
+                    placeholderTextColor={theme.colors.text.placeholder}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.percentage')}</Text>
+                  <TextInput
+                    value={gradePercentage}
+                    onChangeText={setGradePercentage}
+                    style={styles.sheetInput}
+                    keyboardType="numeric"
+                    placeholder={t('dashboard.quickAddMenu.grade.percentagePlaceholder')}
+                    placeholderTextColor={theme.colors.text.placeholder}
+                  />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.percentage')}</Text>
-                <TextInput
-                  value={gradePercentage}
-                  onChangeText={setGradePercentage}
-                  style={styles.sheetInput}
-                  keyboardType="numeric"
-                  placeholder={t('dashboard.quickAddMenu.grade.percentagePlaceholder')}
-                  placeholderTextColor={theme.colors.text.placeholder}
-                />
-              </View>
-            </View>
+            </ScrollView>
 
             <View style={styles.sheetActions}>
               <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsGradeModalVisible(false)}>
@@ -997,61 +1109,63 @@ export default function HybridDashboardScreen() {
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.task.title')}</Text>
 
-            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.subject')}</Text>
-            <TouchableOpacity 
-              style={styles.dropdownSelector} 
-              onPress={() => setIsSubjectSelectorVisible(true)}
-            >
-              <Text style={[
-                styles.dropdownSelectorText, 
-                !selectedSubjectId && styles.dropdownPlaceholder
-              ]}>
-                {selectedSubjectId 
-                  ? subjects.find(s => s.id === selectedSubjectId)?.name 
-                  : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
-              </Text>
-              <Ionicons name="chevron-down" size={18} color={theme.colors.text.placeholder} />
-            </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 10 }}>
+              <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.grade.subject')}</Text>
+              <TouchableOpacity 
+                style={styles.dropdownSelector} 
+                onPress={() => setIsSubjectSelectorVisible(true)}
+              >
+                <Text style={[
+                  styles.dropdownSelectorText, 
+                  !selectedSubjectId && styles.dropdownPlaceholder
+                ]}>
+                  {selectedSubjectId 
+                    ? subjects.find(s => s.id === selectedSubjectId)?.name 
+                    : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={theme.colors.text.placeholder} />
+              </TouchableOpacity>
 
-            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.task.name')}</Text>
-            <TextInput
-              value={taskName}
-              onChangeText={setTaskName}
-              style={styles.sheetInput}
-              placeholder={t('dashboard.quickAddMenu.task.namePlaceholder')}
-              placeholderTextColor={theme.colors.text.placeholder}
-            />
-
-            <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.task.date')}</Text>
-            <Pressable 
-              style={[styles.dropdownSelector, { paddingVertical: 0 }]}
-              onPress={() => setShowDatePicker(true)}
-            >
+              <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.task.name')}</Text>
               <TextInput
-                value={taskDate}
-                onChangeText={setTaskDate}
-                style={[styles.sheetInput, { borderWidth: 0, flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }]}
-                placeholder={t('dashboard.quickAddMenu.task.dateFormat')}
+                value={taskName}
+                onChangeText={setTaskName}
+                style={styles.sheetInput}
+                placeholder={t('dashboard.quickAddMenu.task.namePlaceholder')}
                 placeholderTextColor={theme.colors.text.placeholder}
-                editable={true}
               />
-              <Ionicons name="calendar-outline" size={20} color={theme.colors.text.placeholder} />
 
-              {showDatePicker && (
-                <ThresholdDatePicker
-                  value={(() => {
-                    try {
-                      const [d, m, y] = taskDate.split('-').map(Number);
-                      return new Date(y, m - 1, d);
-                    } catch (e) {
-                      return new Date();
-                    }
-                  })()}
-                  mode="date"
-                  onChange={onDateChange}
+              <Text style={styles.sheetLabel}>{t('dashboard.quickAddMenu.task.date')}</Text>
+              <Pressable 
+                style={[styles.dropdownSelector, { paddingVertical: 0 }]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <TextInput
+                  value={taskDate}
+                  onChangeText={setTaskDate}
+                  style={[styles.sheetInput, { borderWidth: 0, flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }]}
+                  placeholder={t('dashboard.quickAddMenu.task.dateFormat')}
+                  placeholderTextColor={theme.colors.text.placeholder}
+                  editable={true}
                 />
-              )}
-            </Pressable>
+                <Ionicons name="calendar-outline" size={20} color={theme.colors.text.placeholder} />
+
+                {showDatePicker && (
+                  <ThresholdDatePicker
+                    value={(() => {
+                      try {
+                        const [d, m, y] = taskDate.split('-').map(Number);
+                        return new Date(y, m - 1, d);
+                      } catch (e) {
+                        return new Date();
+                      }
+                    })()}
+                    mode="date"
+                    onChange={onDateChange}
+                  />
+                )}
+              </Pressable>
+            </ScrollView>
 
             <View style={styles.sheetActions}>
               <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsTaskModalVisible(false)}>
@@ -1224,6 +1338,94 @@ export default function HybridDashboardScreen() {
           </View>
         </Pressable>
       </Modal>
+      
+      {/* CAMERA MODAL */}
+      <Modal
+        visible={isCameraVisible}
+        animationType="slide"
+        onRequestClose={() => setIsCameraVisible(false)}
+      >
+        <View style={styles.cameraContainer}>
+          <CameraView 
+            style={styles.camera} 
+            ref={cameraRef}
+            facing="back"
+            autofocus="on"
+          />
+          <View style={styles.cameraControls}>
+            <TouchableOpacity 
+              style={styles.cameraCloseBtn} 
+              onPress={() => setIsCameraVisible(false)}
+            >
+              <Ionicons name="close" size={28} color="#FFF" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.captureBtn} 
+              onPress={capturePhoto}
+              disabled={isCapturing}
+            >
+              <View style={styles.captureBtnInner} />
+            </TouchableOpacity>
+
+            <View style={{ width: 50 }} /> {/* Spacer to center capture btn */}
+          </View>
+        </View>
+      </Modal>
+
+      {/* PHOTO SUBJECT SELECTOR MODAL */}
+      <Modal
+        visible={isPhotoSubjectSelectorVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsPhotoSubjectSelectorVisible(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setIsPhotoSubjectSelectorVisible(false)}>
+          <View style={[styles.sheetContent, { maxHeight: '70%' }]}>
+            <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.takePhoto')}</Text>
+            <Text style={styles.sheetSubtitle}>Selecciona a qué materia pertenece este apunte</Text>
+            
+            {capturedImageUri && (
+              <Image 
+                source={{ uri: capturedImageUri }} 
+                style={{ width: '100%', height: 150, borderRadius: 12, marginBottom: 20 }} 
+                resizeMode="cover"
+              />
+            )}
+
+            <FlatList
+              data={subjects}
+              keyExtractor={(item) => `photo-sub-${item.id}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={[styles.quickAddMenuItem, { marginBottom: 10 }]}
+                  onPress={() => handleSavePhotoToSubject(item.id)}
+                >
+                  <View style={[styles.subjectBadge, { backgroundColor: item.color || '#CCCCCC', marginBottom: 0, marginRight: 12, width: 40, height: 40 }]}>
+                    <MaterialCommunityIcons name={(item.icon as any) || 'book-outline'} size={20} color={theme.colors.text.primary} />
+                  </View>
+                  <View style={styles.quickAddMenuInfo}>
+                    <Text style={styles.quickAddMenuText}>{item.name}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={{ textAlign: 'center', marginVertical: 20, color: theme.colors.text.secondary }}>
+                  No tienes materias creadas aún.
+                </Text>
+              }
+            />
+
+            <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => {
+              setIsPhotoSubjectSelectorVisible(false);
+              setCapturedImageUri(null);
+            }}>
+              <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* METRIC DETAIL MODAL */}
       <Modal
         visible={!!selectedMetric}

@@ -128,6 +128,24 @@ export type Assessment = {
   is_completed?: boolean;
 };
 
+export type Photo = {
+  id?: number;
+  subject_id: number;
+  local_uri: string;
+  created_at?: string;
+  es_favorita?: number;
+};
+
+export type Schedule = {
+  id: number;
+  subject_id: number;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  name?: string;
+  color?: string;
+};
+
 /**
  * Obtiene o crea un identificador único persistente para el dispositivo
  */
@@ -262,6 +280,15 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
 };
 
 /**
+ * Obtiene una materia específica
+ */
+export const getSubjectById = async (subjectId: number | string): Promise<Subject | null> => {
+  const response = await fetchWithFallback(`/subject/${subjectId}`);
+  if (!response.ok) return null;
+  return await parseJsonSafely(response);
+};
+
+/**
  * Obtiene las materias del usuario
  */
 export const getSubjects = async () => {
@@ -310,6 +337,16 @@ export const createSubject = async (payload: {
  */
 export const getAssessments = async (subjectId: number) => {
   const response = await fetchWithFallback(`/assessments/${subjectId}`);
+  return (await parseJsonSafely(response)) || [];
+};
+
+/**
+ * Obtiene todas las evaluaciones del usuario
+ */
+export const getAllAssessments = async (): Promise<any[]> => {
+  const userId = await getUserId();
+  if (!userId) return [];
+  const response = await fetchWithFallback(`/assessments/user/${userId}`);
   return (await parseJsonSafely(response)) || [];
 };
 
@@ -456,5 +493,51 @@ export const signOut = async (): Promise<void> => {
     console.log('[Auth] Sesión cerrada. Datos de autenticación eliminados.');
   } catch (error) {
     console.warn('[Auth] Advertencia al limpiar sesión:', error);
+  }
+};
+
+/**
+ * Crea una nueva entrada de foto en la base de datos
+ */
+export const createPhoto = async (photoData: {
+  subject_id: number;
+  local_uri: string;
+  es_favorita?: number;
+}) => {
+  try {
+    const response = await fetchWithFallback('/photos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(photoData),
+    });
+
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Error al guardar la foto en la base de datos');
+    }
+
+    return data;
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al intentar guardar la foto');
+  }
+};
+
+/**
+ * Obtiene las fotos de una materia específica
+ */
+export const getPhotosBySubject = async (subjectId: number): Promise<Photo[]> => {
+  try {
+    const response = await fetchWithFallback(`/photos/${subjectId}`);
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      console.warn('[getPhotosBySubject] Error:', data?.error);
+      return [];
+    }
+    return data || [];
+  } catch (error: any) {
+    console.warn('[getPhotosBySubject] Network error:', error.message);
+    return [];
   }
 };
