@@ -452,10 +452,57 @@ export const createSchedule = async (payload: { subject_id: number, day_of_week:
  * Elimina un horario
  */
 export const deleteSchedule = async (id: number) => {
-  const response = await fetchWithFallback(`/schedules/${id}`, {
-    method: 'DELETE',
+  return await fetchWithFallback(`/schedules/${id}`, { method: 'DELETE' });
+};
+
+// ==========================================
+// FLASHCARDS
+// ==========================================
+
+export interface FlashcardDeck {
+  id: number;
+  subject_id: number;
+  title: string;
+  description: string;
+  created_at: string;
+}
+
+export interface Flashcard {
+  id: number;
+  deck_id: number;
+  front: string;
+  back: string;
+  status: string; // 'new', 'learning', 'review'
+  created_at: string;
+}
+
+export const getFlashcardDecks = async (): Promise<FlashcardDeck[]> => {
+  return await fetchWithFallback('/flashcard-decks');
+};
+
+export const createFlashcardDeck = async (payload: { subject_id: number; title: string; description?: string }) => {
+  return await fetchWithFallback('/flashcard-decks', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
-  return await parseJsonSafely(response);
+};
+
+export const getFlashcards = async (deckId: number): Promise<Flashcard[]> => {
+  return await fetchWithFallback(`/flashcard-decks/${deckId}/cards`);
+};
+
+export const createFlashcard = async (payload: { deck_id: number; front: string; back: string }) => {
+  return await fetchWithFallback(`/flashcard-decks/${payload.deck_id}/cards`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const updateFlashcardStatus = async (cardId: number, status: string) => {
+  return await fetchWithFallback(`/flashcards/${cardId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
 };
 
 /**
