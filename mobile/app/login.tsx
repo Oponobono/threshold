@@ -10,6 +10,7 @@ import { CustomInput } from '../src/components/CustomInput';
 import { CustomButton } from '../src/components/CustomButton';
 import { FeatureCarousel } from '../src/components/FeatureCarousel';
 import { DragonflyIcon } from '../src/components/DragonflyIcon';
+import { MapuviaFooter } from '../src/components/MapuviaFooter';
 import { trackGuestVisit, loginUser, enrollBiometric, biometricLogin, getUserId } from '../src/services/api';
 import { enrollBiometricToken, authenticateWithBiometrics, hasBiometricTokenStored, isBiometricAvailable } from '../src/services/biometricService';
 import { Alert } from 'react-native';
@@ -110,8 +111,12 @@ export default function LoginScreen() {
                   try {
                     await enrollBiometric(userId, token);
                     setBiometricReady(true);
-                  } catch (e) {
+                  } catch (e: any) {
                     console.warn('Error al registrar token en backend:', e);
+                    // Si falla el backend, revocamos el token local para evitar desincronización
+                    const { revokeBiometricToken } = require('../src/services/biometricService');
+                    await revokeBiometricToken();
+                    Alert.alert('Touch ID', 'Hubo un error al guardar la configuración en el servidor.');
                   }
                 }
                 router.replace('/(tabs)');
@@ -172,6 +177,13 @@ export default function LoginScreen() {
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo iniciar sesión con Touch ID.');
       setIsBiometricLoading(false);
+      
+      // Si el backend rechaza el token (ej: base de datos desincronizada), revocamos localmente
+      if (error.message && error.message.includes('fallida')) {
+        const { revokeBiometricToken } = require('../src/services/biometricService');
+        await revokeBiometricToken();
+        setBiometricReady(false);
+      }
     }
   };
 
@@ -323,9 +335,7 @@ export default function LoginScreen() {
           <Text style={loginStyles.footerText}>
             {t('login.footerText')}
           </Text>
-          <Text style={loginStyles.copyrightText}>
-            {t('login.copyright')}
-          </Text>
+          <MapuviaFooter />
         </View>
 
       </ScrollView>

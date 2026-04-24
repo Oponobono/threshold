@@ -380,6 +380,14 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SectionHeader title={t('settings.aboutHelp')} desc={t('settings.aboutHelpDesc')} icon="information-circle-outline" />
           <SettingRow
+            title="Acerca de MAPUVIA & Threshold" desc="Nuestra historia e identidad"
+            right={
+              <TouchableOpacity onPress={() => router.push('/about')}>
+                <Text style={styles.openText}>{t('settings.open')}</Text>
+              </TouchableOpacity>
+            }
+          />
+          <SettingRow
             title={t('settings.faq')} desc=""
             right={<TouchableOpacity><Text style={styles.openText}>{t('settings.open')}</Text></TouchableOpacity>}
           />
