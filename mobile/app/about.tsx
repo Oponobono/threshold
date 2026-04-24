@@ -5,11 +5,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../src/styles/theme';
 import { DragonflyIcon } from '../src/components/DragonflyIcon';
 
 export default function AboutScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -20,9 +22,12 @@ export default function AboutScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* ── HERO ─────────────────────────────────────────────── */}
-        <View style={styles.hero}>
+        <View style={[styles.hero, { paddingTop: Math.max(insets.top + 20, 40) }]}>
           {/* Botón de cierre flotante en la esquina */}
-          <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
+          <TouchableOpacity 
+            style={[styles.closeBtn, { top: Math.max(insets.top + 10, 16) }]} 
+            onPress={() => router.back()}
+          >
             <Ionicons name="close" size={20} color={theme.colors.text.secondary} />
           </TouchableOpacity>
 
@@ -42,28 +47,32 @@ export default function AboutScreen() {
 
         {/* ── THRESHOLD CARD ───────────────────────────────────── */}
         <View style={styles.card}>
-          <View style={styles.cardTitleRow}>
-            <DragonflyIcon size={30} color={theme.colors.primary} />
-            <Text style={styles.cardTitle}>Threshold</Text>
-          </View>
-          <Text style={styles.cardBody}>
+          {/* Sólo el nombre, sin la libélula — la tiene protagonismo en el card siguiente */}
+          <Text style={styles.cardTitleCenter}>Threshold</Text>
+          <Text style={[styles.cardBody, { textAlign: 'justify' }]}>
             Diseñada íntegramente por MAPUVIA Labs, <Text style={styles.accent}>Threshold</Text> nace
             para eliminar la fragmentación en la vida académica del estudiante. Calificaciones,
             horarios y apuntes en un solo lugar, siempre a la mano.
           </Text>
-          <View style={styles.pillRow}>
-            <View style={styles.pill}><Text style={styles.pillText}>Gestión académica</Text></View>
-            <View style={styles.pill}><Text style={styles.pillText}>v1.0</Text></View>
-          </View>
         </View>
 
         {/* ── DRAGONFLY MEANING ────────────────────────────────── */}
         <View style={[styles.card, styles.cardAccent]}>
-          <Text style={styles.cardEyebrow}>El símbolo</Text>
-          <Text style={styles.cardTitleLg}>La Libélula</Text>
-          <Text style={styles.cardBody}>
+          {/* Eyebrow centrado */}
+          <Text style={[styles.cardEyebrow, { textAlign: 'center' }]}>El símbolo</Text>
+
+          {/* Título izquierda (toma su ancho natural) +
+              libélula centrada en el espacio restante hasta el borde */}
+          <View style={styles.dragonflyTitleRow}>
+            <Text style={styles.cardTitleLg}>La Libélula</Text>
+            <View style={styles.dragonflyIconWrap}>
+              <DragonflyIcon size={60} color={'#C5A059'} />
+            </View>
+          </View>
+
+          <Text style={[styles.cardBodyLight, { textAlign: 'justify' }]}>
             Elegida por MAPUVIA Labs como emblema de Threshold, la{' '}
-            <Text style={styles.accent}>libélula</Text> representa agilidad, precisión y visión
+            <Text style={styles.accentGold}>libélula</Text> representa agilidad, precisión y visión
             panorámica de 360°. Así como este insecto percibe su entorno completo de un solo vistazo,
             Threshold le otorga al estudiante una perspectiva integral de su progreso académico,
             permitiéndole adaptarse y avanzar sin fricciones.
@@ -77,7 +86,7 @@ export default function AboutScreen() {
             style={styles.inlineLogoLabs}
             resizeMode="contain"
           />
-          <Text style={styles.cardBody}>
+          <Text style={[styles.cardBody, { textAlign: 'justify' }]}>
             Filial de investigación y desarrollo (I+D) de MAPUVIA, MAPUVIA Labs opera como una
             incubadora ágil de productos digitales. Concentra equipos especializados en la creación
             de soluciones disruptivas que transforman ideas vanguardistas en tecnología tangible.
@@ -86,12 +95,20 @@ export default function AboutScreen() {
 
         {/* ── MAPUVIA CARD ─────────────────────────────────────── */}
         <View style={[styles.card, { marginBottom: theme.spacing.xxl }]}>
-          <Image
-            source={require('../src/images/logos_mapuvia/logotipo_mapuvia.png')}
-            style={styles.inlineLogoMapuvia}
-            resizeMode="contain"
-          />
-          <Text style={styles.cardBody}>
+          {/* Fila firma: isotipo a la IZQUIERDA + logotipo a la derecha, como el footer */}
+          <View style={styles.mapuviaTitleRow}>
+            <Image
+              source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
+              style={styles.mapuviaIsotipoInline}
+              resizeMode="contain"
+            />
+            <Image
+              source={require('../src/images/logos_mapuvia/logotipo_mapuvia.png')}
+              style={styles.inlineLogoMapuvia}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={[styles.cardBody, { textAlign: 'justify' }]}>
             Matriz corporativa de innovación tecnológica. MAPUVIA diseña ecosistemas de software
             y servicios digitales que impulsan el desarrollo integral de personas y organizaciones
             en su cotidianidad.
@@ -187,11 +204,51 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
   },
+  // Para card de Threshold: centrado
+  cardTitleRowCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  // Card oscura: título izquierda natural, libélula centrada en espacio restante
+  dragonflyTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  // El View que contiene la libélula ocupa el espacio restante y la centra
+  dragonflyIconWrap: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  // MAPUVIA card: fila firma izquierda (logo + isotipo a la derecha, como el footer)
+  mapuviaTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  mapuviaIsotipoInline: {
+    width: 24,
+    height: 24,
+  },
   cardTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: '#1A1A1A',
     letterSpacing: -0.5,
+  },
+  // Título de Threshold centrado (sin icono)
+  cardTitleCenter: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+    marginBottom: 14,
   },
   cardEyebrow: {
     fontSize: 10,
@@ -205,15 +262,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F4F4F1',
     letterSpacing: -0.5,
-    marginBottom: 14,
+    // Sin flex — toma ancho natural para caber en una sola línea
   },
   cardBody: {
     fontSize: 14,
     lineHeight: 22,
     color: '#6B6B65',
   },
+  // Texto del cuerpo para card oscura (color claro)
+  cardBodyLight: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#AEAEA8',
+  },
   accent: {
     color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  // Acento dorado para usar sobre fondo oscuro
+  accentGold: {
+    color: '#C5A059',
     fontWeight: '600',
   },
   pillRow: {
@@ -236,11 +304,11 @@ const styles = StyleSheet.create({
     width: 110,
     height: 22,
     marginBottom: 16,
+    alignSelf: 'center',
   },
   inlineLogoMapuvia: {
     width: 130,
     height: 28,
-    marginBottom: 16,
   },
 
   // ── FOOTER FIRMA ──────────────────────────────────────────────
@@ -251,7 +319,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingTop: 8,
     paddingBottom: 12,
-    opacity: 0.45,
+    opacity: 0.8,
   },
   footerIsotipo: {
     width: 16,
