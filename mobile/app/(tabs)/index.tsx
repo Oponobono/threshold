@@ -12,6 +12,12 @@ import { createSubject, getCurrentUserProfile, getSubjects, createAssessment, ge
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import * as LegacyFS from 'expo-file-system/legacy';
+import { AudioRecorderModal } from '../../src/components/AudioRecorderModal';
+import { StudyTimerCard } from '../../src/components/StudyTimerCard';
+import { StudyTimerModal } from '../../src/components/StudyTimerModal';
+import { DocumentScannerModal } from '../../src/components/DocumentScannerModal';
+import { FlashcardsModal } from '../../src/components/FlashcardsModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SUBJECT_COLORS = [
   '#E7EDF8', '#DDE7FF', '#EAF4EE', '#FCEFD9', '#F7E9EE', '#ECE8FF',
@@ -103,6 +109,12 @@ export default function HybridDashboardScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [isPhotoSubjectSelectorVisible, setIsPhotoSubjectSelectorVisible] = useState(false);
+  const [isAudioModalVisible, setIsAudioModalVisible] = useState(false);
+  const [isTimerModalVisible, setIsTimerModalVisible] = useState(false);
+  const [timerViewState, setTimerViewState] = useState<'config' | 'feedback'>('config');
+  const [isScannerVisible, setIsScannerVisible] = useState(false);
+  const [isFlashcardsVisible, setIsFlashcardsVisible] = useState(false);
+  const [timerRefreshTrigger, setTimerRefreshTrigger] = useState(0);
   const cameraRef = useRef<any>(null);
 
   const loadData = async () => {
@@ -636,8 +648,8 @@ export default function HybridDashboardScreen() {
     );
   };
 
-  const ActionCircle = ({ title, icon, color }: any) => (
-    <TouchableOpacity style={styles.actionItem} activeOpacity={0.65}>
+  const ActionCircle = ({ title, icon, color, onPress }: any) => (
+    <TouchableOpacity style={styles.actionItem} activeOpacity={0.65} onPress={onPress}>
       <View style={[styles.actionCircle, { backgroundColor: color + '08', borderColor: color + '20' }]}>
         <MaterialCommunityIcons name={icon} size={28} color={color} />
       </View>
@@ -823,11 +835,38 @@ export default function HybridDashboardScreen() {
         {/* 5. STUDY TOOLS (Fixed Row) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('dashboard.studyTools')}</Text>
+          <View style={{ marginBottom: 16 }}>
+            <StudyTimerCard 
+              refreshTrigger={timerRefreshTrigger}
+              onOpenConfig={() => {
+                setTimerViewState('config');
+                setIsTimerModalVisible(true);
+              }}
+              onFinish={() => {
+                setTimerViewState('feedback');
+                setIsTimerModalVisible(true);
+              }}
+            />
+          </View>
           <View style={styles.actionsGrid}>
-            <ActionCircle title={t('dashboard.studyTimer')} icon="timer-outline" color="#FF9500" />
-            <ActionCircle title={t('dashboard.flashcards')} icon="cards-outline" color="#AF52DE" />
-            <ActionCircle title={t('dashboard.audioRecorder')} icon="microphone-outline" color="#34C759" />
-            <ActionCircle title={t('dashboard.documentScanner')} icon="file-document-outline" color="#5856D6" />
+            <ActionCircle
+              title={t('dashboard.flashcards')}
+              icon="cards-outline"
+              color="#AF52DE"
+              onPress={() => setIsFlashcardsVisible(true)}
+            />
+            <ActionCircle 
+              title={t('dashboard.audioRecorder')} 
+              icon="microphone-outline" 
+              color="#34C759" 
+              onPress={() => setIsAudioModalVisible(true)}
+            />
+            <ActionCircle 
+              title={t('dashboard.documentScanner')} 
+              icon="file-document-outline" 
+              color="#5856D6" 
+              onPress={() => setIsScannerVisible(true)}
+            />
           </View>
         </View>
 
@@ -1202,11 +1241,11 @@ export default function HybridDashboardScreen() {
                 style={[styles.dropdownSelector, { flex: 1, marginRight: 12 }]} 
                 onPress={() => setIsSubjectSelectorVisible(true)}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, paddingRight: 8 }}>
                   {selectedSubjectId ? (
                     <View style={[styles.dot, { backgroundColor: subjects.find(s => s.id === selectedSubjectId)?.color || theme.colors.primary, marginRight: 8 }]} />
                   ) : null}
-                  <Text style={[styles.dropdownSelectorText, !selectedSubjectId && styles.dropdownPlaceholder]} numberOfLines={1}>
+                  <Text style={[styles.dropdownSelectorText, !selectedSubjectId && styles.dropdownPlaceholder, { flexShrink: 1 }]} numberOfLines={1}>
                     {selectedSubjectId 
                       ? subjects.find(s => s.id === selectedSubjectId)?.name 
                       : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
@@ -1226,7 +1265,7 @@ export default function HybridDashboardScreen() {
               <Text style={styles.scheduleHintText}>{t('dashboard.schedulePlanner.unsavedHint')}</Text>
             ) : null}
 
-            <View style={styles.gridContainer}>
+            <View style={[styles.gridContainer, { height: 400, flexShrink: 1 }]}>
               {/* Header: Days */}
               <View style={styles.gridHeader}>
                 <View style={styles.hourColHeader} />
@@ -1466,6 +1505,50 @@ export default function HybridDashboardScreen() {
       >
         <Ionicons name="add" size={32} color={theme.colors.white} />
       </TouchableOpacity>
+
+      <AudioRecorderModal 
+        isVisible={isAudioModalVisible} 
+        onClose={() => setIsAudioModalVisible(false)} 
+      />
+
+      <StudyTimerModal
+        isVisible={isTimerModalVisible}
+        onClose={() => setIsTimerModalVisible(false)}
+        subjects={subjects}
+        viewState={timerViewState}
+        onStart={(config) => {
+          // Logic to start timer in StudyTimerCard is handled by shared storage or refs
+          // For now, let's trigger a reload in the card by saving to AsyncStorage
+          AsyncStorage.setItem('@threshold_timer_state', JSON.stringify({
+            isActive: true,
+            isPaused: false,
+            mode: config.mode,
+            totalSeconds: config.duration,
+            remainingSeconds: config.duration,
+            subjectId: config.subjectId,
+            lastSyncTime: Date.now(),
+          })).then(() => {
+            setTimerRefreshTrigger(prev => prev + 1);
+            setIsTimerModalVisible(false);
+          });
+        }}
+        onSaveFeedback={(feedback) => {
+          showToast(`Progreso guardado: ${feedback}`);
+        }}
+      />
+
+      <DocumentScannerModal
+        isVisible={isScannerVisible}
+        onClose={() => setIsScannerVisible(false)}
+        subjects={subjects}
+        onSave={() => loadData()}
+      />
+
+      <FlashcardsModal
+        isVisible={isFlashcardsVisible}
+        onClose={() => setIsFlashcardsVisible(false)}
+        subjects={subjects}
+      />
     </>
   );
 }
