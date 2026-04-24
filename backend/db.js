@@ -1,4 +1,4 @@
-const sqlite3 = require('sqlite3').verbose();
+
 const path = require('path');
 const bcrypt = require('bcrypt');
 
@@ -71,6 +71,7 @@ if (isProduction) {
   console.log('Conectado a la base de datos PostgreSQL.');
 
 } else {
+  const sqlite3 = require('sqlite3').verbose();
   // Conexión a la base de datos local SQLite
   const dbPath = path.resolve(__dirname, 'database.sqlite');
   db = new sqlite3.Database(dbPath, (err) => {
