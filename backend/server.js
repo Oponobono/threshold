@@ -17,7 +17,12 @@ initializeDb();
 
 // Ruta de estado
 app.get('/api/status', (req, res) => {
-  res.json({ status: 'API funcionando correctamente', db: 'SQLite conectado' });
+  const dbType = process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite';
+  res.json({ 
+    status: 'API funcionando correctamente', 
+    db: dbType,
+    env: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Obtener perfil de usuario por id
@@ -157,30 +162,106 @@ app.post('/api/track-guest', (req, res) => {
 
 // --- SUBJECTS ENDPOINTS ---
 
+// Obtener una materia específica por su ID
+app.get('/api/subject/:subjectId', (req, res) => {
+  const { subjectId } = req.params;
+  const query = `
+    SELECT s.*,
+    COALESCE((
+      SELECT 
+        CASE 
+          WHEN SUM(
+            CASE WHEN a.percentage IS NOT NULL THEN a.percentage
+                 WHEN a.weight IS NOT NULL THEN CAST(REPLACE(a.weight, '%', '') AS REAL)
+                 ELSE 0 END
+          ) > 0 
+          THEN 
+            SUM(
+              CASE
+                WHEN a.grade_value IS NOT NULL THEN a.grade_value
+                WHEN a.score IS NOT NULL AND a.out_of IS NOT NULL AND a.out_of > 0 THEN (a.score * 1.0 / a.out_of) * 5.0
+                ELSE 0
+              END
+              * (
+                CASE WHEN a.percentage IS NOT NULL THEN (a.percentage / 100.0)
+                     WHEN a.weight IS NOT NULL THEN (CAST(REPLACE(a.weight, '%', '') AS REAL) / 100.0)
+                     ELSE 0 END
+              )
+            ) / (
+              SUM(
+                CASE WHEN a.percentage IS NOT NULL THEN a.percentage
+                     WHEN a.weight IS NOT NULL THEN CAST(REPLACE(a.weight, '%', '') AS REAL)
+                     ELSE 0 END
+              ) / 100.0
+            )
+          ELSE 0 
+        END
+      FROM assessments a
+      WHERE a.subject_id = s.id AND (a.grade_value IS NOT NULL OR a.score IS NOT NULL)
+    ), 0) AS avg_score,
+    COALESCE((
+      SELECT SUM(
+        CASE WHEN a.percentage IS NOT NULL THEN a.percentage
+             WHEN a.weight IS NOT NULL THEN CAST(REPLACE(a.weight, '%', '') AS REAL)
+             ELSE 0 END
+      )
+      FROM assessments a
+      WHERE a.subject_id = s.id AND (a.grade_value IS NOT NULL OR a.score IS NOT NULL)
+    ), 0) AS completion_percent
+    FROM subjects s WHERE id = ?
+  `;
+  db.get(query, [subjectId], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Materia no encontrada' });
+    res.json(row);
+  });
+});
+
 // Obtener todas las materias de un usuario
 app.get('/api/subjects/:userId', (req, res) => {
   const { userId } = req.params;
   const query = `
     SELECT s.*,
     COALESCE((
-      SELECT AVG(
-        CASE
-          WHEN a.grade_value IS NOT NULL THEN a.grade_value
-          WHEN a.score IS NOT NULL AND a.out_of IS NOT NULL AND a.out_of > 0 THEN (a.score * 1.0 / a.out_of) * 100
-          ELSE NULL
+      SELECT 
+        CASE 
+          WHEN SUM(
+            CASE WHEN a.percentage IS NOT NULL THEN a.percentage
+                 WHEN a.weight IS NOT NULL THEN CAST(REPLACE(a.weight, '%', '') AS REAL)
+                 ELSE 0 END
+          ) > 0 
+          THEN 
+            SUM(
+              CASE
+                WHEN a.grade_value IS NOT NULL THEN a.grade_value
+                WHEN a.score IS NOT NULL AND a.out_of IS NOT NULL AND a.out_of > 0 THEN (a.score * 1.0 / a.out_of) * 5.0
+                ELSE 0
+              END
+              * (
+                CASE WHEN a.percentage IS NOT NULL THEN (a.percentage / 100.0)
+                     WHEN a.weight IS NOT NULL THEN (CAST(REPLACE(a.weight, '%', '') AS REAL) / 100.0)
+                     ELSE 0 END
+              )
+            ) / (
+              SUM(
+                CASE WHEN a.percentage IS NOT NULL THEN a.percentage
+                     WHEN a.weight IS NOT NULL THEN CAST(REPLACE(a.weight, '%', '') AS REAL)
+                     ELSE 0 END
+              ) / 100.0
+            )
+          ELSE 0 
         END
-      )
       FROM assessments a
-      WHERE a.subject_id = s.id
+      WHERE a.subject_id = s.id AND (a.grade_value IS NOT NULL OR a.score IS NOT NULL)
     ), 0) AS avg_score,
     COALESCE((
-      SELECT ROUND(
-        (SUM(CASE WHEN a.is_completed = 1 OR a.grade_value IS NOT NULL OR a.score IS NOT NULL THEN 1 ELSE 0 END) * 100.0)
-        / NULLIF(COUNT(*), 0),
-        1
+      SELECT SUM(
+        CASE WHEN a.percentage IS NOT NULL THEN a.percentage
+             WHEN a.weight IS NOT NULL THEN CAST(REPLACE(a.weight, '%', '') AS REAL)
+             ELSE 0 END
       )
       FROM assessments a
-      WHERE a.subject_id = s.id
+      WHERE a.subject_id = s.id AND (a.grade_value IS NOT NULL OR a.score IS NOT NULL)
     ), 0) AS completion_percent
     FROM subjects s WHERE user_id = ?
   `;
@@ -249,6 +330,22 @@ app.post('/api/subjects', (req, res) => {
 app.get('/api/assessments/:subjectId', (req, res) => {
   const { subjectId } = req.params;
   db.all(`SELECT * FROM assessments WHERE subject_id = ?`, [subjectId], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Obtener todas las evaluaciones de un usuario
+app.get('/api/assessments/user/:userId', (req, res) => {
+  const { userId } = req.params;
+  const query = `
+    SELECT a.*, s.name as subject_name, s.color as subject_color, s.icon as subject_icon
+    FROM assessments a
+    JOIN subjects s ON a.subject_id = s.id
+    WHERE s.user_id = ?
+    ORDER BY a.date ASC
+  `;
+  db.all(query, [userId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -413,6 +510,74 @@ app.post('/api/gallery', (req, res) => {
   db.run(query, [user_id, uri, subject, date, time, ocr_text], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json({ id: this.lastID, message: 'Ítem agregado a galería' });
+  });
+});
+
+// --- PHOTOS ENDPOINTS ---
+
+// Obtener todas las fotos de una materia
+app.get('/api/photos/:subjectId', (req, res) => {
+  const { subjectId } = req.params;
+  db.all(`SELECT * FROM photos WHERE subject_id = ? ORDER BY created_at DESC`, [subjectId], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Guardar una nueva foto
+app.post('/api/photos', (req, res) => {
+  const { subject_id, local_uri, es_favorita } = req.body;
+  
+  if (!subject_id || !local_uri) {
+    return res.status(400).json({ error: 'Faltan campos requeridos (subject_id, local_uri)' });
+  }
+
+  const query = `
+    INSERT INTO photos (subject_id, local_uri, es_favorita)
+    VALUES (?, ?, ?)
+  `;
+
+  db.run(query, [subject_id, local_uri, es_favorita || 0], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json({
+      id: this.lastID,
+      subject_id,
+      local_uri,
+      es_favorita: es_favorita || 0,
+      message: 'Foto registrada en BD'
+    });
+  });
+});
+
+
+// Marcar/desmarcar foto como favorita
+app.patch('/api/photos/:photoId/favorite', (req, res) => {
+  const { photoId } = req.params;
+  const { es_favorita } = req.body;
+
+  db.run(
+    `UPDATE photos SET es_favorita = ? WHERE id = ?`,
+    [es_favorita ? 1 : 0, photoId],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, changes: this.changes });
+    }
+  );
+});
+
+// Eliminar una foto
+app.delete('/api/photos/:photoId', (req, res) => {
+  const { photoId } = req.params;
+
+  db.get(`SELECT local_uri FROM photos WHERE id = ?`, [photoId], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Foto no encontrada.' });
+
+    db.run(`DELETE FROM photos WHERE id = ?`, [photoId], function (deleteErr) {
+      if (deleteErr) return res.status(500).json({ error: deleteErr.message });
+      // Devolvemos la URI para que el cliente pueda borrar el archivo local también
+      res.json({ success: true, local_uri: row.local_uri });
+    });
   });
 });
 
