@@ -1,5 +1,7 @@
 {
   "login": {
+    "formTitle": "Log in",
+    "formSubtitle": "Access your account to continue with your academic progress.",
     "welcomeTitle": "Welcome to Threshold",
     "welcomeSubtitle": "Organize classes, track GPA, and snap quick whiteboard notes — all in one place.",
     "emailLabel": "Email",
@@ -43,18 +45,43 @@
     "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "features": {
-    "swipeToExplore": "Swipe to explore features",
+    "swipeToExplore": "Swipe to explore",
+    "swipeToStart": "Swipe to start",
     "bento": {
-      "title": "Bento Grid",
-      "desc": "Organize subjects at a glance with customizable tiles."
+      "title": "Subjects Panel",
+      "desc": "Organize all your subjects in a visual dashboard."
     },
     "gpa": {
-      "title": "GPA Insights",
-      "desc": "Track progress with clear graphs and trend indicators."
+      "title": "GPA Tracking",
+      "desc": "Keep an accurate record of your performance."
     },
     "photo": {
-      "title": "Quick Photo Notes",
-      "desc": "Snap whiteboard work and save searchable study images."
+      "title": "Quick Photos",
+      "desc": "Save notes as photos with one click."
+    },
+    "schedule": {
+      "title": "Weekly Schedule",
+      "desc": "Plan your classes and study time."
+    },
+    "tasks": {
+      "title": "Task Management",
+      "desc": "Manage due dates and exams."
+    },
+    "gallery": {
+      "title": "Organized Gallery",
+      "desc": "Find your notes grouped by subject."
+    },
+    "cloud": {
+      "title": "Cloud Sync",
+      "desc": "Access your data securely."
+    },
+    "security": {
+      "title": "Total Privacy",
+      "desc": "Your notes are encrypted and protected."
+    },
+    "custom": {
+      "title": "Customization",
+      "desc": "Visual themes and avatars to your liking."
     }
   },
   "register": {

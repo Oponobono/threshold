@@ -8,52 +8,60 @@ export const loginStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: theme.spacing.lg,
   },
-  headerLogo: {
-    flexDirection: 'row',
+  brandHeaderContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
   },
-  logoText: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
-    marginLeft: theme.spacing.sm,
-  },
-  welcomeSection: {
+  titleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: theme.spacing.lg,
+    alignItems: 'flex-end', // Align baseline
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    marginRight: theme.spacing.md,
+  brandLogo: {
+    marginRight: 2, 
+    marginBottom: 4, // Para que el tallo baje como una T mayúscula
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  brandAppName: {
+    fontSize: 34,
+    fontWeight: '400',
+    color: '#1A1A1A',
+    letterSpacing: 2,
   },
-  welcomeTextContainer: {
-    flex: 1,
-  },
-  welcomeTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.sm,
-  },
-  welcomeSubtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.text.secondary,
-    lineHeight: 20,
+  brandSlogan: {
+    fontWeight: '300', 
+    fontSize: 9,
+    letterSpacing: 8,
+    color: '#8A8A8E',
+    textTransform: 'uppercase',
   },
   formContainer: {
     backgroundColor: theme.colors.white,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     marginTop: theme.spacing.md,
+  },
+  formHeaderContainer: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.xl,
+  },
+  formHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+    marginBottom: 6,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  formHeaderSubtitle: {
+    fontSize: 13,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 10,
   },
   optionsRow: {
     flexDirection: 'row',

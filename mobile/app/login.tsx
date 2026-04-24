@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, SafeAreaView, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Switch, Animated, Easing } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { theme } from '../src/styles/theme';
 import { CustomInput } from '../src/components/CustomInput';
 import { CustomButton } from '../src/components/CustomButton';
 import { FeatureCarousel } from '../src/components/FeatureCarousel';
+import { DragonflyIcon } from '../src/components/DragonflyIcon';
 import { trackGuestVisit, loginUser } from '../src/services/api';
 import { Alert } from 'react-native';
 
@@ -23,6 +24,10 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const lastGuestToggleAtRef = useRef(0);
 
+  // Animaciones para la transición inmersiva
+  const sloganOpacity = useRef(new Animated.Value(1)).current;
+  const sloganTranslateY = useRef(new Animated.Value(0)).current;
+
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'en' ? 'es' : 'en');
   };
@@ -34,14 +39,35 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
+
+    // Animación de salida: El eslogan brilla/desaparece hacia arriba al intentar entrar
+    Animated.parallel([
+      Animated.timing(sloganOpacity, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(sloganTranslateY, {
+        toValue: -15,
+        duration: 350,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     try {
       await loginUser(email, password);
-      Alert.alert(t('common.success'), t('login.success.loggedIn'));
+      // Alert removido para mejor experiencia fluida
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert(t('login.errors.loginTitle'), error.message);
-    } finally {
       setIsLoading(false);
+      // Revertir animación si hay error
+      Animated.parallel([
+        Animated.timing(sloganOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(sloganTranslateY, { toValue: 0, duration: 350, useNativeDriver: true }),
+      ]).start();
     }
   };
 
@@ -58,37 +84,30 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: '#F9F9F7' }]}>
       <ScrollView 
-        style={globalStyles.container} 
+        style={[globalStyles.container, { backgroundColor: '#F9F9F7' }]} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: theme.spacing.xl }}
       >
-        {/* Header Section */}
-        <View style={loginStyles.headerContainer}>
-          <View style={loginStyles.headerLogo}>
-            <Ionicons name="school" size={24} color={theme.colors.primary} />
-            <Text style={loginStyles.logoText}>Threshold</Text>
-          </View>
+        {/* Tonalidad y Cambio de Idioma */}
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: theme.spacing.md }}>
           <TouchableOpacity onPress={toggleLanguage}>
-            <Text style={globalStyles.textLink}>{i18n.language.toUpperCase()}</Text>
+            <Text style={[globalStyles.textLink, { color: '#8A8A8E' }]}>{i18n.language.toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Welcome Section */}
-        <View style={loginStyles.welcomeSection}>
-          <View style={loginStyles.avatarContainer}>
-            <Image 
-              source={{ uri: 'https://images.unsplash.com/photo-1544717302-de2939b7ef71?q=80&w=200&auto=format&fit=crop' }} 
-              style={loginStyles.avatarImage} 
-            />
+        {/* Brand Header (Transición desde Splash) */}
+        <View style={loginStyles.brandHeaderContainer}>
+          <View style={loginStyles.titleRow}>
+            <DragonflyIcon size={38} color="#1A1A1A" style={loginStyles.brandLogo} />
+            <Text style={loginStyles.brandAppName}>hreshold</Text>
           </View>
-          <View style={loginStyles.welcomeTextContainer}>
-            <Text style={loginStyles.welcomeTitle}>{t('login.welcomeTitle')}</Text>
-            <Text style={loginStyles.welcomeSubtitle}>
-              {t('login.welcomeSubtitle')}
-            </Text>
-          </View>
+          
+          {/* Eslogan animado independiente */}
+          <Animated.View style={{ opacity: sloganOpacity, transform: [{ translateY: sloganTranslateY }] }}>
+            <Text style={loginStyles.brandSlogan}>BEYOND THE LIMIT</Text>
+          </Animated.View>
         </View>
 
         {/* Carousel Section */}
@@ -96,6 +115,15 @@ export default function LoginScreen() {
 
         {/* Form Section */}
         <View style={loginStyles.formContainer}>
+          <View style={loginStyles.formHeaderContainer}>
+            <Text style={loginStyles.formHeaderTitle}>
+              {t('login.formTitle')}
+            </Text>
+            <Text style={loginStyles.formHeaderSubtitle}>
+              {t('login.formSubtitle')}
+            </Text>
+          </View>
+
           <CustomInput 
             label={t('login.emailLabel')} 
             placeholder={t('login.emailPlaceholder')} 

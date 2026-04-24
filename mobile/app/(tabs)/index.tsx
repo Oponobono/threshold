@@ -766,7 +766,7 @@ export default function HybridDashboardScreen() {
                 )}
               </View>
             </View>
-            {nextClass && (
+            {nextClass ? (
               <TouchableOpacity
                 style={styles.openBtn}
                 onPress={() => {
@@ -778,7 +778,7 @@ export default function HybridDashboardScreen() {
               >
                 <Text style={styles.openBtnText}>{t('dashboard.openBtn')}</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         </View>
 
@@ -938,12 +938,12 @@ export default function HybridDashboardScreen() {
     </SafeAreaView>
       
       {/* TOAST FEEDBACK */}
-      {toastMessage && (
+      {toastMessage ? (
         <View style={styles.toastContainer}>
           <Ionicons name="checkmark-circle" size={18} color={theme.colors.white} style={{ marginRight: 8 }} />
           <Text style={styles.toastText}>{toastMessage}</Text>
         </View>
-      )}
+      ) : null}
 
       {/* QUICK ADD MENU (ACTION SHEET) */}
       <Modal
@@ -1150,7 +1150,7 @@ export default function HybridDashboardScreen() {
                 />
                 <Ionicons name="calendar-outline" size={20} color={theme.colors.text.placeholder} />
 
-                {showDatePicker && (
+                {showDatePicker ? (
                   <ThresholdDatePicker
                     value={(() => {
                       try {
@@ -1163,7 +1163,7 @@ export default function HybridDashboardScreen() {
                     mode="date"
                     onChange={onDateChange}
                   />
-                )}
+                ) : null}
               </Pressable>
             </ScrollView>
 
@@ -1203,9 +1203,9 @@ export default function HybridDashboardScreen() {
                 onPress={() => setIsSubjectSelectorVisible(true)}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {selectedSubjectId && (
+                  {selectedSubjectId ? (
                     <View style={[styles.dot, { backgroundColor: subjects.find(s => s.id === selectedSubjectId)?.color || theme.colors.primary, marginRight: 8 }]} />
-                  )}
+                  ) : null}
                   <Text style={[styles.dropdownSelectorText, !selectedSubjectId && styles.dropdownPlaceholder]} numberOfLines={1}>
                     {selectedSubjectId 
                       ? subjects.find(s => s.id === selectedSubjectId)?.name 
@@ -1219,12 +1219,12 @@ export default function HybridDashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            {!selectedSubjectId && (
+            {!selectedSubjectId ? (
               <Text style={styles.scheduleHintText}>{t('dashboard.schedulePlanner.selectSubjectHint')}</Text>
-            )}
-            {selectedSubjectId && scheduleHasChanges && (
+            ) : null}
+            {selectedSubjectId && scheduleHasChanges ? (
               <Text style={styles.scheduleHintText}>{t('dashboard.schedulePlanner.unsavedHint')}</Text>
-            )}
+            ) : null}
 
             <View style={styles.gridContainer}>
               {/* Header: Days */}
@@ -1264,9 +1264,9 @@ export default function HybridDashboardScreen() {
                             handleToggleScheduleSlot(day, hour);
                           }}
                         >
-                          {slotData && (
+                          {slotData ? (
                             <View style={[styles.slotIndicator, { backgroundColor: selectedScheduleSubject?.color || theme.colors.primary }]} />
-                          )}
+                          ) : null}
                         </TouchableOpacity>
                       );
                     })}
@@ -1385,13 +1385,13 @@ export default function HybridDashboardScreen() {
             <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.takePhoto')}</Text>
             <Text style={styles.sheetSubtitle}>Selecciona a qué materia pertenece este apunte</Text>
             
-            {capturedImageUri && (
+            {capturedImageUri ? (
               <Image 
                 source={{ uri: capturedImageUri }} 
                 style={{ width: '100%', height: 150, borderRadius: 12, marginBottom: 20 }} 
                 resizeMode="cover"
               />
-            )}
+            ) : null}
 
             <FlatList
               data={subjects}
@@ -1435,7 +1435,7 @@ export default function HybridDashboardScreen() {
         <Pressable style={styles.sheetBackdrop} onPress={() => setSelectedMetric(null)}>
           <View style={[styles.sheetContent, { marginHorizontal: 20, marginBottom: 'auto', marginTop: 'auto', borderRadius: 32 }]}>
             <View style={styles.sheetHandle} />
-            {selectedMetric && (
+            {selectedMetric ? (
               <View style={{ alignItems: 'center', paddingVertical: 10 }}>
                 <View style={[styles.iconBox, { backgroundColor: selectedMetric.color + '20', width: 60, height: 60, borderRadius: 20, marginBottom: 16 }]}>
                   <Ionicons name={selectedMetric.icon} size={30} color={selectedMetric.color} />
@@ -1455,7 +1455,7 @@ export default function HybridDashboardScreen() {
                   <Text style={styles.sheetSaveText}>{t('common.close')}</Text>
                 </TouchableOpacity>
               </View>
-            )}
+            ) : null}
           </View>
         </Pressable>
       </Modal>

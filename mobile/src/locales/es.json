@@ -1,5 +1,7 @@
 {
   "login": {
+    "formTitle": "Inicia sesión",
+    "formSubtitle": "Accede a tu cuenta para continuar con tu progreso académico.",
     "welcomeTitle": "Bienvenido a Threshold",
     "welcomeSubtitle": "Organiza tus clases, sigue tu promedio y guarda fotos de tus apuntes en un solo lugar.",
     "emailLabel": "Correo electrónico",
@@ -43,18 +45,43 @@
     "daysShort": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
   },
   "features": {
-    "swipeToExplore": "Desliza para explorar funciones",
+    "swipeToExplore": "Desliza para explorar",
+    "swipeToStart": "Volver al inicio",
     "bento": {
       "title": "Panel de materias",
-      "desc": "Organiza tus materias de un vistazo con tarjetas personalizables."
+      "desc": "Organiza todas tus materias en un panel visual."
     },
     "gpa": {
-      "title": "Seguimiento del promedio",
-      "desc": "Sigue tu progreso con gráficos claros e indicadores de tendencia."
+      "title": "Seguimiento de promedio",
+      "desc": "Mantén un registro exacto de tu rendimiento."
     },
     "photo": {
-      "title": "Notas con fotos rápidas",
-      "desc": "Toma fotos de la pizarra y guarda imágenes de estudio fáciles de encontrar."
+      "title": "Fotos rápidas",
+      "desc": "Guarda apuntes en fotos con un clic."
+    },
+    "schedule": {
+      "title": "Horario Semanal",
+      "desc": "Planifica tus clases y tiempo de estudio."
+    },
+    "tasks": {
+      "title": "Gestión de Tareas",
+      "desc": "Administra fechas de entrega y exámenes."
+    },
+    "gallery": {
+      "title": "Galería Organizada",
+      "desc": "Encuentra tus apuntes agrupados por materia."
+    },
+    "cloud": {
+      "title": "Sincronización Cloud",
+      "desc": "Accede a tus datos de forma segura."
+    },
+    "security": {
+      "title": "Privacidad Total",
+      "desc": "Tus notas están encriptadas y protegidas."
+    },
+    "custom": {
+      "title": "Personalización",
+      "desc": "Temas visuales y avatares a tu gusto."
     }
   },
   "register": {
