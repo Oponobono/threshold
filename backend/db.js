@@ -113,6 +113,7 @@ const initializePostgresDb = async () => {
       { name: 'approval_threshold', type: 'REAL' },
       { name: 'major', type: 'TEXT' },
       { name: 'university', type: 'TEXT' },
+      { name: 'biometric_token', type: 'TEXT' },
     ].filter(column => !existingColumns.has(column.name));
 
     for (let column of missingColumns) {
@@ -274,6 +275,7 @@ const initializeSqliteDb = () => {
         { name: 'approval_threshold', type: 'REAL' },
         { name: 'major', type: 'TEXT' },
         { name: 'university', type: 'TEXT' },
+        { name: 'biometric_token', type: 'TEXT' },
       ].filter((column) => !existingColumns.has(column.name));
 
       missingColumns.forEach((column) => {

@@ -12,7 +12,7 @@ export const FeatureCarousel = () => {
   const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allFeatures = [
     // Page 1
