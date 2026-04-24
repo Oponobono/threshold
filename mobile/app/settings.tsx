@@ -15,13 +15,19 @@ import { getCurrentUserProfile, signOut, type UserProfile } from '../src/service
 type ScaleKey = 'af' | 'pct' | 'scale4' | 'custom';
 
 // ─── Sub-Components ────────────────────────────────────────────
-const SectionHeader = ({ title, desc, icon }: { title: string; desc: string; icon: string }) => (
+const SectionHeader = ({ title, desc, icon, onIconPress, iconColor, iconSize }: { title: string; desc: string; icon: string; onIconPress?: () => void; iconColor?: string; iconSize?: number }) => (
   <View style={styles.sectionHeader}>
     <View style={{ flex: 1 }}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <Text style={styles.sectionDesc}>{desc}</Text>
     </View>
-    <Ionicons name={icon as any} size={18} color={theme.colors.text.secondary} />
+    {onIconPress ? (
+      <TouchableOpacity onPress={onIconPress} style={{ padding: 4 }}>
+        <Ionicons name={icon as any} size={iconSize || 18} color={iconColor || theme.colors.text.secondary} />
+      </TouchableOpacity>
+    ) : (
+      <Ionicons name={icon as any} size={iconSize || 18} color={iconColor || theme.colors.text.secondary} />
+    )}
   </View>
 );
 
@@ -378,14 +384,13 @@ export default function SettingsScreen() {
         {/* ── ABOUT & HELP ── */}
         {/* ─────────────────────────────────────────── */}
         <View style={styles.section}>
-          <SectionHeader title={t('settings.aboutHelp')} desc={t('settings.aboutHelpDesc')} icon="information-circle-outline" />
-          <SettingRow
-            title="Acerca de MAPUVIA & Threshold" desc="Nuestra historia e identidad"
-            right={
-              <TouchableOpacity onPress={() => router.push('/about')}>
-                <Text style={styles.openText}>{t('settings.open')}</Text>
-              </TouchableOpacity>
-            }
+          <SectionHeader 
+            title={t('settings.aboutHelp')} 
+            desc={t('settings.aboutHelpDesc')} 
+            icon="information-circle-outline" 
+            onIconPress={() => router.push('/about')}
+            iconColor="#C5A059"
+            iconSize={26}
           />
           <SettingRow
             title={t('settings.faq')} desc=""
