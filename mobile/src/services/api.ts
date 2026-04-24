@@ -51,8 +51,15 @@ const DEFAULT_LAN_IP =
   Platform.OS === 'web'
     ? (typeof window !== 'undefined' && window.location.hostname) || '127.0.0.1'
     : getExpoHostIp() || process.env.EXPO_PUBLIC_API_HOST || '127.0.0.1';
+
 const API_PORTS = [3000, 3001];
-const API_BASE_URLS = API_PORTS.map((port) => `http://${DEFAULT_LAN_IP}:${port}/api`);
+
+// Si existe EXPO_PUBLIC_API_URL, lo usamos como prioridad (Producción)
+// Si no, construimos las URLs locales para desarrollo
+const API_BASE_URLS = process.env.EXPO_PUBLIC_API_URL 
+  ? [process.env.EXPO_PUBLIC_API_URL]
+  : API_PORTS.map((port) => `http://${DEFAULT_LAN_IP}:${port}/api`);
+
 let activeBaseUrl = API_BASE_URLS[0];
 
 const buildApiError = (message: string): Error => new Error(message);

@@ -1,105 +1,42 @@
 import { StyleSheet } from 'react-native';
-import { theme } from './theme';
 
 export const welcomeStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F3EE',
+    backgroundColor: '#141416', // Gris Carbono profundo
   },
   container: {
     flex: 1,
-    paddingHorizontal: theme.spacing.lg,
-    justifyContent: 'space-between',
-    paddingVertical: theme.spacing.xl,
-    overflow: 'hidden',
-  },
-  backgroundOrbTop: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: '#E4EFEA',
-    top: -70,
-    right: -65,
-  },
-  backgroundOrbBottom: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: '#E8E1D6',
-    bottom: -60,
-    left: -45,
-  },
-  topMeta: {
-    alignSelf: 'center',
-    marginTop: 8,
-  },
-  topMetaText: {
-    fontSize: 12,
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
-    color: '#6A6359',
-    fontWeight: '700',
-  },
-  heroCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderWidth: 1,
-    borderColor: '#E8E3DC',
-    borderRadius: 28,
-    padding: theme.spacing.xl,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 4,
   },
-  logoWrap: {
-    width: 82,
-    height: 82,
-    borderRadius: 24,
-    backgroundColor: '#101010',
+  logoContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.md,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end', // Align baseline
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  logoIcon: {
+    marginRight: 2, 
+    marginBottom: 4, // Para que el tallo baje como una T mayúscula
   },
   appName: {
-    fontSize: 34,
-    color: '#16130F',
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    marginBottom: theme.spacing.sm,
+    fontSize: 42, // Ajustado para hacer match con el tamaño de la libélula
+    fontWeight: '400', 
+    color: '#F5F5F0', 
+    letterSpacing: 2, 
+    textTransform: 'none', 
   },
-  subtitle: {
-    textAlign: 'center',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5E574C',
-    marginBottom: theme.spacing.lg,
-  },
-  accentLine: {
-    width: 68,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#15120F',
-    opacity: 0.9,
-  },
-  bottomWrap: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  loadingText: {
-    fontSize: 12,
-    color: '#6A6359',
-    letterSpacing: 1.2,
+  phraseText: {
+    fontWeight: '300', 
+    fontSize: 12, // Aumentado para que no se pierda frente al título
+    letterSpacing: 7, // Tracking reajustado para el nuevo tamaño
+    color: '#A8A8AC', // Gris ligeramente más claro para mayor presencia
     textTransform: 'uppercase',
-    fontWeight: '700',
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#1E1A15',
-  },
+    marginTop: 10, // Aire equilibrado
+  }
 });
