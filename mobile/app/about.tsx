@@ -1,337 +1,397 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
-  View, Text, ScrollView, SafeAreaView, TouchableOpacity,
-  StyleSheet, Image, StatusBar,
+  View, Text, ScrollView, TouchableOpacity,
+  StyleSheet, Image, StatusBar, Animated, Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '../src/styles/theme';
 import { DragonflyIcon } from '../src/components/DragonflyIcon';
+import { theme } from '../src/styles/theme';
 
 export default function AboutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Hero parallax: isotipo se aleja al hacer scroll
+  const heroScale = scrollY.interpolate({ inputRange: [0, 200], outputRange: [1, 0.8], extrapolate: 'clamp' });
+  const heroOpacity = scrollY.interpolate({ inputRange: [0, 180], outputRange: [1, 0], extrapolate: 'clamp' });
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={styles.root}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+      {/* ── BOTÓN CERRAR flotante ─────────────────────────────── */}
+      <TouchableOpacity
+        style={[styles.closeBtn, { top: insets.top + 12 }]}
+        onPress={() => router.back()}
+        activeOpacity={0.8}
       >
-        {/* ── HERO ─────────────────────────────────────────────── */}
-        <View style={[styles.hero, { paddingTop: Math.max(insets.top + 20, 40) }]}>
-          {/* Botón de cierre flotante en la esquina */}
-          <TouchableOpacity 
-            style={[styles.closeBtn, { top: Math.max(insets.top + 10, 16) }]} 
-            onPress={() => router.back()}
-          >
-            <Ionicons name="close" size={20} color={theme.colors.text.secondary} />
-          </TouchableOpacity>
+        <Ionicons name="close" size={20} color={theme.colors.text.secondary} />
+      </TouchableOpacity>
 
-          {/* Logo Isotipo central */}
-          <Image
-            source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
-            style={styles.heroIsotipo}
-            resizeMode="contain"
-          />
-          <Text style={styles.heroLabel}>un producto de</Text>
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={16}
+      >
+
+        {/* ══════════════════════════════════════════════════════ */}
+        {/* ── HERO: Presentación de MAPUVIA Labs ─────────────── */}
+        {/* ══════════════════════════════════════════════════════ */}
+        <LinearGradient
+          colors={['#FFFFFF', '#FCFCFB', '#F9F9F7']}
+          style={[styles.hero, { paddingTop: insets.top + 72 }]}
+        >
+          <View style={styles.glowRing} />
+
+          <Animated.View style={{ transform: [{ scale: heroScale }], opacity: heroOpacity, alignItems: 'center' }}>
+            <Image
+              source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
+              style={styles.heroIsotipo}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          <Text style={styles.heroEyebrow}>un producto de</Text>
           <Image
             source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
             style={styles.heroLogoLabs}
             resizeMode="contain"
           />
-        </View>
 
-        {/* ── THRESHOLD CARD ───────────────────────────────────── */}
-        <View style={styles.card}>
-          {/* Sólo el nombre, sin la libélula — la tiene protagonismo en el card siguiente */}
-          <Text style={styles.cardTitleCenter}>Threshold</Text>
-          <Text style={[styles.cardBody, { textAlign: 'justify' }]}>
-            Diseñada íntegramente por MAPUVIA Labs, <Text style={styles.accent}>Threshold</Text> nace
-            para eliminar la fragmentación en la vida académica del estudiante. Calificaciones,
+          <LinearGradient
+            colors={['transparent', '#F9F9F7']}
+            style={styles.fadeBottom}
+            pointerEvents="none"
+          />
+        </LinearGradient>
+
+        {/* ══════════════════════════════════════════════════════ */}
+        {/* ── THRESHOLD ──────────────────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════ */}
+        <LinearGradient
+          colors={['#F9F9F7', '#F4F4F1', '#EFEFEA']}
+          style={styles.section}
+        >
+          <Text style={styles.sectionEyebrow}>La aplicación</Text>
+          <Text style={styles.sectionTitle}>Threshold</Text>
+          <Text style={styles.sectionBody}>
+            Diseñada íntegramente por MAPUVIA Labs,{' '}
+            <Text style={styles.accentGold}>Threshold</Text>{' '}
+            nace para eliminar la fragmentación en la vida académica del estudiante. Calificaciones,
             horarios y apuntes en un solo lugar, siempre a la mano.
           </Text>
-        </View>
-
-        {/* ── DRAGONFLY MEANING ────────────────────────────────── */}
-        <View style={[styles.card, styles.cardAccent]}>
-          {/* Eyebrow centrado */}
-          <Text style={[styles.cardEyebrow, { textAlign: 'center' }]}>El símbolo</Text>
-
-          {/* Título izquierda (toma su ancho natural) +
-              libélula centrada en el espacio restante hasta el borde */}
-          <View style={styles.dragonflyTitleRow}>
-            <Text style={styles.cardTitleLg}>La Libélula</Text>
-            <View style={styles.dragonflyIconWrap}>
-              <DragonflyIcon size={60} color={'#C5A059'} />
+          
+          <View style={styles.specRow}>
+            <View style={styles.specItem}>
+              <Text style={styles.specValue}>2026</Text>
+              <Text style={styles.specLabel}>Lanzamiento</Text>
+            </View>
+            <View style={styles.specDivider} />
+            <View style={styles.specItem}>
+              <Text style={styles.specValue}>v1.0</Text>
+              <Text style={styles.specLabel}>Versión</Text>
+            </View>
+            <View style={styles.specDivider} />
+            <View style={styles.specItem}>
+              <Text style={styles.specValue}>I+D</Text>
+              <Text style={styles.specLabel}>Origen</Text>
             </View>
           </View>
+        </LinearGradient>
 
-          <Text style={[styles.cardBodyLight, { textAlign: 'justify' }]}>
+        {/* ══════════════════════════════════════════════════════ */}
+        {/* ── LA LIBÉLULA ────────────────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════ */}
+        <LinearGradient
+          colors={['#EFEFEA', '#EAEADF', '#E2E2D6']}
+          style={styles.section}
+        >
+          <Text style={styles.sectionEyebrow}>El símbolo</Text>
+
+          <View style={styles.dragonflyStage}>
+            <View style={styles.glowGold} />
+            <DragonflyIcon size={110} color="#C5A059" />
+          </View>
+
+          <Text style={styles.sectionTitleLg}>La Libélula</Text>
+          <Text style={styles.sectionBody}>
             Elegida por MAPUVIA Labs como emblema de Threshold, la{' '}
-            <Text style={styles.accentGold}>libélula</Text> representa agilidad, precisión y visión
-            panorámica de 360°. Así como este insecto percibe su entorno completo de un solo vistazo,
+            <Text style={styles.accentGold}>libélula</Text>{' '}
+            representa agilidad, precisión y visión panorámica de 360°.
+            Así como este insecto percibe su entorno completo de un solo vistazo,
             Threshold le otorga al estudiante una perspectiva integral de su progreso académico,
             permitiéndole adaptarse y avanzar sin fricciones.
           </Text>
-        </View>
+        </LinearGradient>
 
-        {/* ── MAPUVIA LABS CARD ─────────────────────────────────── */}
-        <View style={styles.card}>
+        {/* ══════════════════════════════════════════════════════ */}
+        {/* ── MAPUVIA LABS ───────────────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════ */}
+        <LinearGradient
+          colors={['#E2E2D6', '#DFE4E8', '#D7DEE4']}
+          style={styles.section}
+        >
+          <Text style={styles.sectionEyebrow}>La filial</Text>
           <Image
             source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
-            style={styles.inlineLogoLabs}
+            style={styles.inlineLogo}
             resizeMode="contain"
           />
-          <Text style={[styles.cardBody, { textAlign: 'justify' }]}>
-            Filial de investigación y desarrollo (I+D) de MAPUVIA, MAPUVIA Labs opera como una
-            incubadora ágil de productos digitales. Concentra equipos especializados en la creación
-            de soluciones disruptivas que transforman ideas vanguardistas en tecnología tangible.
+          <Text style={styles.sectionBody}>
+            MAPUVIA Labs es la división de investigación y desarrollo (I+D) de MAPUVIA, enfocada
+            exclusivamente en la creación de software científico y académico. Opera como una incubadora 
+            especializada en transformar la educación y la investigación en{' '}
+            <Text style={styles.accentDark}>tecnología tangible</Text>.
           </Text>
-        </View>
+        </LinearGradient>
 
-        {/* ── MAPUVIA CARD ─────────────────────────────────────── */}
-        <View style={[styles.card, { marginBottom: theme.spacing.xxl }]}>
-          {/* Fila firma: isotipo a la IZQUIERDA + logotipo a la derecha, como el footer */}
-          <View style={styles.mapuviaTitleRow}>
+        {/* ══════════════════════════════════════════════════════ */}
+        {/* ── MAPUVIA ────────────────────────────────────────── */}
+        {/* ══════════════════════════════════════════════════════ */}
+        <LinearGradient
+          colors={['#D7DEE4', '#E8ECEF', '#F4F6F8']}
+          style={[styles.section, styles.lastSection]}
+        >
+          <Text style={styles.sectionEyebrow}>La casa matriz</Text>
+          <View style={styles.mapuviaHeader}>
             <Image
               source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
-              style={styles.mapuviaIsotipoInline}
+              style={styles.mapuviaIsotipo}
               resizeMode="contain"
             />
             <Image
               source={require('../src/images/logos_mapuvia/logotipo_mapuvia.png')}
-              style={styles.inlineLogoMapuvia}
+              style={styles.mapuviaLogo}
               resizeMode="contain"
             />
           </View>
-          <Text style={[styles.cardBody, { textAlign: 'justify' }]}>
-            Matriz corporativa de innovación tecnológica. MAPUVIA diseña ecosistemas de software
-            y servicios digitales que impulsan el desarrollo integral de personas y organizaciones
-            en su cotidianidad.
+          <Text style={styles.sectionBody}>
+            Matriz corporativa de innovación tecnológica. MAPUVIA se dedica al desarrollo de 
+            servicios digitales y software general, creando ecosistemas que impulsan el progreso
+            de personas y organizaciones en su cotidianidad.
           </Text>
-        </View>
 
-        {/* ── FOOTER FIRMA ─────────────────────────────────────── */}
-        <View style={styles.footerFirma}>
-          <Image
-            source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
-            style={styles.footerIsotipo}
-            resizeMode="contain"
-          />
-          <Image
-            source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
-            style={styles.footerLogoLabs}
-            resizeMode="contain"
-          />
-          <Text style={styles.footerYear}>© 2026</Text>
-        </View>
+          <View style={styles.footer}>
+            <Image
+              source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
+              style={styles.footerIsotipo}
+              resizeMode="contain"
+            />
+            <Image
+              source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
+              style={styles.footerLogoLabs}
+              resizeMode="contain"
+            />
+            <Text style={styles.footerYear}>© 2026</Text>
+          </View>
+        </LinearGradient>
 
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
-    backgroundColor: '#F4F4F1',
+    backgroundColor: '#FFFFFF',
   },
-  scrollContent: {
-    paddingBottom: 40,
+
+  // ── CLOSE BUTTON ──────────────────────────────────────────────
+  closeBtn: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 100,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // ── HERO ──────────────────────────────────────────────────────
   hero: {
-    backgroundColor: '#fff',
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 36,
+    paddingBottom: 80,
     paddingHorizontal: 24,
-    marginBottom: 12,
     position: 'relative',
+    overflow: 'hidden',
   },
-  closeBtn: {
+  glowRing: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F2F2F2',
-    alignItems: 'center',
-    justifyContent: 'center',
+    top: 80,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(197, 160, 89, 0.08)',
   },
   heroIsotipo: {
-    width: 64,
-    height: 64,
-    marginBottom: 12,
+    width: 90,
+    height: 90,
+    marginBottom: 20,
   },
-  heroLabel: {
+  heroEyebrow: {
     fontSize: 11,
-    letterSpacing: 2,
+    letterSpacing: 3,
     textTransform: 'uppercase',
-    color: '#AEAEA8',
-    marginBottom: 8,
+    color: '#8A8A8E',
+    marginBottom: 10,
   },
   heroLogoLabs: {
-    width: 140,
-    height: 28,
+    width: 160,
+    height: 32,
+    opacity: 0.9,
+  },
+  fadeBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
   },
 
-  // ── CARDS ─────────────────────────────────────────────────────
-  card: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+  // ── SECTIONS ──────────────────────────────────────────────────
+  section: {
+    paddingHorizontal: 28,
+    paddingTop: 60,
+    paddingBottom: 64,
   },
-  cardAccent: {
-    backgroundColor: '#1A1A1A',
+  lastSection: {
+    paddingBottom: 80,
   },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  // Para card de Threshold: centrado
-  cardTitleRowCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  // Card oscura: título izquierda natural, libélula centrada en espacio restante
-  dragonflyTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  // El View que contiene la libélula ocupa el espacio restante y la centra
-  dragonflyIconWrap: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  // MAPUVIA card: fila firma izquierda (logo + isotipo a la derecha, como el footer)
-  mapuviaTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  mapuviaIsotipoInline: {
-    width: 24,
-    height: 24,
-  },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.5,
-  },
-  // Título de Threshold centrado (sin icono)
-  cardTitleCenter: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.5,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  cardEyebrow: {
-    fontSize: 10,
-    letterSpacing: 2,
+  sectionEyebrow: {
+    fontSize: 11,
+    letterSpacing: 3,
     textTransform: 'uppercase',
-    color: '#8A8A72',
-    marginBottom: 6,
+    color: '#8A8A8E',
+    marginBottom: 12,
   },
-  cardTitleLg: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#F4F4F1',
-    letterSpacing: -0.5,
-    // Sin flex — toma ancho natural para caber en una sola línea
+  sectionTitle: {
+    fontSize: 52,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    letterSpacing: -2,
+    lineHeight: 54,
+    marginBottom: 20,
   },
-  cardBody: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#6B6B65',
+  sectionTitleLg: {
+    fontSize: 44,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    letterSpacing: -1.5,
+    lineHeight: 46,
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  // Texto del cuerpo para card oscura (color claro)
-  cardBodyLight: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#AEAEA8',
+  sectionBody: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: '#555555',
+    textAlign: 'justify',
   },
-  accent: {
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
-  // Acento dorado para usar sobre fondo oscuro
+
+  // ── ACCENT COLORS ─────────────────────────────────────────────
   accentGold: {
     color: '#C5A059',
     fontWeight: '600',
   },
-  pillRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
-  },
-  pill: {
-    backgroundColor: '#F2F2EF',
-    borderRadius: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  pillText: {
-    fontSize: 11,
-    color: '#8A8A82',
-    fontWeight: '500',
-  },
-  inlineLogoLabs: {
-    width: 110,
-    height: 22,
-    marginBottom: 16,
-    alignSelf: 'center',
-  },
-  inlineLogoMapuvia: {
-    width: 130,
-    height: 28,
+  accentDark: {
+    color: '#1A1A1A',
+    fontWeight: '600',
   },
 
-  // ── FOOTER FIRMA ──────────────────────────────────────────────
-  footerFirma: {
+  // ── SPEC ROW (Threshold) ──────────────────────────────────────
+  specRow: {
+    flexDirection: 'row',
+    marginTop: 36,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+    paddingTop: 24,
+  },
+  specItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  specValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  specLabel: {
+    fontSize: 11,
+    color: '#8A8A8E',
+    letterSpacing: 1,
+  },
+  specDivider: {
+    width: 0.5,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+
+  // ── DRAGONFLY STAGE ───────────────────────────────────────────
+  dragonflyStage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 32,
+    position: 'relative',
+  },
+  glowGold: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(197, 160, 89, 0.12)',
+  },
+
+  // ── MAPUVIA SECTION ───────────────────────────────────────────
+  mapuviaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  mapuviaIsotipo: {
+    width: 28,
+    height: 28,
+    opacity: 0.85,
+  },
+  mapuviaLogo: {
+    width: 130,
+    height: 26,
+    opacity: 0.85,
+  },
+  inlineLogo: {
+    width: 130,
+    height: 26,
+    marginBottom: 20,
+    opacity: 0.85,
+  },
+
+  // ── FOOTER ────────────────────────────────────────────────────
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingTop: 8,
-    paddingBottom: 12,
+    marginTop: 56,
     opacity: 0.8,
   },
   footerIsotipo: {
-    width: 16,
-    height: 16,
+    width: 14,
+    height: 14,
   },
   footerLogoLabs: {
     width: 80,
-    height: 16,
+    height: 14,
   },
   footerYear: {
     fontSize: 10,
-    color: '#AEAEAD',
+    color: '#8A8A8E',
     marginLeft: 4,
   },
 });
