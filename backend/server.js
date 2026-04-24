@@ -134,6 +134,74 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Ruta de Analítica (Visitantes Invitados)
+
+// POST /api/auth/enroll-biometric
+// Guarda el token biométrico para un usuario autenticado.
+// Requiere: { userId, biometric_token }
+app.post('/api/auth/enroll-biometric', (req, res) => {
+  const { userId, biometric_token } = req.body;
+
+  if (!userId || !biometric_token) {
+    return res.status(400).json({ error: 'Se requiere userId y biometric_token.' });
+  }
+
+  // Validación de longitud mínima para el token (UUID = 36 chars)
+  if (typeof biometric_token !== 'string' || biometric_token.length < 32) {
+    return res.status(400).json({ error: 'Token biométrico inválido.' });
+  }
+
+  db.run(
+    `UPDATE users SET biometric_token = ? WHERE id = ?`,
+    [biometric_token, userId],
+    function (err) {
+      if (err) {
+        console.error('Error guardando biometric_token:', err.message);
+        return res.status(500).json({ error: 'Error interno del servidor.' });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
+      res.json({ message: 'Token biométrico registrado correctamente.' });
+    }
+  );
+});
+
+// POST /api/biometric-login
+// Autentica a un usuario usando su token biométrico (nunca envía la huella).
+// Requiere: { biometric_token }
+app.post('/api/biometric-login', (req, res) => {
+  const { biometric_token } = req.body;
+
+  if (!biometric_token || typeof biometric_token !== 'string' || biometric_token.length < 32) {
+    return res.status(400).json({ error: 'Token biométrico inválido o ausente.' });
+  }
+
+  db.get(
+    `SELECT id, email, name, lastname, username, grading_scale, approval_threshold FROM users WHERE biometric_token = ?`,
+    [biometric_token],
+    (err, user) => {
+      if (err) {
+        console.error('Error en biometric-login:', err.message);
+        return res.status(500).json({ error: 'Error interno del servidor.' });
+      }
+
+      if (!user) {
+        // Respuesta genérica para no revelar si el token existe
+        return res.status(401).json({ error: 'Autenticación biométrica fallida.' });
+      }
+
+      // Actualizar último login
+      db.run(`UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?`, [user.id]);
+
+      res.json({
+        message: 'Login biométrico exitoso',
+        user: { id: user.id, email: user.email },
+      });
+    }
+  );
+});
+
+
 app.post('/api/track-guest', (req, res) => {
   const { device_id } = req.body;
 

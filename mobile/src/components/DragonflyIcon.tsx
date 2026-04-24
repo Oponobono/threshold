@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 interface DragonflyIconProps {
   size?: number;
@@ -8,36 +8,46 @@ interface DragonflyIconProps {
 }
 
 export const DragonflyIcon: React.FC<DragonflyIconProps> = ({ size = 42, color = '#F5F5F0', style }) => {
+  // viewBox: 100 wide, 120 tall (centrada en x=50)
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="0.7" strokeLinecap="round" strokeLinejoin="round" style={style}>
-      {/* Cabeza */}
-      <Path d="M 11 3.8 C 11 3.2 11.4 2.8 12 2.8 C 12.6 2.8 13 3.2 13 3.8 C 13 4.4 12.6 4.8 12 4.8 C 11.4 4.8 11 4.4 11 3.8 Z" />
-      
-      {/* Tórax (Diamante/Cometa) */}
-      <Path d="M 12 4.8 L 9.8 7.8 L 12 11.2 L 14.2 7.8 Z" />
-      
-      {/* Cola (Triángulo alargado) */}
-      <Path d="M 11.2 11 L 12 21.5 L 12.8 11 Z" />
-      
-      {/* Ala Superior Izquierda */}
-      <Path d="M 11 5.5 L 1.5 3.5 L 3.5 5.5 L 9.8 8.2 Z" />
-      {/* Vena interna superior izquierda */}
-      <Path d="M 10.4 6.8 L 2.5 4.5" />
-      
-      {/* Ala Superior Derecha */}
-      <Path d="M 13 5.5 L 22.5 3.5 L 20.5 5.5 L 14.2 8.2 Z" />
-      {/* Vena interna superior derecha */}
-      <Path d="M 13.6 6.8 L 21.5 4.5" />
-      
-      {/* Ala Inferior Izquierda */}
-      <Path d="M 9.8 8.4 L 1.5 8.8 L 3.5 10.2 L 11.2 11 Z" />
-      {/* Vena interna inferior izquierda */}
-      <Path d="M 10.5 9.7 L 2.5 9.5" />
-      
-      {/* Ala Inferior Derecha */}
-      <Path d="M 14.2 8.4 L 22.5 8.8 L 20.5 10.2 L 12.8 11 Z" />
-      {/* Vena interna inferior derecha */}
-      <Path d="M 13.5 9.7 L 21.5 9.5" />
+    <Svg width={size} height={size * 1.1} viewBox="0 0 100 120" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={style}>
+
+      {/* 1. Cabeza — óvalo pequeño */}
+      <Path d="M 46 8 C 46 4, 54 4, 54 8 C 54 12, 46 12, 46 8 Z" />
+
+      {/* 2. Tórax superior — dos lóbulos tipo corazón invertido */}
+      <Path d="M 50 12 C 44 12, 41 16, 43 19 C 45 22, 49 21, 50 19 C 51 21, 55 22, 57 19 C 59 16, 56 12, 50 12 Z" />
+
+      {/* 3. Cuerpo principal — rombo esbelto */}
+      <Path d="M 50 19 L 44 32 L 50 44 L 56 32 Z" />
+
+      {/* 4. Cola — triángulo muy largo y afilado */}
+      <Path d="M 49.2 44 L 50 116 L 50.8 44 Z" />
+
+      {/* === ALAS SUPERIORES === */}
+
+      {/* Ala superior izquierda — amplia, con curva y vena */}
+      <Path d="M 46 17 C 36 10, 14 6, 2 12 C 8 18, 28 24, 44 30 Z" />
+      {/* Vena superior izquierda */}
+      <Path d="M 45 22 C 32 17, 14 13, 4 16" />
+
+      {/* Ala superior derecha */}
+      <Path d="M 54 17 C 64 10, 86 6, 98 12 C 92 18, 72 24, 56 30 Z" />
+      {/* Vena superior derecha */}
+      <Path d="M 55 22 C 68 17, 86 13, 96 16" />
+
+      {/* === ALAS INFERIORES === */}
+
+      {/* Ala inferior izquierda — más corta y ancha */}
+      <Path d="M 44 32 C 30 28, 10 32, 2 38 C 8 46, 28 44, 46 40 Z" />
+      {/* Vena inferior izquierda */}
+      <Path d="M 44 36 C 30 34, 12 36, 4 41" />
+
+      {/* Ala inferior derecha */}
+      <Path d="M 56 32 C 70 28, 90 32, 98 38 C 92 46, 72 44, 54 40 Z" />
+      {/* Vena inferior derecha */}
+      <Path d="M 56 36 C 70 34, 88 36, 96 41" />
+
     </Svg>
   );
 };

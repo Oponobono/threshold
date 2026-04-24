@@ -159,10 +159,10 @@ export default function RegisterScreen() {
         >
           {/* Header Section */}
           <View style={loginStyles.headerContainer}>
-            <TouchableOpacity onPress={handleBack} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={handleBack} style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
               <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
             </TouchableOpacity>
-            <View style={[loginStyles.headerLogo, { position: 'absolute', left: 0, right: 0, justifyContent: 'center', zIndex: -1 }]}>
+            <View style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center', zIndex: -1 }}>
               <Ionicons name="school-outline" size={24} color={theme.colors.primary} />
             </View>
           </View>
@@ -173,9 +173,9 @@ export default function RegisterScreen() {
             
             {step === 1 && (
               <View>
-                <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>{t('register.step1.title')}</Text>
-                  <Text style={loginStyles.welcomeSubtitle}>
+                <View style={loginStyles.formHeaderContainer}>
+                  <Text style={loginStyles.formHeaderTitle}>{t('register.step1.title')}</Text>
+                  <Text style={loginStyles.formHeaderSubtitle}>
                     {t('register.step1.subtitle')}
                   </Text>
                 </View>
@@ -215,9 +215,9 @@ export default function RegisterScreen() {
 
             {step === 2 && (
               <View>
-                <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>{t('register.step2.title')}</Text>
-                  <Text style={loginStyles.welcomeSubtitle}>
+                <View style={loginStyles.formHeaderContainer}>
+                  <Text style={loginStyles.formHeaderTitle}>{t('register.step2.title')}</Text>
+                  <Text style={loginStyles.formHeaderSubtitle}>
                     {t('register.step2.subtitle')}
                   </Text>
                 </View>
@@ -258,9 +258,9 @@ export default function RegisterScreen() {
 
             {step === 3 && (
               <View>
-                <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>{t('register.step3.title')}</Text>
-                  <Text style={loginStyles.welcomeSubtitle}>
+                <View style={loginStyles.formHeaderContainer}>
+                  <Text style={loginStyles.formHeaderTitle}>{t('register.step3.title')}</Text>
+                  <Text style={loginStyles.formHeaderSubtitle}>
                     {t('register.step3.subtitle')}
                   </Text>
                 </View>
@@ -300,9 +300,9 @@ export default function RegisterScreen() {
 
             {step === 4 && (
               <View>
-                <View style={loginStyles.welcomeTextContainer}>
-                  <Text style={loginStyles.welcomeTitle}>{t('register.step4.title')}</Text>
-                  <Text style={loginStyles.welcomeSubtitle}>
+                <View style={loginStyles.formHeaderContainer}>
+                  <Text style={loginStyles.formHeaderTitle}>{t('register.step4.title')}</Text>
+                  <Text style={loginStyles.formHeaderSubtitle}>
                     {t('register.step4.subtitle')}
                   </Text>
                 </View>

@@ -10,8 +10,10 @@ import { CustomInput } from '../src/components/CustomInput';
 import { CustomButton } from '../src/components/CustomButton';
 import { FeatureCarousel } from '../src/components/FeatureCarousel';
 import { DragonflyIcon } from '../src/components/DragonflyIcon';
-import { trackGuestVisit, loginUser } from '../src/services/api';
+import { trackGuestVisit, loginUser, enrollBiometric, biometricLogin, getUserId } from '../src/services/api';
+import { enrollBiometricToken, authenticateWithBiometrics, hasBiometricTokenStored, isBiometricAvailable } from '../src/services/biometricService';
 import { Alert } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
@@ -22,11 +24,34 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+  const [biometricReady, setBiometricReady] = useState(false); // true si el dispositivo tiene huella enrollada Y token guardado
   const lastGuestToggleAtRef = useRef(0);
 
   // Animaciones para la transición inmersiva
   const sloganOpacity = useRef(new Animated.Value(1)).current;
   const sloganTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Cargar correo guardado y verificar disponibilidad biométrica al iniciar
+  React.useEffect(() => {
+    const initialize = async () => {
+      try {
+        // Cargar correo recordado
+        const savedEmail = await SecureStore.getItemAsync('remembered_email');
+        if (savedEmail) {
+          setEmail(savedEmail);
+          setRememberMe(true);
+        }
+        // Verificar si el botón Touch ID debe mostrarse activo
+        const available = await isBiometricAvailable();
+        const hasToken = await hasBiometricTokenStored();
+        setBiometricReady(available && hasToken);
+      } catch (error) {
+        console.log('Error en initialize:', error);
+      }
+    };
+    initialize();
+  }, []);
 
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'en' ? 'es' : 'en');
@@ -57,9 +82,46 @@ export default function LoginScreen() {
     ]).start();
 
     try {
-      await loginUser(email, password);
-      // Alert removido para mejor experiencia fluida
-      router.replace('/(tabs)');
+      const loginData = await loginUser(email, password);
+      
+      // Guardar o borrar correo según la preferencia
+      if (rememberMe) {
+        await SecureStore.setItemAsync('remembered_email', email);
+      } else {
+        await SecureStore.deleteItemAsync('remembered_email');
+      }
+
+      // Ofrecer enrollment biométrico si el dispositivo lo soporta y aún no está registrado
+      const available = await isBiometricAvailable();
+      const hasToken = await hasBiometricTokenStored();
+      const userId = loginData?.user?.id?.toString();
+
+      if (available && !hasToken && userId) {
+        Alert.alert(
+          'Activar Touch ID',
+          '¿Deseas iniciar sesión con tu huella dactilar la próxima vez?',
+          [
+            { text: 'Ahora no', style: 'cancel', onPress: () => router.replace('/(tabs)') },
+            {
+              text: 'Activar',
+              onPress: async () => {
+                const token = await enrollBiometricToken(email);
+                if (token) {
+                  try {
+                    await enrollBiometric(userId, token);
+                    setBiometricReady(true);
+                  } catch (e) {
+                    console.warn('Error al registrar token en backend:', e);
+                  }
+                }
+                router.replace('/(tabs)');
+              },
+            },
+          ]
+        );
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error: any) {
       Alert.alert(t('login.errors.loginTitle'), error.message);
       setIsLoading(false);
@@ -82,6 +144,37 @@ export default function LoginScreen() {
       void trackGuestVisit();
     }
   };
+
+  const handleTouchId = async () => {
+    if (!biometricReady) {
+      Alert.alert(
+        'Touch ID no configurado',
+        'Inicia sesión con tu correo y contraseña primero para activar esta función.'
+      );
+      return;
+    }
+
+    setIsBiometricLoading(true);
+    try {
+      const result = await authenticateWithBiometrics();
+
+      if (!result.success) {
+        if (result.reason !== 'cancelled') {
+          Alert.alert('Touch ID', 'No se pudo verificar tu huella. Intenta de nuevo o usa tu contraseña.');
+        }
+        setIsBiometricLoading(false);
+        return;
+      }
+
+      // El OS confirmó la huella. Autenticar con el backend.
+      await biometricLogin(result.token);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo iniciar sesión con Touch ID.');
+      setIsBiometricLoading(false);
+    }
+  };
+
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: '#F9F9F7' }]}>
@@ -126,7 +219,6 @@ export default function LoginScreen() {
 
           <CustomInput 
             label={t('login.emailLabel')} 
-            placeholder={t('login.emailPlaceholder')} 
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
@@ -135,7 +227,6 @@ export default function LoginScreen() {
           
           <CustomInput 
             label={t('login.passwordLabel')} 
-            placeholder={t('login.passwordPlaceholder')} 
             secureTextEntry
             isPassword
             value={password}
@@ -148,39 +239,69 @@ export default function LoginScreen() {
               onPress={() => setRememberMe(!rememberMe)}
               activeOpacity={0.7}
             >
-              <Feather 
-                name={rememberMe ? "check-square" : "square"} 
-                size={20} 
-                color={rememberMe ? theme.colors.primary : theme.colors.border} 
-              />
-              <Text style={loginStyles.checkboxText}>{t('login.rememberMe')}</Text>
+              <View style={[
+                {
+                  width: 20, 
+                  height: 20, 
+                  borderRadius: 6, 
+                  borderWidth: 1, 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginRight: 8
+                },
+                rememberMe 
+                  ? { backgroundColor: '#C5A059', borderColor: '#C5A059' } 
+                  : { backgroundColor: 'transparent', borderColor: '#E0E0E0' }
+              ]}>
+                {rememberMe && <Feather name="check" size={14} color="#FFF" />}
+              </View>
+              <Text style={[loginStyles.checkboxText, { color: '#1A1A1A', fontWeight: '300', marginLeft: 0 }]}>{t('login.rememberMe')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity>
-              <Text style={globalStyles.textLink}>{t('login.forgot')}</Text>
+              <Text style={[globalStyles.textLink, { color: '#8A8A8E', fontWeight: '400' }]}>{t('login.forgot')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Fila principal de autenticación: Ingresar + Touch ID */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: theme.spacing.md }}>
+            {/* Botón de login: ocupa ~75% */}
+            <View style={{ flex: 3 }}>
+              <CustomButton 
+                title={t('login.enterDashboard')} 
+                onPress={handleLogin} 
+                loading={isLoading}
+              />
+            </View>
+
+            {/* Botón Touch ID: icono solo, misma altura */}
+            <TouchableOpacity
+              style={[
+                loginStyles.touchIdIconButton,
+                biometricReady ? { borderColor: '#C5A059' } : { opacity: 0.45 },
+              ]}
+              activeOpacity={0.7}
+              onPress={handleTouchId}
+              disabled={isBiometricLoading || isLoading}
+            >
+              {isBiometricLoading ? (
+                <Feather name="loader" size={24} color={biometricReady ? '#C5A059' : theme.colors.text.secondary} />
+              ) : (
+                <Ionicons
+                  name="finger-print-outline"
+                  size={30}
+                  color={biometricReady ? '#C5A059' : theme.colors.text.secondary}
+                />
+              )}
             </TouchableOpacity>
           </View>
 
           <CustomButton 
-            title={t('login.enterDashboard')} 
-            onPress={handleLogin} 
-            loading={isLoading}
-            style={{ marginBottom: theme.spacing.lg }}
+            title={t('login.createAccount')} 
+            onPress={() => router.push('/register')} 
+            variant="outline"
+            style={{ marginBottom: 0 }}
           />
-
-          <View style={globalStyles.separatorContainer}>
-            <View style={globalStyles.separatorLine} />
-            <Text style={globalStyles.separatorText}>{t('login.or')}</Text>
-            <View style={globalStyles.separatorLine} />
-          </View>
-
-          <TouchableOpacity style={loginStyles.biometricsButton} activeOpacity={0.7}>
-            <Text style={loginStyles.biometricsText}>{t('login.useBiometrics')}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={loginStyles.biometricsSubtext}>{t('login.faceTouchId')}</Text>
-              <Ionicons name="finger-print-outline" size={20} color={theme.colors.text.secondary} />
-            </View>
-          </TouchableOpacity>
 
           <View style={loginStyles.guestRow}>
             <View>
@@ -195,18 +316,10 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View style={loginStyles.footerLinksRow}>
-            <TouchableOpacity onPress={() => router.push('/register')}>
-              <Text style={globalStyles.textLink}>{t('login.createAccount')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Text style={globalStyles.textLink}>{t('login.resetPassword')}</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Footer */}
-        <View style={{ marginTop: theme.spacing.xl }}>
+        <View style={{ marginTop: 0 }}>
           <Text style={loginStyles.footerText}>
             {t('login.footerText')}
           </Text>
