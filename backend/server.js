@@ -657,7 +657,10 @@ app.get('/api/flashcard-decks', (req, res) => {
   if (!userId) return res.status(400).json({ error: 'Se requiere user_id' });
   const query = `
     SELECT fd.*, s.name as subject_name, s.color as subject_color, s.icon as subject_icon,
-    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id) as card_count
+    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id) as card_count,
+    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'review') as review_count,
+    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'learning') as learning_count,
+    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'new') as new_count
     FROM flashcard_decks fd
     JOIN subjects s ON fd.subject_id = s.id
     WHERE s.user_id = ?
@@ -671,14 +674,14 @@ app.get('/api/flashcard-decks', (req, res) => {
 
 // Crear un mazo nuevo
 app.post('/api/flashcard-decks', (req, res) => {
-  const { subject_id, title, description } = req.body;
-  if (!subject_id || !title) return res.status(400).json({ error: 'Faltan campos requeridos.' });
+  const { subject_id, user_id, title, description } = req.body;
+  if (!subject_id || !title || !user_id) return res.status(400).json({ error: 'Faltan campos requeridos (subject_id, user_id, title).' });
   db.run(
-    `INSERT INTO flashcard_decks (subject_id, title, description) VALUES (?, ?, ?)`,
-    [subject_id, title, description || ''],
+    `INSERT INTO flashcard_decks (subject_id, user_id, title, description) VALUES (?, ?, ?, ?)`,
+    [subject_id, user_id, title, description || ''],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ id: this.lastID, subject_id, title, description: description || '', card_count: 0 });
+      res.status(201).json({ id: this.lastID, subject_id, user_id, title, description: description || '', card_count: 0 });
     }
   );
 });

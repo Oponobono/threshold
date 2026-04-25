@@ -382,28 +382,30 @@ export const dashboardStyles = StyleSheet.create({
     gap: 12,
   },
   sheetCancelBtn: {
-    flex: 1,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.md,
     paddingVertical: 12,
+    paddingHorizontal: 20,
     alignItems: 'center',
     backgroundColor: theme.colors.inputBackground,
   },
   sheetCancelText: {
     color: theme.colors.text.secondary,
     fontWeight: '600',
+    fontSize: 15,
   },
   sheetSaveBtn: {
-    flex: 1,
     borderRadius: theme.borderRadius.md,
     paddingVertical: 12,
+    paddingHorizontal: 20,
     alignItems: 'center',
     backgroundColor: theme.colors.primary,
   },
   sheetSaveText: {
     color: theme.colors.white,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 15,
   },
   perfRow: {
     flexDirection: 'row',

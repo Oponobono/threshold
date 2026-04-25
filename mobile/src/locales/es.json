@@ -177,7 +177,7 @@
       "saveRecording": "Guardar grabación",
       "discardRecording": "Descartar",
       "recordingInProgress": "Grabando...",
-      "recordingPaused": "Pausado",
+      "recordingPaused": "En pausa",
       "recordingSaved": "Grabación guardada correctamente",
       "recordingError": "Error al procesar el audio",
       "permissionError": "Se requiere permiso de micrófono para grabar audio",

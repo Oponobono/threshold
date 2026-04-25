@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, { Polygon } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { DragonflyIcon } from './DragonflyIcon';
@@ -31,6 +32,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   const [permission, requestPermission] = useCameraPermissions();
   const [step, setStep] = useState<ScannerStep>('capture');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [photoDimensions, setPhotoDimensions] = useState({ width: 0, height: 0 });
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -58,6 +60,30 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
   const panResponders = useRef(points.map(p => createPanResponder(p))).current;
 
+  // React state to keep track of points for SVG Polygon rendering
+  const [pointCoords, setPointCoords] = useState([
+    { x: 40, y: 100 },
+    { x: SCREEN_WIDTH - 40, y: 100 },
+    { x: SCREEN_WIDTH - 40, y: SCREEN_HEIGHT - 250 },
+    { x: 40, y: SCREEN_HEIGHT - 250 },
+  ]);
+
+  useEffect(() => {
+    // Sync animated values to state for SVG rendering
+    const listeners = points.map((p, i) => 
+      p.addListener((value) => {
+        setPointCoords(prev => {
+          const next = [...prev];
+          next[i] = { x: value.x, y: value.y };
+          return next;
+        });
+      })
+    );
+    return () => {
+      points.forEach((p, i) => p.removeListener(listeners[i]));
+    };
+  }, []);
+
   useEffect(() => {
     if (isVisible && !permission?.granted) {
       requestPermission();
@@ -70,6 +96,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
         setIsProcessing(true);
         const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
         setCapturedImage(photo.uri);
+        setPhotoDimensions({ width: photo.width, height: photo.height });
         setStep('crop');
       } catch (error) {
         Alert.alert(t('common.error'), t('dashboard.documentScannerModal.error'));
@@ -89,20 +116,43 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
       // With expo-image-manipulator, we can only do rectangular crops.
       // We'll calculate the bounding box of the points for now.
       
-      const pts = points.map(p => ({ x: (p.x as any)._value, y: (p.y as any)._value }));
-      const minX = Math.min(...pts.map(p => p.x));
-      const maxX = Math.max(...pts.map(p => p.x));
-      const minY = Math.min(...pts.map(p => p.y));
-      const maxY = Math.max(...pts.map(p => p.y));
+      const pts = points.map(p => ({ x: (p.x as any)._value + 20, y: (p.y as any)._value + 20 }));
+      const minX = Math.max(0, Math.min(...pts.map(p => p.x)));
+      const maxX = Math.min(SCREEN_WIDTH, Math.max(...pts.map(p => p.x)));
+      const minY = Math.max(0, Math.min(...pts.map(p => p.y)));
+      const maxY = Math.min(SCREEN_HEIGHT, Math.max(...pts.map(p => p.y)));
 
       // Map screen coordinates to image coordinates
-      // This is a simplification
+      // Since camera is 'cover' and full screen, we approximate the ratio
+      const ratioX = photoDimensions.width / SCREEN_WIDTH;
+      const ratioY = photoDimensions.height / SCREEN_HEIGHT;
+
+      // Adjust for possible orientation swap (portrait vs landscape)
+      const actualRatioX = photoDimensions.width > photoDimensions.height ? ratioY : ratioX;
+      const actualRatioY = photoDimensions.width > photoDimensions.height ? ratioX : ratioY;
+
+      let originX = Math.floor(minX * actualRatioX);
+      let originY = Math.floor(minY * actualRatioY);
+      let cropWidth = Math.floor((maxX - minX) * actualRatioX);
+      let cropHeight = Math.floor((maxY - minY) * actualRatioY);
+
+      // Clamp to image bounds to prevent crashes
+      originX = Math.max(0, Math.min(originX, photoDimensions.width - 1));
+      originY = Math.max(0, Math.min(originY, photoDimensions.height - 1));
+      cropWidth = Math.max(1, Math.min(cropWidth, photoDimensions.width - originX));
+      cropHeight = Math.max(1, Math.min(cropHeight, photoDimensions.height - originY));
+
       const result = await ImageManipulator.manipulateAsync(
         capturedImage,
         [
-          // Here we would apply the "Scan" filter (High contrast, Brightness)
-          // We can simulate it with brightness/contrast if supported, 
-          // but basic ImageManipulator only supports flip, rotate, resize, crop.
+          {
+            crop: {
+              originX,
+              originY,
+              width: cropWidth,
+              height: cropHeight,
+            }
+          }
         ],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
@@ -157,7 +207,8 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
       <View style={localStyles.container}>
         
         {step === 'capture' && (
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back">
+          <View style={StyleSheet.absoluteFill}>
+            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
             <View style={localStyles.overlay}>
               <View style={localStyles.guideContainer}>
                 <DragonflyIcon size={120} color="rgba(255,255,255,0.2)" />
@@ -174,12 +225,29 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
                 <View style={{ width: 40 }} />
               </View>
             </View>
-          </CameraView>
+          </View>
         )}
 
         {step === 'crop' && capturedImage && (
           <View style={StyleSheet.absoluteFill}>
             <Image source={{ uri: capturedImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            
+            {/* Draw Polygon connecting the 4 points */}
+            <Svg style={StyleSheet.absoluteFill}>
+              <Polygon
+                points={`
+                  ${pointCoords[0].x + 20},${pointCoords[0].y + 20} 
+                  ${pointCoords[1].x + 20},${pointCoords[1].y + 20} 
+                  ${pointCoords[2].x + 20},${pointCoords[2].y + 20} 
+                  ${pointCoords[3].x + 20},${pointCoords[3].y + 20}
+                `}
+                fill={`${theme.colors.primary}30`}
+                stroke={theme.colors.primary}
+                strokeWidth="2"
+                strokeDasharray="5, 5"
+              />
+            </Svg>
+
             <View style={localStyles.cropOverlay}>
               <Text style={localStyles.stepTitle}>{t('dashboard.documentScannerModal.adjust')}</Text>
               
@@ -318,7 +386,6 @@ const localStyles = StyleSheet.create({
   },
   cropOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     padding: 24,
     justifyContent: 'space-between',
   },

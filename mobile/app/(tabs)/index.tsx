@@ -762,17 +762,17 @@ export default function HybridDashboardScreen() {
               <View style={styles.nextClassBadge}>
                 <Ionicons name="time-outline" size={24} color={theme.colors.primary} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 {nextClass ? (
                   <>
-                    <Text style={styles.nextClassTitle}>{nextClass.name}</Text>
+                    <Text style={styles.nextClassTitle} numberOfLines={1}>{nextClass.name}</Text>
                     <Text style={styles.nextClassRoom}>
                       {nextClass.start_time} - {nextClass.end_time}
                     </Text>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.nextClassTitle}>{todaySchedules.length > 0 ? "¡Terminaste por hoy!" : t('dashboard.noClasses')}</Text>
+                    <Text style={styles.nextClassTitle} numberOfLines={1}>{todaySchedules.length > 0 ? "¡Terminaste por hoy!" : t('dashboard.noClasses')}</Text>
                     <Text style={styles.nextClassRoom}>{t('dashboard.enjoyDay')}</Text>
                   </>
                 )}
@@ -956,11 +956,11 @@ export default function HybridDashboardScreen() {
               </ScrollView>
 
               <View style={styles.sheetActions}>
-                <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsSubjectModalVisible(false)}>
+                <TouchableOpacity style={[styles.sheetCancelBtn, { flex: 1 }]} onPress={() => setIsSubjectModalVisible(false)}>
                   <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.sheetSaveBtn, isSavingSubject && { opacity: 0.6 }]}
+                  style={[styles.sheetSaveBtn, { flex: 1 }, isSavingSubject && { opacity: 0.6 }]}
                   onPress={handleSaveSubject}
                   disabled={isSavingSubject}
                 >
@@ -1119,11 +1119,11 @@ export default function HybridDashboardScreen() {
             </ScrollView>
 
             <View style={styles.sheetActions}>
-              <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsGradeModalVisible(false)}>
+              <TouchableOpacity style={[styles.sheetCancelBtn, { flex: 1 }]} onPress={() => setIsGradeModalVisible(false)}>
                 <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.sheetSaveBtn, isSavingGrade && { opacity: 0.6 }]}
+                style={[styles.sheetSaveBtn, { flex: 1 }, isSavingGrade && { opacity: 0.6 }]}
                 onPress={handleSaveGrade}
                 disabled={isSavingGrade}
               >
@@ -1207,11 +1207,11 @@ export default function HybridDashboardScreen() {
             </ScrollView>
 
             <View style={styles.sheetActions}>
-              <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => setIsTaskModalVisible(false)}>
+              <TouchableOpacity style={[styles.sheetCancelBtn, { flex: 1 }]} onPress={() => setIsTaskModalVisible(false)}>
                 <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.sheetSaveBtn, isSavingTask && { opacity: 0.6 }]}
+                style={[styles.sheetSaveBtn, { flex: 1 }, isSavingTask && { opacity: 0.6 }]}
                 onPress={handleSaveTask}
                 disabled={isSavingTask}
               >
@@ -1316,12 +1316,13 @@ export default function HybridDashboardScreen() {
             </View>
 
             <View style={[styles.sheetActions, { marginTop: 16 }]}> 
-              <TouchableOpacity style={styles.sheetCancelBtn} onPress={handleCloseSchedulePlanner}>
+              <TouchableOpacity style={[styles.sheetCancelBtn, { flex: 1 }]} onPress={handleCloseSchedulePlanner}>
                 <Text style={styles.sheetCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.sheetSaveBtn,
+                  { flex: 1 },
                   (!selectedSubjectId || isSavingSchedule) && { opacity: 0.55 },
                 ]}
                 onPress={handleSaveSchedule}
@@ -1407,7 +1408,7 @@ export default function HybridDashboardScreen() {
               <View style={styles.captureBtnInner} />
             </TouchableOpacity>
 
-            <View style={{ width: 50 }} /> {/* Spacer to center capture btn */}
+            <View style={{ width: 50 }} />{/* Spacer to center capture btn */}
           </View>
         </View>
       </Modal>
