@@ -1,17 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, StyleSheet, Dimensions, PanResponder, Animated, Alert, ActivityIndicator } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Modal, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import DocumentScanner, { ResponseType } from 'react-native-document-scanner-plugin';
+import { Accelerometer } from 'expo-sensors';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Polygon } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
-import { DragonflyIcon } from './DragonflyIcon';
 import { dashboardStyles as styles } from '../styles/Dashboard.styles';
+import { documentScannerStyles as localStyles } from '../styles/DocumentScannerModal.styles';
 import { Subject, createPhoto } from '../services/api';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { ColorMatrix } from 'react-native-image-filter-kit';
 
 interface DocumentScannerModalProps {
   isVisible: boolean;
@@ -20,7 +17,21 @@ interface DocumentScannerModalProps {
   onSave?: (uri: string, subjectId: number) => void;
 }
 
-type ScannerStep = 'capture' | 'crop' | 'filter' | 'saving';
+type ScannerStep = 'guide' | 'saving';
+type FilterMode = 'papel' | 'pizarron';
+
+// Matriz de color para pizarrón: aumenta contraste para destacar el marcador y reducir el brillo de fondo
+const WHITEBOARD_MATRIX: [
+  number, number, number, number, number,
+  number, number, number, number, number,
+  number, number, number, number, number,
+  number, number, number, number, number
+] = [
+  1.5, 0, 0, 0, -0.2, // R
+  0, 1.5, 0, 0, -0.2, // G
+  0, 0, 1.5, 0, -0.2, // B
+  0, 0, 0, 1, 0       // A
+];
 
 export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({ 
   isVisible, 
@@ -29,158 +40,81 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   onSave 
 }) => {
   const { t } = useTranslation();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [step, setStep] = useState<ScannerStep>('capture');
+  const [step, setStep] = useState<ScannerStep>('guide');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [photoDimensions, setPhotoDimensions] = useState({ width: 0, height: 0 });
+  const [filteredImageUri, setFilteredImageUri] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<FilterMode>('papel');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  const cameraRef = useRef<any>(null);
-
-  // Crop points (Relative to screen)
-  const points = useRef([
-    new Animated.ValueXY({ x: 40, y: 100 }), // Top Left
-    new Animated.ValueXY({ x: SCREEN_WIDTH - 40, y: 100 }), // Top Right
-    new Animated.ValueXY({ x: SCREEN_WIDTH - 40, y: SCREEN_HEIGHT - 250 }), // Bottom Right
-    new Animated.ValueXY({ x: 40, y: SCREEN_HEIGHT - 250 }), // Bottom Left
-  ]).current;
-
-  const createPanResponder = (point: Animated.ValueXY) => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: Animated.event([null, { dx: point.x, dy: point.y }], { useNativeDriver: false }),
-    onPanResponderGrant: () => {
-      point.setOffset({ x: (point.x as any)._value, y: (point.y as any)._value });
-      point.setValue({ x: 0, y: 0 });
-    },
-    onPanResponderRelease: () => {
-      point.flattenOffset();
-    },
-  });
-
-  const panResponders = useRef(points.map(p => createPanResponder(p))).current;
-
-  // React state to keep track of points for SVG Polygon rendering
-  const [pointCoords, setPointCoords] = useState([
-    { x: 40, y: 100 },
-    { x: SCREEN_WIDTH - 40, y: 100 },
-    { x: SCREEN_WIDTH - 40, y: SCREEN_HEIGHT - 250 },
-    { x: 40, y: SCREEN_HEIGHT - 250 },
-  ]);
+  const [isLevel, setIsLevel] = useState(false);
 
   useEffect(() => {
-    // Sync animated values to state for SVG rendering
-    const listeners = points.map((p, i) => 
-      p.addListener((value) => {
-        setPointCoords(prev => {
-          const next = [...prev];
-          next[i] = { x: value.x, y: value.y };
-          return next;
-        });
-      })
-    );
+    let subscription: any;
+    if (isVisible && step === 'guide') {
+      Accelerometer.setUpdateInterval(200);
+      subscription = Accelerometer.addListener(({ x, y, z }) => {
+        const isFlat = Math.abs(x) < 0.2 && Math.abs(y) < 0.2 && Math.abs(z) > 0.8;
+        setIsLevel(isFlat);
+      });
+    }
     return () => {
-      points.forEach((p, i) => p.removeListener(listeners[i]));
+      if (subscription) subscription.remove();
     };
-  }, []);
+  }, [isVisible, step]);
 
-  useEffect(() => {
-    if (isVisible && !permission?.granted) {
-      requestPermission();
-    }
-  }, [isVisible]);
-
-  const handleCapture = async () => {
-    if (cameraRef.current) {
-      try {
-        setIsProcessing(true);
-        const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
-        setCapturedImage(photo.uri);
-        setPhotoDimensions({ width: photo.width, height: photo.height });
-        setStep('crop');
-      } catch (error) {
-        Alert.alert(t('common.error'), t('dashboard.documentScannerModal.error'));
-      } finally {
-        setIsProcessing(false);
-      }
-    }
-  };
-
-  const handleConfirmCrop = async () => {
-    if (!capturedImage) return;
-    setStep('filter');
-    setIsProcessing(true);
-
+  const launchNativeScanner = async () => {
     try {
-      // In a real app, we'd use the points to apply a perspective transform.
-      // With expo-image-manipulator, we can only do rectangular crops.
-      // We'll calculate the bounding box of the points for now.
-      
-      const pts = points.map(p => ({ x: (p.x as any)._value + 20, y: (p.y as any)._value + 20 }));
-      const minX = Math.max(0, Math.min(...pts.map(p => p.x)));
-      const maxX = Math.min(SCREEN_WIDTH, Math.max(...pts.map(p => p.x)));
-      const minY = Math.max(0, Math.min(...pts.map(p => p.y)));
-      const maxY = Math.min(SCREEN_HEIGHT, Math.max(...pts.map(p => p.y)));
+      const { scannedImages, status } = await DocumentScanner.scanDocument({
+        maxNumDocuments: 1,
+        croppedImageQuality: 90,
+        responseType: ResponseType.ImageFilePath
+      });
 
-      // Map screen coordinates to image coordinates
-      // Since camera is 'cover' and full screen, we approximate the ratio
-      const ratioX = photoDimensions.width / SCREEN_WIDTH;
-      const ratioY = photoDimensions.height / SCREEN_HEIGHT;
-
-      // Adjust for possible orientation swap (portrait vs landscape)
-      const actualRatioX = photoDimensions.width > photoDimensions.height ? ratioY : ratioX;
-      const actualRatioY = photoDimensions.width > photoDimensions.height ? ratioX : ratioY;
-
-      let originX = Math.floor(minX * actualRatioX);
-      let originY = Math.floor(minY * actualRatioY);
-      let cropWidth = Math.floor((maxX - minX) * actualRatioX);
-      let cropHeight = Math.floor((maxY - minY) * actualRatioY);
-
-      // Clamp to image bounds to prevent crashes
-      originX = Math.max(0, Math.min(originX, photoDimensions.width - 1));
-      originY = Math.max(0, Math.min(originY, photoDimensions.height - 1));
-      cropWidth = Math.max(1, Math.min(cropWidth, photoDimensions.width - originX));
-      cropHeight = Math.max(1, Math.min(cropHeight, photoDimensions.height - originY));
-
-      const result = await ImageManipulator.manipulateAsync(
-        capturedImage,
-        [
-          {
-            crop: {
-              originX,
-              originY,
-              width: cropWidth,
-              height: cropHeight,
-            }
-          }
-        ],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-      );
-
-      setCapturedImage(result.uri);
-      setStep('saving');
+      if (status === 'success' && scannedImages && scannedImages.length > 0) {
+        setCapturedImage(scannedImages[0]);
+        setFilteredImageUri(null);
+        setFilterMode('papel');
+        setStep('saving');
+      } else {
+        resetAndClose();
+      }
     } catch (error) {
-      Alert.alert(t('common.error'), t('dashboard.documentScannerModal.error'));
-      setStep('crop');
-    } finally {
-      setIsProcessing(false);
+      console.error(error);
+      Alert.alert(t('common.error'), t('dashboard.documentScannerModal.errorStartScanner'));
+      resetAndClose();
     }
   };
 
   const handleSave = async () => {
     if (!capturedImage || !selectedSubjectId) {
-      Alert.alert(t('common.error'), "Selecciona una materia primero");
+      Alert.alert(t('common.error'), t('dashboard.documentScannerModal.selectSubjectError'));
       return;
     }
+
+    // Safety check for filter extraction
+    if (filterMode === 'pizarron' && !filteredImageUri) {
+       // Si el filtro aún se está aplicando, el usuario presionó guardar muy rápido.
+       // Lo ideal es esperar, pero por seguridad, podemos usar la original o evitar guardar.
+       setIsProcessing(true);
+       // Simularemos un pequeño retraso para permitir que extractImage termine
+       await new Promise(resolve => setTimeout(resolve, 500));
+       if (!filteredImageUri) {
+         Alert.alert(t('common.error'), t('dashboard.documentScannerModal.error'));
+         setIsProcessing(false);
+         return;
+       }
+    }
+
+    const finalImageUri = (filterMode === 'pizarron' && filteredImageUri) ? filteredImageUri : capturedImage;
 
     try {
       setIsProcessing(true);
       await createPhoto({
         subject_id: selectedSubjectId,
-        local_uri: capturedImage,
+        local_uri: finalImageUri,
       });
       
-      if (onSave) onSave(capturedImage, selectedSubjectId);
+      if (onSave) onSave(finalImageUri, selectedSubjectId);
       Alert.alert(t('common.success'), t('dashboard.documentScannerModal.success', { subject: subjects.find(s => s.id === selectedSubjectId)?.name }));
       resetAndClose();
     } catch (error) {
@@ -191,83 +125,55 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   };
 
   const resetAndClose = () => {
-    setStep('capture');
+    setStep('guide');
     setCapturedImage(null);
+    setFilteredImageUri(null);
     setSelectedSubjectId(null);
+    setFilterMode('papel');
     setIsProcessing(false);
+    setIsLevel(false);
     onClose();
   };
 
-  if (!permission?.granted) {
-    return null;
-  }
+  const isSaveDisabled = !selectedSubjectId || isProcessing || (filterMode === 'pizarron' && !filteredImageUri);
 
   return (
     <Modal visible={isVisible} animationType="slide" transparent={false} onRequestClose={resetAndClose}>
       <View style={localStyles.container}>
         
-        {step === 'capture' && (
-          <View style={StyleSheet.absoluteFill}>
-            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
-            <View style={localStyles.overlay}>
-              <View style={localStyles.guideContainer}>
-                <DragonflyIcon size={120} color="rgba(255,255,255,0.2)" />
-                <Text style={localStyles.guideText}>{t('dashboard.documentScannerModal.guide')}</Text>
-              </View>
-              
-              <View style={localStyles.controls}>
-                <TouchableOpacity onPress={resetAndClose} style={localStyles.closeBtn}>
-                  <Ionicons name="close" size={32} color="white" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleCapture} disabled={isProcessing} style={localStyles.captureBtn}>
-                  {isProcessing ? <ActivityIndicator color="white" /> : <View style={localStyles.captureBtnInner} />}
-                </TouchableOpacity>
-                <View style={{ width: 40 }} />
-              </View>
+        {step === 'guide' && (
+          <View style={localStyles.guideScreen}>
+            <View style={localStyles.header}>
+              <TouchableOpacity onPress={resetAndClose} style={localStyles.closeBtn}>
+                <Ionicons name="close" size={28} color={theme.colors.text.secondary} />
+              </TouchableOpacity>
+              <Text style={localStyles.headerTitle}>{t('dashboard.documentScannerModal.preparationTitle')}</Text>
+              <View style={localStyles.headerSpacer} />
             </View>
-          </View>
-        )}
 
-        {step === 'crop' && capturedImage && (
-          <View style={StyleSheet.absoluteFill}>
-            <Image source={{ uri: capturedImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            
-            {/* Draw Polygon connecting the 4 points */}
-            <Svg style={StyleSheet.absoluteFill}>
-              <Polygon
-                points={`
-                  ${pointCoords[0].x + 20},${pointCoords[0].y + 20} 
-                  ${pointCoords[1].x + 20},${pointCoords[1].y + 20} 
-                  ${pointCoords[2].x + 20},${pointCoords[2].y + 20} 
-                  ${pointCoords[3].x + 20},${pointCoords[3].y + 20}
-                `}
-                fill={`${theme.colors.primary}30`}
-                stroke={theme.colors.primary}
-                strokeWidth="2"
-                strokeDasharray="5, 5"
-              />
-            </Svg>
-
-            <View style={localStyles.cropOverlay}>
-              <Text style={localStyles.stepTitle}>{t('dashboard.documentScannerModal.adjust')}</Text>
-              
-              {/* Corner Points */}
-              {points.map((p, i) => (
-                <Animated.View 
-                  key={i}
-                  style={[localStyles.corner, { transform: p.getTranslateTransform() }]}
-                  {...panResponders[i].panHandlers}
-                />
-              ))}
-
-              <View style={localStyles.cropControls}>
-                <TouchableOpacity onPress={() => setStep('capture')} style={localStyles.secondaryBtn}>
-                  <Text style={localStyles.secondaryBtnText}>{t('dashboard.documentScannerModal.retake')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleConfirmCrop} style={localStyles.primaryBtn}>
-                  <Text style={localStyles.primaryBtnText}>{t('dashboard.documentScannerModal.confirm')}</Text>
-                </TouchableOpacity>
+            <View style={localStyles.guideContent}>
+              <View style={[localStyles.levelIndicator, isLevel && localStyles.levelIndicatorActive]}>
+                <View style={[localStyles.levelBubble, isLevel && localStyles.levelBubbleActive]} />
               </View>
+              
+              <Text style={localStyles.guideTitle}>
+                {isLevel ? t('dashboard.documentScannerModal.positionPerfect') : t('dashboard.documentScannerModal.positionParallel')}
+              </Text>
+              <Text style={localStyles.guideSubtitle}>
+                {t('dashboard.documentScannerModal.positionSubtitle')}
+              </Text>
+            </View>
+
+            <View style={localStyles.guideFooter}>
+              <TouchableOpacity 
+                style={[localStyles.launchBtn, isLevel ? localStyles.launchBtnActive : localStyles.launchBtnInactive]} 
+                onPress={launchNativeScanner}
+              >
+                <Ionicons name="scan" size={24} color={isLevel ? "white" : theme.colors.text.secondary} />
+                <Text style={[localStyles.launchBtnText, !isLevel && localStyles.launchBtnTextInactive]}>
+                  {isLevel ? t('dashboard.documentScannerModal.scanButtonReady') : t('dashboard.documentScannerModal.scanButtonNotReady')}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -275,19 +181,59 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
         {step === 'saving' && capturedImage && (
           <View style={localStyles.savingContainer}>
              <View style={localStyles.previewCard}>
-               <Image source={{ uri: capturedImage }} style={localStyles.previewImage} resizeMode="contain" />
+               {filterMode === 'pizarron' ? (
+                 <ColorMatrix
+                   matrix={WHITEBOARD_MATRIX}
+                   extractImageEnabled={true}
+                   onExtractImage={({ nativeEvent }) => {
+                     if (nativeEvent && nativeEvent.uri) {
+                       setFilteredImageUri(nativeEvent.uri);
+                     }
+                   }}
+                   image={<Image source={{ uri: capturedImage }} style={localStyles.previewImage} resizeMode="contain" />}
+                   style={localStyles.previewImage}
+                 />
+               ) : (
+                 <Image source={{ uri: capturedImage }} style={localStyles.previewImage} resizeMode="contain" />
+               )}
                <View style={localStyles.scanEffect} />
              </View>
 
              <Text style={localStyles.stepTitle}>{t('dashboard.documentScannerModal.save')}</Text>
+             
+             <View style={localStyles.modeSelector}>
+               <Text style={localStyles.modeLabel}>{t('dashboard.documentScannerModal.filterModeLabel')}</Text>
+               <View style={localStyles.modeBadges}>
+                 <TouchableOpacity 
+                   style={[localStyles.modeBadge, filterMode === 'papel' && localStyles.modeBadgeActive]}
+                   onPress={() => setFilterMode('papel')}
+                 >
+                   <Text style={[localStyles.modeBadgeText, filterMode === 'papel' && localStyles.modeBadgeTextActive]}>
+                     {t('dashboard.documentScannerModal.filterModePaper')}
+                   </Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   style={[localStyles.modeBadge, filterMode === 'pizarron' && localStyles.modeBadgeActive]}
+                   onPress={() => {
+                     setFilteredImageUri(null); // Reset until the new extract comes
+                     setFilterMode('pizarron');
+                   }}
+                 >
+                   <Text style={[localStyles.modeBadgeText, filterMode === 'pizarron' && localStyles.modeBadgeTextActive]}>
+                     {t('dashboard.documentScannerModal.filterModeWhiteboard')}
+                   </Text>
+                 </TouchableOpacity>
+               </View>
+             </View>
+
              <View style={localStyles.subjectGrid}>
                {subjects.map(s => (
                  <TouchableOpacity 
                    key={s.id} 
-                   style={[localStyles.subjectItem, selectedSubjectId === s.id && { backgroundColor: s.color + '40', borderColor: s.color }]}
+                   style={[localStyles.subjectItem, selectedSubjectId === s.id && { backgroundColor: s.color ? s.color + '40' : undefined, borderColor: s.color || undefined }]}
                    onPress={() => setSelectedSubjectId(s.id)}
                  >
-                   <View style={[styles.subjectBadge, { backgroundColor: s.color || '#CCC', marginBottom: 0, width: 30, height: 30 }]}>
+                   <View style={[styles.subjectBadge, localStyles.subjectBadgeOverride, { backgroundColor: s.color || '#CCC' }]}>
                      <MaterialCommunityIcons name={(s.icon as any) || 'book-outline'} size={18} color={theme.colors.text.primary} />
                    </View>
                    <Text style={localStyles.subjectName} numberOfLines={1}>{s.name}</Text>
@@ -301,8 +247,8 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
                </TouchableOpacity>
                <TouchableOpacity 
                  onPress={handleSave} 
-                 disabled={!selectedSubjectId || isProcessing}
-                 style={[localStyles.primaryBtn, (!selectedSubjectId || isProcessing) && { opacity: 0.5 }]}
+                 disabled={isSaveDisabled}
+                 style={[localStyles.primaryBtn, isSaveDisabled && localStyles.primaryBtnDisabled]}
                >
                  {isProcessing ? <ActivityIndicator color="white" /> : <Text style={localStyles.primaryBtnText}>{t('common.save')}</Text>}
                </TouchableOpacity>
@@ -310,12 +256,10 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
           </View>
         )}
 
-        {(step === 'filter' || isProcessing) && (
+        {isProcessing && (
           <View style={localStyles.loaderOverlay}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={localStyles.loaderText}>
-              {step === 'filter' ? t('dashboard.documentScannerModal.scanFilter') : t('dashboard.documentScannerModal.saving')}
-            </Text>
+            <Text style={localStyles.loaderText}>{t('dashboard.documentScannerModal.saving')}</Text>
           </View>
         )}
 
@@ -323,182 +267,3 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     </Modal>
   );
 };
-
-const globalStyles = {
-  shadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
-  }
-};
-
-const localStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'space-between',
-    padding: 40,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  guideContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  guideText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 20,
-    textAlign: 'center',
-    opacity: 0.8,
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  captureBtn: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 5,
-    borderColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  captureBtnInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'white',
-  },
-  cropOverlay: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'space-between',
-  },
-  stepTitle: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 40,
-  },
-  corner: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderWidth: 3,
-    borderColor: theme.colors.primary,
-    zIndex: 10,
-  },
-  cropControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 20,
-  },
-  primaryBtn: {
-    flex: 1,
-    backgroundColor: theme.colors.primary,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  secondaryBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  secondaryBtnText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  savingContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    padding: 24,
-  },
-  previewCard: {
-    flex: 0.5,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginTop: 20,
-    ...globalStyles.shadow,
-  },
-  previewImage: {
-    flex: 1,
-  },
-  scanEffect: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  subjectGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 20,
-  },
-  subjectItem: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  subjectName: {
-    marginLeft: 8,
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.text.primary,
-    flex: 1,
-  },
-  saveActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 'auto',
-    marginBottom: 20,
-  },
-  loaderOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loaderText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: theme.colors.text.primary,
-    fontWeight: '600',
-  },
-});

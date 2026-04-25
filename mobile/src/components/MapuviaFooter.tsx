@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image } from 'react-native';
+import { mapuviaFooterStyles as styles } from '../styles/MapuviaFooter.styles';
 
 export const MapuviaFooter = () => {
   return (
@@ -17,23 +18,3 @@ export const MapuviaFooter = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 4,
-    paddingBottom: 16,
-    gap: 6, // Spacing between isotipo and logotipo
-    opacity: 0.6, // Hace que se vea como una marca de agua/firma corporativa
-  },
-  isotipo: {
-    width: 18, 
-    height: 18,
-  },
-  logotipo: {
-    width: 90, 
-    height: 18,
-  },
-});

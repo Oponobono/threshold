@@ -42,7 +42,13 @@
       ],
       "expo-sqlite",
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "Threshold necesita acceso para escanear tus apuntes con precisión."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
