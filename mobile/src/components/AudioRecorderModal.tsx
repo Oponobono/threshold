@@ -24,13 +24,14 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
   const { t } = useTranslation();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordings, setRecordings] = useState<RecordingItem[]>([]);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadRecordings();
@@ -45,14 +46,14 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
   }, []);
 
   useEffect(() => {
-    if (isRecording) {
+    if (isRecording && !isPaused) {
       startPulse();
       startTimer();
     } else {
       stopPulse();
       stopTimer();
     }
-  }, [isRecording]);
+  }, [isRecording, isPaused]);
 
   const startPulse = () => {
     pulseAnim.setValue(1);
@@ -80,7 +81,9 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
   };
 
   const startTimer = () => {
-    setRecordingDuration(0);
+    // Don't reset duration if we are resuming from pause
+    if (timerRef.current) clearInterval(timerRef.current);
+    
     timerRef.current = setInterval(() => {
       setRecordingDuration((prev) => prev + 1);
     }, 1000);
@@ -149,9 +152,31 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
       
       setRecording(recording);
       setIsRecording(true);
+      setIsPaused(false);
+      setRecordingDuration(0);
     } catch (err) {
       console.error('Failed to start recording', err);
       Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.recordingError'));
+    }
+  }
+
+  async function pauseRecording() {
+    if (!recording) return;
+    try {
+      await recording.pauseAsync();
+      setIsPaused(true);
+    } catch (error) {
+      console.error('Failed to pause recording', error);
+    }
+  }
+
+  async function resumeRecording() {
+    if (!recording) return;
+    try {
+      await recording.startAsync();
+      setIsPaused(false);
+    } catch (error) {
+      console.error('Failed to resume recording', error);
     }
   }
 
@@ -159,7 +184,9 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
     if (!recording) return;
 
     setIsRecording(false);
+    setIsPaused(false);
     setRecording(null);
+    setRecordingDuration(0);
     
     try {
       await recording.stopAndUnloadAsync();
@@ -284,7 +311,7 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
           <View style={styles.sheetHandle} />
           
           <View style={localStyles.header}>
-            <View>
+            <View style={{ flex: 1, paddingRight: 16 }}>
               <Text style={styles.sheetTitle}>{t('dashboard.audioRecorderModal.title')}</Text>
               <Text style={styles.sheetSubtitle}>{t('dashboard.audioRecorderModal.subtitle')}</Text>
             </View>
@@ -299,25 +326,49 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
                 {formatDuration(recordingDuration)}
               </Text>
               {isRecording && (
-                <Text style={localStyles.statusText}>{t('dashboard.audioRecorderModal.recordingInProgress')}</Text>
+                <Text style={[localStyles.statusText, isPaused && { color: theme.colors.text.secondary }]}>
+                  {isPaused 
+                    ? t('dashboard.audioRecorderModal.recordingPaused') 
+                    : t('dashboard.audioRecorderModal.recordingInProgress')}
+                </Text>
               )}
             </View>
 
-            <TouchableOpacity 
-              onPress={isRecording ? stopRecording : startRecording}
-              activeOpacity={0.8}
-            >
-              <Animated.View style={[
-                localStyles.recordButton,
-                { transform: [{ scale: pulseAnim }] },
-                isRecording && localStyles.recordingButtonActive
-              ]}>
-                <View style={[
-                  localStyles.recordButtonInner,
-                  isRecording && localStyles.recordingButtonInnerActive
-                ]} />
-              </Animated.View>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 }}>
+              {isRecording && (
+                <TouchableOpacity 
+                  onPress={isPaused ? resumeRecording : pauseRecording}
+                  activeOpacity={0.7}
+                  style={localStyles.secondaryRecordBtn}
+                >
+                  <Ionicons 
+                    name={isPaused ? "play" : "pause"} 
+                    size={24} 
+                    color={theme.colors.text.secondary} 
+                  />
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity 
+                onPress={isRecording ? stopRecording : startRecording}
+                activeOpacity={0.8}
+              >
+                <Animated.View style={[
+                  localStyles.recordButton,
+                  { transform: [{ scale: pulseAnim }] },
+                  isRecording && localStyles.recordingButtonActive
+                ]}>
+                  <View style={[
+                    localStyles.recordButtonInner,
+                    isRecording && localStyles.recordingButtonInnerActive
+                  ]} />
+                </Animated.View>
+              </TouchableOpacity>
+
+              {isRecording && (
+                <View style={{ width: 44 }} /> /* Spacer to balance the layout */
+              )}
+            </View>
             
             <Text style={localStyles.hintText}>
               {isRecording 
@@ -358,6 +409,8 @@ const localStyles = StyleSheet.create({
   },
   closeBtn: {
     padding: 4,
+    marginRight: -4,
+    marginTop: -8, // Lo sube ligeramente
   },
   recorderContainer: {
     alignItems: 'center',
@@ -407,6 +460,14 @@ const localStyles = StyleSheet.create({
     borderRadius: 8,
     width: 30,
     height: 30,
+  },
+  secondaryRecordBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.border + '40',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   hintText: {
     marginTop: 16,

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   Easing,
   FlatList,
   Modal,
@@ -14,6 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import {
@@ -60,8 +62,13 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
   const [cardBack, setCardBack] = useState('');
   const [isSavingCard, setIsSavingCard] = useState(false);
 
-  // Flip animation
+  // Feedback State
+  const [selectedFeedback, setSelectedFeedback] = useState<'learning' | 'review' | null>(null);
+  const [answerRevealed, setAnswerRevealed] = useState(false);
+
+  // Flip and Reaction animations
   const flipAnim = useRef(new Animated.Value(0)).current;
+  const reactionAnim = useRef(new Animated.Value(0)).current;
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -78,6 +85,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     if (isVisible) {
       loadDecks();
       setScreen('hub');
+      setAnswerRevealed(false);
     }
   }, [isVisible]);
 
@@ -99,38 +107,68 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
       setCardIndex(0);
       setIsFlipped(false);
       setSessionDone(false);
+      setSelectedFeedback(null);
       setActiveDeck(deck);
       flipAnim.setValue(0);
+      reactionAnim.setValue(0);
+      setAnswerRevealed(false);
       setScreen('study');
     } catch (e) {
       console.warn('Error loading cards:', e);
     }
   };
 
+  const goBackToHub = () => {
+    loadDecks();
+    setScreen('hub');
+  };
+
   const handleFlip = () => {
-    const toValue = isFlipped ? 0 : 1;
-    Animated.timing(flipAnim, {
-      toValue,
-      duration: 420,
-      easing: Easing.out(Easing.cubic),
+    const nextFlipped = !isFlipped;
+    
+    // Animación de la tarjeta con spring para física más orgánica
+    Animated.spring(flipAnim, {
+      toValue: nextFlipped ? 1 : 0,
+      friction: 8,
+      tension: 40,
       useNativeDriver: true,
-    }).start(() => setIsFlipped(!isFlipped));
+    }).start(() => setIsFlipped(nextFlipped));
+
+    if (nextFlipped && !answerRevealed) {
+      setAnswerRevealed(true);
+      // Secuencia de reacciones (Duda -> Asombro -> Botones) al mostrar reverso
+      Animated.sequence([
+        Animated.timing(reactionAnim, { toValue: 1, duration: 200, easing: Easing.ease, useNativeDriver: true }),
+        // Mantenemos la cara de Eureka por el tiempo de delay mientras el usuario lee la respuesta
+        Animated.delay(500),
+        Animated.timing(reactionAnim, { toValue: 2, duration: 400, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true })
+      ]).start();
+    }
   };
 
   const handleFeedback = async (status: 'learning' | 'review') => {
+    if (selectedFeedback) return;
+    setSelectedFeedback(status);
+
     const card = cards[cardIndex];
     try {
       await updateFlashcardStatus(card.id, status);
     } catch (_) {}
 
-    const next = cardIndex + 1;
-    if (next >= cards.length) {
-      setSessionDone(true);
-    } else {
-      setIsFlipped(false);
-      flipAnim.setValue(0);
-      setCardIndex(next);
-    }
+    // Esperar 1.2 segundos para procesar visualmente el botón
+    setTimeout(() => {
+      const next = cardIndex + 1;
+      if (next >= cards.length) {
+        setSessionDone(true);
+      } else {
+        setIsFlipped(false);
+        flipAnim.setValue(0);
+        reactionAnim.setValue(0);
+        setAnswerRevealed(false);
+        setCardIndex(next);
+      }
+      setSelectedFeedback(null);
+    }, 1200);
   };
 
   // ── Create deck ────────────────────────────────────────────────────────────
@@ -173,18 +211,14 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     }
   };
 
-  // ── Flip interpolations ────────────────────────────────────────────────────
-
-  const frontRotate = flipAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-  const backRotate = flipAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['180deg', '360deg'],
-  });
-  const frontOpacity = flipAnim.interpolate({ inputRange: [0, 0.49, 0.5, 1], outputRange: [1, 1, 0, 0] });
-  const backOpacity  = flipAnim.interpolate({ inputRange: [0, 0.49, 0.5, 1], outputRange: [0, 0, 1, 1] });
+  // ── Animations ─────────────────────────────────────────────────────────────
+  // Perspectiva para dar profundidad real al giro 3D
+  const frontRotate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+  const backRotate  = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
+  const frontOpacity = flipAnim.interpolate({ inputRange: [0, 0.5, 0.51, 1], outputRange: [1, 1, 0, 0] });
+  const backOpacity  = flipAnim.interpolate({ inputRange: [0, 0.5, 0.51, 1], outputRange: [0, 0, 1, 1] });
+  // Escala que "comprime" la tarjeta en el punto medio del volteo (efecto físico)
+  const cardScale = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.94, 1] });
 
   // ── Render screens ─────────────────────────────────────────────────────────
 
@@ -212,7 +246,8 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
         <FlatList
           data={decks}
           keyExtractor={(d) => d.id.toString()}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          style={{ maxHeight: 280 }}
+          contentContainerStyle={{ paddingBottom: 8 }}
           renderItem={({ item }) => (
             <TouchableOpacity style={s.deckCard} activeOpacity={0.75} onPress={() => openStudySession(item)}>
               <View style={[s.deckBadge, { backgroundColor: (item as any).subject_color || '#DDE7FF' }]}>
@@ -224,9 +259,27 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.deckTitle}>{item.title}</Text>
-                <Text style={s.deckMeta} numberOfLines={1}>
-                  {(item as any).subject_name} · {(item as any).card_count ?? 0} {t('flashcards.cards')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={s.deckMeta} numberOfLines={1}>
+                    {item.subject_name}
+                  </Text>
+                </View>
+                {/* Visual Breakdown */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 12 }}>
+                  <Text style={{ fontSize: 11, color: theme.colors.text.secondary }}>
+                    {item.card_count ?? 0} {t('flashcards.cards')}
+                  </Text>
+                  {((item.card_count ?? 0) > 0) && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '600' }}>
+                        ✓ {item.review_count ?? 0}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: '#FF9800', fontWeight: '600' }}>
+                        💪 {(item.learning_count ?? 0) + (item.new_count ?? 0)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
               <TouchableOpacity
                 style={s.addCardBtn}
@@ -254,7 +307,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
           <Text style={s.sessionDoneEmoji}>🌟</Text>
           <Text style={s.sessionDoneTitle}>{t('flashcards.sessionDone')}</Text>
           <Text style={s.sessionDoneSubtitle}>{t('flashcards.sessionDoneMsg', { count: cards.length })}</Text>
-          <TouchableOpacity style={s.newDeckBtn} onPress={() => setScreen('hub')}>
+          <TouchableOpacity style={s.newDeckBtn} onPress={goBackToHub}>
             <Text style={s.newDeckBtnText}>{t('flashcards.backToDecks')}</Text>
           </TouchableOpacity>
         </View>
@@ -262,10 +315,10 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     }
 
     return (
-      <View style={{ flex: 1 }}>
+      <View style={{ paddingBottom: 8 }}>
         {/* Header */}
         <View style={s.studyHeader}>
-          <TouchableOpacity onPress={() => setScreen('hub')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity onPress={goBackToHub} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="arrow-back" size={22} color={theme.colors.text.primary} />
           </TouchableOpacity>
           <Text style={s.studyDeckTitle} numberOfLines={1}>{activeDeck?.title}</Text>
@@ -280,7 +333,10 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
         {/* Card flip area */}
         <TouchableOpacity activeOpacity={0.95} onPress={handleFlip} style={s.flipWrapper}>
           {/* Front */}
-          <Animated.View style={[s.card, s.cardFront, { opacity: frontOpacity, transform: [{ rotateY: frontRotate }] }]}>
+          <Animated.View style={[
+            s.card, s.cardFront,
+            { opacity: frontOpacity, transform: [{ perspective: 1000 }, { rotateY: frontRotate }, { scale: cardScale }] }
+          ]}>
             <Text style={s.cardHint}>{t('flashcards.front')}</Text>
             <Text style={s.cardText}>{card.front}</Text>
             <View style={s.tapHint}>
@@ -290,23 +346,74 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
           </Animated.View>
 
           {/* Back */}
-          <Animated.View style={[s.card, s.cardBack, { opacity: backOpacity, transform: [{ rotateY: backRotate }] }]}>
+          <Animated.View style={[
+            s.card, s.cardBack,
+            { opacity: backOpacity, transform: [{ perspective: 1000 }, { rotateY: backRotate }, { scale: cardScale }] }
+          ]}>
             <Text style={s.cardHint}>{t('flashcards.back')}</Text>
             <Text style={s.cardText}>{card.back}</Text>
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Feedback buttons — only show after flip */}
-        {isFlipped && (
-          <View style={s.feedbackRow}>
-            <TouchableOpacity style={[s.feedbackBtn, s.feedbackBtnHard]} onPress={() => handleFeedback('learning')}>
-              <Text style={s.feedbackBtnTextDark}>😅 {t('flashcards.hard')}</Text>
+        {/* Feedback area with fixed height to prevent layout jumps */}
+        <View style={s.feedbackArea}>
+          {/* 1. Pensativo (0 a 0.5) */}
+          <Animated.View style={[s.reactionAbsolute, { 
+            opacity: reactionAnim.interpolate({ inputRange: [0, 0.4], outputRange: [1, 0] }) 
+          }]}>
+            <LottieView 
+              source={require('../lottieFiles/thinking.json')}
+              autoPlay
+              loop
+              style={{ width: 80, height: 80 }}
+            />
+          </Animated.View>
+
+          {/* 2. Asombro (0.5 a 1.5) */}
+          <Animated.View style={[s.reactionAbsolute, { 
+            opacity: reactionAnim.interpolate({ inputRange: [0.4, 1, 1.5], outputRange: [0, 1, 0] }),
+            transform: [{ scale: reactionAnim.interpolate({ inputRange: [0.4, 1], outputRange: [0.5, 1.2], extrapolate: 'clamp' }) }]
+          }]}>
+            <LottieView 
+              key={`eureka-${cardIndex}`}
+              source={require('../lottieFiles/eureka.json')}
+              autoPlay
+              loop={false}
+              style={{ width: 80, height: 80 }}
+            />
+          </Animated.View>
+
+          {/* 3. Botones (1.5 a 2) */}
+          <Animated.View style={[s.reactionAbsolute, s.feedbackRow, { 
+            opacity: reactionAnim.interpolate({ inputRange: [1.5, 2], outputRange: [0, 1] }),
+            transform: [{ scale: reactionAnim.interpolate({ inputRange: [1.5, 2], outputRange: [0.9, 1], extrapolate: 'clamp' }) }]
+          }]}>
+            <TouchableOpacity 
+              style={[
+                s.feedbackBtn, 
+                s.feedbackBtnHard, 
+                selectedFeedback && selectedFeedback !== 'learning' && { opacity: 0.3 }
+              ]} 
+              onPress={() => handleFeedback('learning')}
+              disabled={!!selectedFeedback}
+            >
+              <MaterialCommunityIcons name="brain" size={26} color="#FF9800" style={{ marginBottom: 6 }} />
+              <Text style={[s.feedbackBtnTextDark, { color: '#FF9800', fontWeight: '700', fontSize: 13 }]}>{t('flashcards.hard')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.feedbackBtn, s.feedbackBtnEasy]} onPress={() => handleFeedback('review')}>
-              <Text style={s.feedbackBtnTextDark}>✅ {t('flashcards.easy')}</Text>
+            <TouchableOpacity 
+              style={[
+                s.feedbackBtn, 
+                s.feedbackBtnEasy, 
+                selectedFeedback && selectedFeedback !== 'review' && { opacity: 0.3 }
+              ]} 
+              onPress={() => handleFeedback('review')}
+              disabled={!!selectedFeedback}
+            >
+              <MaterialCommunityIcons name="check-decagram" size={26} color="#4CAF50" style={{ marginBottom: 6 }} />
+              <Text style={[s.feedbackBtnTextDark, { color: '#4CAF50', fontWeight: '700', fontSize: 13 }]}>{t('flashcards.easy')}</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          </Animated.View>
+        </View>
       </View>
     );
   };
@@ -428,6 +535,10 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+// Altura fija calculada a partir del contenido exacto del modal de repaso:
+// padding(24) + handle(20) + header(66) + progress(28) + card(264) + feedbackArea(76) + paddingBottom(28) = 506px
+const SHEET_HEIGHT = Math.min(506, Dimensions.get('window').height * 0.80);
+
 const s = StyleSheet.create({
   backdrop: {
     flex: 1,
@@ -439,8 +550,8 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
-    paddingBottom: 36,
-    maxHeight: '92%',
+    paddingBottom: 28,
+    height: SHEET_HEIGHT,
   },
   handle: {
     width: 42,
@@ -486,6 +597,7 @@ const s = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderRadius: 14,
     paddingVertical: 13,
+    paddingHorizontal: 20,
     marginBottom: 20,
   },
   newDeckBtnText: {
@@ -628,6 +740,19 @@ const s = StyleSheet.create({
   tapHintText: {
     fontSize: 11,
     color: theme.colors.text.placeholder,
+  },
+  feedbackArea: {
+    height: 76,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionAbsolute: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   feedbackRow: {
     flexDirection: 'row',

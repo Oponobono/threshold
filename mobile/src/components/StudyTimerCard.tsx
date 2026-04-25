@@ -49,7 +49,7 @@ export const StudyTimerCard: React.FC<StudyTimerCardProps> = ({ onOpenConfig, on
   }, [refreshTrigger]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     if (isActive && !isPaused) {
       startBreathing();
@@ -176,8 +176,17 @@ export const StudyTimerCard: React.FC<StudyTimerCardProps> = ({ onOpenConfig, on
 
   const handleTimerComplete = async () => {
     setIsActive(false);
+    setIsPaused(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onFinish(totalSeconds - remainingSeconds, subjectId);
+    
+    // Reset timer state
+    if (mode === 'pomodoro') {
+      setRemainingSeconds(totalSeconds);
+    } else {
+      setRemainingSeconds(0);
+    }
+    
     await AsyncStorage.removeItem(TIMER_STORAGE_KEY);
   };
 
@@ -244,9 +253,17 @@ export const StudyTimerCard: React.FC<StudyTimerCardProps> = ({ onOpenConfig, on
         <View style={localStyles.infoContainer}>
           <Text style={localStyles.timeText}>{formatTime(remainingSeconds)}</Text>
           {isActive ? (
-            <TouchableOpacity style={localStyles.controlBtn} onPress={togglePause}>
-              <Ionicons name={isPaused ? "play" : "pause"} size={20} color="#D4AF37" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity style={localStyles.controlBtn} onPress={togglePause}>
+                <Ionicons name={isPaused ? "play" : "pause"} size={20} color="#D4AF37" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[localStyles.controlBtn, { borderColor: theme.colors.text.error + '30' }]} 
+                onPress={handleTimerComplete}
+              >
+                <Ionicons name="stop" size={18} color={theme.colors.text.error} />
+              </TouchableOpacity>
+            </View>
           ) : (
             <Text style={localStyles.startText}>{t('dashboard.startBtn')}</Text>
           )}

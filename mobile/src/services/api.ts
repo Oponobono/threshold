@@ -54,11 +54,20 @@ const DEFAULT_LAN_IP =
 
 const API_PORTS = [3000, 3001];
 
-// Si existe EXPO_PUBLIC_API_URL, lo usamos como prioridad (Producción)
-// Si no, construimos las URLs locales para desarrollo
-const API_BASE_URLS = process.env.EXPO_PUBLIC_API_URL 
-  ? [process.env.EXPO_PUBLIC_API_URL]
-  : API_PORTS.map((port) => `http://${DEFAULT_LAN_IP}:${port}/api`);
+// En desarrollo (__DEV__), priorizamos la red local y usamos la nube (Render) como plan B.
+// En producción, forzamos usar solo la URL de la nube si existe.
+let API_BASE_URLS: string[] = [];
+
+if (__DEV__) {
+  API_BASE_URLS = API_PORTS.map((port) => `http://${DEFAULT_LAN_IP}:${port}/api`);
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    API_BASE_URLS.push(process.env.EXPO_PUBLIC_API_URL);
+  }
+} else {
+  API_BASE_URLS = process.env.EXPO_PUBLIC_API_URL 
+    ? [process.env.EXPO_PUBLIC_API_URL]
+    : API_PORTS.map((port) => `http://${DEFAULT_LAN_IP}:${port}/api`);
+}
 
 let activeBaseUrl = API_BASE_URLS[0];
 
@@ -465,6 +474,13 @@ export interface FlashcardDeck {
   title: string;
   description: string;
   created_at: string;
+  card_count?: number;
+  review_count?: number;
+  learning_count?: number;
+  new_count?: number;
+  subject_name?: string;
+  subject_color?: string;
+  subject_icon?: string;
 }
 
 export interface Flashcard {
@@ -477,32 +493,48 @@ export interface Flashcard {
 }
 
 export const getFlashcardDecks = async (): Promise<FlashcardDeck[]> => {
-  return await fetchWithFallback('/flashcard-decks');
+  const userId = await getUserId();
+  const response = await fetchWithFallback(`/flashcard-decks?user_id=${userId}`);
+  return (await parseJsonSafely(response)) || [];
 };
 
 export const createFlashcardDeck = async (payload: { subject_id: number; title: string; description?: string }) => {
-  return await fetchWithFallback('/flashcard-decks', {
+  const userId = await getUserId();
+  const payloadWithUser = { ...payload, user_id: userId };
+  
+  const response = await fetchWithFallback('/flashcard-decks', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payloadWithUser),
   });
+  const data = await parseJsonSafely(response);
+  if (!response.ok) throw new Error(data?.error || 'Error al crear el mazo');
+  return data;
 };
 
 export const getFlashcards = async (deckId: number): Promise<Flashcard[]> => {
-  return await fetchWithFallback(`/flashcard-decks/${deckId}/cards`);
+  const response = await fetchWithFallback(`/flashcard-decks/${deckId}/cards`);
+  return (await parseJsonSafely(response)) || [];
 };
 
 export const createFlashcard = async (payload: { deck_id: number; front: string; back: string }) => {
-  return await fetchWithFallback(`/flashcard-decks/${payload.deck_id}/cards`, {
+  const response = await fetchWithFallback(`/flashcard-decks/${payload.deck_id}/cards`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  const data = await parseJsonSafely(response);
+  if (!response.ok) throw new Error(data?.error || 'Error al crear tarjeta');
+  return data;
 };
 
 export const updateFlashcardStatus = async (cardId: number, status: string) => {
-  return await fetchWithFallback(`/flashcards/${cardId}`, {
+  const response = await fetchWithFallback(`/flashcards/${cardId}`, {
     method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
+  return await parseJsonSafely(response);
 };
 
 /**
