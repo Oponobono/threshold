@@ -966,7 +966,7 @@ export default function HybridDashboardScreen() {
                   <MaterialCommunityIcons name="camera-outline" size={24} color="#FF9500" />
                 </View>
                 <View style={styles.quickAddMenuInfo}>
-                  <Text style={styles.quickAddMenuText}>{t('dashboard.quickAddMenu.takePhoto')}</Text>
+                  <Text style={styles.quickAddMenuText}>{t('dashboard.quickAddMenu.takePhotoLabel')}</Text>
                   <Text style={styles.quickAddMenuSubtext}>{t('dashboard.quickAddMenu.takePhotoSubtext')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={theme.colors.text.placeholder} style={styles.quickAddMenuChevron} />

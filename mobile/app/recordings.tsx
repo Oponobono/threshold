@@ -28,6 +28,7 @@ export default function RecordingsScreen() {
     stopSound,
     deleteRecording,
     formatDuration,
+    loadRecordings,
   } = useAudioRecorder();
 
   useEffect(() => {
@@ -37,6 +38,15 @@ export default function RecordingsScreen() {
       stopPulse();
     }
   }, [isRecording, isPaused]);
+
+  // Auto-refresh list when recording stops
+  const prevIsRecording = useRef(isRecording);
+  useEffect(() => {
+    if (prevIsRecording.current === true && isRecording === false) {
+      setTimeout(() => loadRecordings(), 800);
+    }
+    prevIsRecording.current = isRecording;
+  }, [isRecording]);
 
   const startPulse = () => {
     pulseAnim.setValue(1);

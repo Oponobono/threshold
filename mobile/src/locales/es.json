@@ -310,8 +310,12 @@
       "registerGradeSubtext": "Guarda una nueva nota en tu historial",
       "newTask": "Nueva tarea",
       "newTaskSubtext": "Agrega un recordatorio o pendiente",
-      "takePhoto": "Tomar foto",
+      "takePhotoLabel": "Tomar foto",
       "takePhotoSubtext": "Captura la pizarra o tus apuntes",
+      "takePhoto": {
+        "success": "📸 Foto guardada exitosamente",
+        "error": "No se pudo guardar la foto"
+      },
       "cameraSoonTitle": "Cámara próximamente",
       "cameraSoonMessage": "El escaneo de fotos estará disponible en la próxima actualización.",
       "camera": {
