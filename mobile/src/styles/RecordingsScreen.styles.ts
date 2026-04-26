@@ -1,0 +1,116 @@
+import { StyleSheet } from 'react-native';
+import { theme } from './theme';
+
+export const recordingsStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: theme.colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+  },
+  backBtn: {
+    padding: 4,
+  },
+  listContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+  },
+  recorderContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.card,
+    padding: 20,
+    paddingBottom: 40,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 10,
+    alignItems: 'center',
+  },
+  timerContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timerText: {
+    fontSize: 28,
+    fontWeight: '300',
+    color: theme.colors.text.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  statusText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  recordButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${theme.colors.text.error}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.text.error,
+  },
+  recordingButtonActive: {
+    backgroundColor: `${theme.colors.text.error}30`,
+    borderWidth: 0,
+  },
+  recordButtonInner: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.text.error,
+  },
+  recordingButtonInnerActive: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+  },
+  secondaryRecordBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  hintText: {
+    marginTop: 16,
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+  },
+});
