@@ -33,7 +33,16 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
 
   useEffect(() => {
     if (isVisible && photos.length > 0) {
-      setCurrentIndex(Math.min(initialIndex, photos.length - 1));
+      const index = Math.min(initialIndex, photos.length - 1);
+      setCurrentIndex(index);
+      
+      // Asegurar que la lista se desplace al índice correcto al abrir
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({
+          index,
+          animated: false,
+        });
+      }, 100);
     }
   }, [isVisible, initialIndex, photos.length]);
 
@@ -142,6 +151,11 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
           getItemLayout={(data, index) => ({ length: width, offset: width * index, index })}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+            }, 500);
+          }}
         />
       </View>
     </Modal>
