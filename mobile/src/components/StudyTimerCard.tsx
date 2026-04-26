@@ -179,13 +179,13 @@ export const StudyTimerCard: React.FC<StudyTimerCardProps> = ({ onOpenConfig, on
     setIsActive(false);
     setIsPaused(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onFinish(totalSeconds - remainingSeconds, subjectId);
+    onFinish(mode === 'pomodoro' ? totalSeconds - remainingSeconds : remainingSeconds, subjectId);
     
-    // Reset timer state
+    // Reset timer display to start state for each mode
     if (mode === 'pomodoro') {
-      setRemainingSeconds(totalSeconds);
+      setRemainingSeconds(totalSeconds); // Pomodoro vuelve al tiempo configurado
     } else {
-      setRemainingSeconds(0);
+      setRemainingSeconds(0); // Threshold vuelve a 0
     }
     
     await AsyncStorage.removeItem(TIMER_STORAGE_KEY);

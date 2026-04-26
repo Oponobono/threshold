@@ -1357,14 +1357,13 @@ export default function HybridDashboardScreen() {
         subjects={subjects}
         viewState={timerViewState}
         onStart={(config) => {
-          // Logic to start timer in StudyTimerCard is handled by shared storage or refs
-          // For now, let's trigger a reload in the card by saving to AsyncStorage
+          const initialRemaining = config.mode === 'threshold' ? 0 : config.duration;
           AsyncStorage.setItem('@threshold_timer_state', JSON.stringify({
             isActive: true,
             isPaused: false,
             mode: config.mode,
             totalSeconds: config.duration,
-            remainingSeconds: config.duration,
+            remainingSeconds: initialRemaining,
             subjectId: config.subjectId,
             lastSyncTime: Date.now(),
           })).then(() => {
