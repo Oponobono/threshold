@@ -310,8 +310,12 @@
       "registerGradeSubtext": "Record a new grade in your history",
       "newTask": "New Task",
       "newTaskSubtext": "Add a reminder or pending item",
-      "takePhoto": "Take Photo",
+      "takePhotoLabel": "Take Photo",
       "takePhotoSubtext": "Capture whiteboard or your notes",
+      "takePhoto": {
+        "success": "📸 Photo saved successfully",
+        "error": "Could not save the photo"
+      },
       "cameraSoonTitle": "Camera Coming Soon",
       "cameraSoonMessage": "Photo scan will be available in the next update.",
       "camera": {

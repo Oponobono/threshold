@@ -97,7 +97,8 @@ export default function SubjectDetailScreen() {
         if (assessmentsRes.status === 'fulfilled') setAssessments((assessmentsRes.value || []) as Assessment[]);
         if (schedulesRes.status === 'fulfilled') setSubjectSchedules(schedulesRes.value || []);
         if (recordingsRes.status === 'fulfilled') {
-          const filtered = recordingsRes.value.filter(r => r.subject_id === subjectId).slice(0, 3);
+          // eslint-disable-next-line eqeqeq
+          const filtered = recordingsRes.value.filter(r => r.subject_id == subjectId).slice(0, 3);
           setRecentRecordings(
             filtered.map(rec => ({
               ...rec,

@@ -43,6 +43,16 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
     }
   }, [isVisible]);
 
+  // Reload recordings right after a recording stops (transition: recording → stopped)
+  const prevIsRecordingRef = React.useRef(isRecording);
+  useEffect(() => {
+    if (prevIsRecordingRef.current === true && isRecording === false) {
+      // Small delay so stopRecording finishes saving to DB before we fetch
+      setTimeout(() => loadRecordings(), 800);
+    }
+    prevIsRecordingRef.current = isRecording;
+  }, [isRecording]);
+
   useEffect(() => {
     if (isRecording && !isPaused) {
       startPulse();
