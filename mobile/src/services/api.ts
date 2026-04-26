@@ -678,3 +678,21 @@ export const getPhotosBySubject = async (subjectId: number): Promise<Photo[]> =>
     return [];
   }
 };
+
+/**
+ * Elimina una foto por ID
+ */
+export const deletePhoto = async (photoId: number) => {
+  try {
+    const response = await fetchWithFallback(`/photos/${photoId}`, {
+      method: 'DELETE',
+    });
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Error al eliminar la foto');
+    }
+    return data;
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al intentar eliminar la foto');
+  }
+};

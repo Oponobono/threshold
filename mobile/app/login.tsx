@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Switch, Animated, Easing } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Animated, Easing, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -9,7 +10,6 @@ import { theme } from '../src/styles/theme';
 import { CustomInput } from '../src/components/CustomInput';
 import { CustomButton } from '../src/components/CustomButton';
 import { FeatureCarousel } from '../src/components/FeatureCarousel';
-import { DragonflyIcon } from '../src/components/DragonflyIcon';
 import { MapuviaFooter } from '../src/components/MapuviaFooter';
 import { trackGuestVisit, loginUser, enrollBiometric, biometricLogin, getUserId } from '../src/services/api';
 import { enrollBiometricToken, authenticateWithBiometrics, hasBiometricTokenStored, isBiometricAvailable } from '../src/services/biometricService';
@@ -205,7 +205,11 @@ export default function LoginScreen() {
         {/* Brand Header (Transición desde Splash) */}
         <View style={loginStyles.brandHeaderContainer}>
           <View style={loginStyles.titleRow}>
-            <DragonflyIcon size={38} color="#1A1A1A" style={loginStyles.brandLogo} />
+            <Image 
+              source={require('../assets/images/icon.png')} 
+              style={[loginStyles.brandLogo, { width: 38, height: 38 }]}
+              resizeMode="contain"
+            />
             <Text style={loginStyles.brandAppName}>hreshold</Text>
           </View>
           

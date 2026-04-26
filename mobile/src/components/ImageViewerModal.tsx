@@ -1,0 +1,151 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Modal, TouchableOpacity, Image, FlatList, Dimensions, Share, Alert, ActionSheetIOS, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { deletePhoto } from '../services/api';
+import { styles } from '../styles/ImageViewerModal.styles';
+
+const { width, height } = Dimensions.get('window');
+
+interface PhotoItem {
+  id?: number;
+  local_uri: string;
+}
+
+interface ImageViewerModalProps {
+  isVisible: boolean;
+  photos: PhotoItem[];
+  initialIndex?: number;
+  onClose: () => void;
+  onPhotoDeleted: (id: number) => void;
+}
+
+export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
+  isVisible,
+  photos,
+  initialIndex = 0,
+  onClose,
+  onPhotoDeleted
+}) => {
+  const { t } = useTranslation();
+  const flatListRef = useRef<FlatList>(null);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  useEffect(() => {
+    if (isVisible && photos.length > 0) {
+      setCurrentIndex(Math.min(initialIndex, photos.length - 1));
+    }
+  }, [isVisible, initialIndex, photos.length]);
+
+  const handleShare = async (uri: string) => {
+    try {
+      await Share.share({
+        url: uri, // works well on iOS for local files
+        message: t('subjects.photoShareMessage') || 'Mira esta foto',
+      });
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error.message);
+    }
+  };
+
+  const handleDelete = async (photoId: number) => {
+    Alert.alert(
+      t('common.delete') || 'Eliminar',
+      t('subjects.deletePhotoConfirm') || '¿Estás seguro de que quieres eliminar esta foto?',
+      [
+        { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
+        { 
+          text: t('common.delete') || 'Eliminar', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deletePhoto(photoId);
+              onPhotoDeleted(photoId);
+              if (photos.length <= 1) {
+                onClose(); // Cerrar si no quedan más fotos
+              }
+            } catch (error) {
+              Alert.alert(t('common.error'), t('subjects.deletePhotoError') || 'Error al eliminar');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const showOptions = () => {
+    const currentPhoto = photos[currentIndex];
+    if (!currentPhoto) return;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [t('common.cancel') || 'Cancelar', t('common.share') || 'Compartir', t('common.delete') || 'Eliminar'],
+          destructiveButtonIndex: 2,
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            handleShare(currentPhoto.local_uri);
+          } else if (buttonIndex === 2) {
+            if (currentPhoto.id) handleDelete(currentPhoto.id);
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        t('common.options') || 'Opciones',
+        '',
+        [
+          { text: t('common.share') || 'Compartir', onPress: () => handleShare(currentPhoto.local_uri) },
+          { text: t('common.delete') || 'Eliminar', onPress: () => currentPhoto.id && handleDelete(currentPhoto.id), style: 'destructive' },
+          { text: t('common.cancel') || 'Cancelar', style: 'cancel' }
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
+  const renderItem = ({ item }: { item: PhotoItem }) => (
+    <View style={styles.imageContainer}>
+      <Image source={{ uri: item.local_uri }} style={styles.image} resizeMode="contain" />
+    </View>
+  );
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  return (
+    <Modal visible={isVisible} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={showOptions} style={styles.iconButton}>
+            <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        
+        <FlatList
+          ref={flatListRef}
+          data={photos}
+          keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          renderItem={renderItem}
+          initialScrollIndex={initialIndex}
+          getItemLayout={(data, index) => ({ length: width, offset: width * index, index })}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+        />
+      </View>
+    </Modal>
+  );
+};
+
+
