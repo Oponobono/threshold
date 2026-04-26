@@ -1,7 +1,72 @@
+
 import { StyleSheet } from 'react-native';
 import { theme } from './theme';
 
 export const detailStyles = StyleSheet.create({
+    tabRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 16,
+      marginTop: 8,
+      marginBottom: 0,
+    },
+    tabIcon: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+      borderRadius: 16,
+      paddingVertical: 8,
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginHorizontal: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    tabIconActive: {
+      backgroundColor: theme.colors.card,
+      borderColor: theme.colors.primary,
+      shadowOpacity: 0.07,
+      elevation: 2,
+    },
+    tabLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginLeft: 8,
+    },
+    tutorialBox: {
+      backgroundColor: theme.colors.card,
+      borderRadius: 14,
+      padding: 14,
+      marginTop: 18,
+      marginBottom: 0,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignSelf: 'center',
+      maxWidth: 400,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    tutorialText: {
+      color: theme.colors.text.secondary,
+      fontSize: 14,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    transcriptionHint: {
+      color: theme.colors.text.placeholder,
+      fontSize: 15,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
