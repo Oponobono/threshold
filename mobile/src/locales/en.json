@@ -43,6 +43,12 @@
     "cancel": "Cancel",
     "save": "Save",
     "saving": "Saving...",
+    "delete": "Delete",
+    "options": "Options",
+    "share": "Share",
+    "retake": "Retake",
+    "preview": "Preview",
+    "grantPermission": "Grant permission",
     "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "features": {
@@ -202,7 +208,8 @@
           "error": "An error occurred while processing the audio. Please try again.",
           "emptyTranscription": "No transcription yet. Tap to generate.",
           "emptySummary": "No summary yet. Tap to generate.",
-          "loading": "Processing..."
+          "loading": "Processing...",
+          "recording": "Recording"
         },
       "fileLabel": "Recording {{date}}",
       "emptyState": "Press the red button to start recording your first voice note."

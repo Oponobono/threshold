@@ -43,6 +43,12 @@
     "cancel": "Cancelar",
     "save": "Guardar",
     "saving": "Guardando...",
+    "delete": "Eliminar",
+    "options": "Opciones",
+    "share": "Compartir",
+    "retake": "Reintentar",
+    "preview": "Vista previa",
+    "grantPermission": "Dar permiso",
     "daysShort": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
   },
   "features": {
@@ -202,7 +208,8 @@
           "error": "Ocurrió un error al procesar el audio. Intenta de nuevo.",
           "emptyTranscription": "Aún no hay transcripción. Pulsa para generar.",
           "emptySummary": "Aún no hay resumen. Pulsa para generar.",
-          "loading": "Procesando..."
+          "loading": "Procesando...",
+          "recording": "Grabación"
         },
       "fileLabel": "Grabación {{date}}",
       "emptyState": "Pulsa el botón rojo para comenzar a grabar tu primera nota de voz."

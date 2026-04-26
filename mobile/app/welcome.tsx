@@ -56,8 +56,8 @@ export default function WelcomeScreen() {
         <Animated.View style={[styles.logoContainer, { opacity: fadeTitle }]}>
           <View style={styles.titleRow}>
             <Image 
-              source={require('../assets/images/icon.png')} 
-              style={[styles.logoIcon, { width: 46, height: 46 }]}
+              source={require('../src/images/logo_threshold.png')} 
+              style={[styles.logoIcon, { width: 52, height: 52 }]}
               resizeMode="contain"
             />
             <Text style={styles.appName}>hreshold</Text>
