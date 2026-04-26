@@ -268,15 +268,15 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
                 {/* Visual Breakdown */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 12 }}>
                   <Text style={{ fontSize: 11, color: theme.colors.text.secondary }}>
-                    {item.card_count ?? 0} {t('flashcards.cards')}
+                    {Number(item.card_count ?? 0)} {t('flashcards.cards')}
                   </Text>
-                  {((item.card_count ?? 0) > 0) && (
+                  {(Number(item.card_count ?? 0) > 0) && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '600' }}>
-                        ✓ {item.review_count ?? 0}
+                        ✓ {Number(item.review_count ?? 0)}
                       </Text>
                       <Text style={{ fontSize: 11, color: '#FF9800', fontWeight: '600' }}>
-                        💪 {(item.learning_count ?? 0) + (item.new_count ?? 0)}
+                        💪 {Number(item.learning_count ?? 0) + Number(item.new_count ?? 0)}
                       </Text>
                     </View>
                   )}

@@ -657,10 +657,10 @@ app.get('/api/flashcard-decks', (req, res) => {
   if (!userId) return res.status(400).json({ error: 'Se requiere user_id' });
   const query = `
     SELECT fd.*, s.name as subject_name, s.color as subject_color, s.icon as subject_icon,
-    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id) as card_count,
-    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'review') as review_count,
-    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'learning') as learning_count,
-    (SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'new') as new_count
+    CAST((SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id) AS INTEGER) as card_count,
+    CAST((SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'review') AS INTEGER) as review_count,
+    CAST((SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'learning') AS INTEGER) as learning_count,
+    CAST((SELECT COUNT(*) FROM flashcards fc WHERE fc.deck_id = fd.id AND fc.status = 'new') AS INTEGER) as new_count
     FROM flashcard_decks fd
     JOIN subjects s ON fd.subject_id = s.id
     WHERE s.user_id = ?
