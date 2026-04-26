@@ -177,6 +177,7 @@ export const documentScannerStyles = StyleSheet.create({
     marginBottom: 0,
     width: 30,
     height: 30,
+    borderRadius: 15,
   },
   subjectGrid: {
     flexDirection: 'row',

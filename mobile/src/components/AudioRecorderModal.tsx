@@ -85,13 +85,13 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
     return (
       <AudioPlayerItem
         item={item}
-        isPlaying={playingId === item.id}
+        isPlaying={playingId === (item.id_string || item.id?.toString() || '')}
         onPlay={playSound}
         onStop={stopSound}
         onDelete={deleteRecording}
         onPress={() => {
           onClose();
-          router.push(`/recordings/${encodeURIComponent(item.id)}` as any);
+          router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}` as any);
         }}
       />
     );
@@ -187,7 +187,7 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
 
           <FlatList
             data={recordings.slice(0, 4)} // Solamente las últimas 4
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id_string || item.id?.toString() || Math.random().toString()}
             renderItem={renderRecordingItem}
             contentContainerStyle={localStyles.listContent}
             ListEmptyComponent={

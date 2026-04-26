@@ -1,16 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
-  Dimensions,
-  Image,
   SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { globalStyles } from '../../src/styles/globalStyles';
@@ -19,17 +16,19 @@ import {
   getAssessments,
   getSubjectById,
   getPhotosBySubject,
-  createPhoto,
   getCurrentUserProfile,
   getSchedulesBySubject,
+  getAudioRecordings,
   type Assessment,
   type Subject,
   type UserProfile,
 } from '../../src/services/api';
+import { useAudioRecorder, RecordingItem } from '../../src/hooks/useAudioRecorder';
+import { SubjectHeroCard } from '../../src/components/SubjectHeroCard';
+import { SubjectRecentRecordings } from '../../src/components/SubjectRecentRecordings';
 import { DocumentScannerModal } from '../../src/components/DocumentScannerModal';
 import { PhotoCaptureModal } from '../../src/components/PhotoCaptureModal';
 import { ImageViewerModal } from '../../src/components/ImageViewerModal';
-import { PremiumLoader } from '../../src/components/PremiumLoader';
 import { SubjectGalleryGrid } from '../../src/components/SubjectGalleryGrid';
 import { SubjectStats } from '../../src/components/SubjectStats';
 import { SubjectThreshold } from '../../src/components/SubjectThreshold';
@@ -42,33 +41,6 @@ type DetailSubject = Subject & {
   avg_score?: number | null;
   completion_percent?: number | null;
 };
-
-const IONICON_NAMES = new Set([
-  'book-outline',
-  'time-outline',
-  'calendar-outline',
-  'images-outline',
-  'school',
-  'grid-outline',
-  'clipboard-outline',
-  'flask-outline',
-  'language-outline',
-  'chatbubble-outline',
-]);
-
-const SubjectIcon = ({ iconName, color }: { iconName?: string | null; color: string }) => {
-  const name = iconName || 'book-outline';
-  if (IONICON_NAMES.has(name)) {
-    return <Ionicons name={name as any} size={26} color={color} />;
-  }
-  return <MaterialCommunityIcons name={name as any} size={26} color={color} />;
-};
-
-const ProgressBar = ({ value, color }: { value: number; color: string }) => (
-  <View style={styles.progressTrack}>
-    <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, value))}%`, backgroundColor: color }]} />
-  </View>
-);
 
 export default function SubjectDetailScreen() {
   const { t } = useTranslation();
@@ -95,11 +67,11 @@ export default function SubjectDetailScreen() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = React.useRef<CameraView>(null);
+  const [recentRecordings, setRecentRecordings] = useState<RecordingItem[]>([]);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const { playSound, stopSound, playingId, deleteRecording } = useAudioRecorder();
 
-  
-
-    useEffect(() => {
+  useEffect(() => {
     let mounted = true;
 
     const loadAllData = async () => {
@@ -107,13 +79,15 @@ export default function SubjectDetailScreen() {
 
       setIsLoading(true);
       try {
-        const [profileRes, subjectRes, photosRes, assessmentsRes, schedulesRes] = await Promise.allSettled([
-          getCurrentUserProfile(),
-          getSubjectById(subjectId),
-          getPhotosBySubject(subjectId),
-          getAssessments(subjectId),
-          getSchedulesBySubject(subjectId),
-        ]);
+        const [profileRes, subjectRes, photosRes, assessmentsRes, schedulesRes, recordingsRes] =
+          await Promise.allSettled([
+            getCurrentUserProfile(),
+            getSubjectById(subjectId),
+            getPhotosBySubject(subjectId),
+            getAssessments(subjectId),
+            getSchedulesBySubject(subjectId),
+            getAudioRecordings(),
+          ]);
 
         if (!mounted) return;
 
@@ -122,21 +96,31 @@ export default function SubjectDetailScreen() {
         if (photosRes.status === 'fulfilled') setPhotos(photosRes.value || []);
         if (assessmentsRes.status === 'fulfilled') setAssessments((assessmentsRes.value || []) as Assessment[]);
         if (schedulesRes.status === 'fulfilled') setSubjectSchedules(schedulesRes.value || []);
+        if (recordingsRes.status === 'fulfilled') {
+          const filtered = recordingsRes.value.filter(r => r.subject_id === subjectId).slice(0, 3);
+          setRecentRecordings(
+            filtered.map(rec => ({
+              ...rec,
+              id_string: rec.id?.toString() || rec.local_uri,
+              uri: rec.local_uri,
+              date: new Date(rec.created_at || Date.now()).toLocaleString(),
+              name:
+                rec.name ||
+                t('dashboard.audioRecorderModal.fileLabel', {
+                  date: new Date(rec.created_at || Date.now()).toLocaleDateString(),
+                }),
+            }))
+          );
+        }
       } catch (err) {
         console.error('Error loading subject data:', err);
       } finally {
-        if (mounted) {
-          // PremiumLoader se encargará del fade-out suave
-          if (mounted) setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
     loadAllData();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [subjectId]);
 
   const {
@@ -153,15 +137,10 @@ export default function SubjectDetailScreen() {
     ? `${subjectSchedules[0].start_time} - ${subjectSchedules[0].end_time}`
     : t('subjects.noSchedule');
 
-  const handleTakePhoto = () => {
-    setIsPhotoModalVisible(true);
-  };
+  const handleTakePhoto = () => setIsPhotoModalVisible(true);
+  const handleOpenScanner = () => setIsScannerVisible(true);
 
-  const handleOpenScanner = () => {
-    setIsScannerVisible(true);
-  };
-
-    if (isLoading) {
+  if (isLoading) {
     return (
       <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: '#fff' }]}>
         <View style={styles.premiumLoadingContainer}>
@@ -185,70 +164,68 @@ export default function SubjectDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={globalStyles.safeArea}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.headerAction} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={18} color={theme.colors.text.primary} />
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={styles.headerBadge}>
-              <Ionicons name="book-outline" size={18} color={theme.colors.primary} />
-            </View>
-            <TouchableOpacity style={styles.headerAction} onPress={() => router.push('/gallery')}>
-              <Ionicons name="images-outline" size={16} color={theme.colors.text.primary} />
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.headerAction} onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={18} color={theme.colors.text.primary} />
             </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.heroCard}>
-          <View style={styles.heroInner}>
-            <View style={[styles.heroIcon, { backgroundColor: selectedSubject?.color || '#DDE7FF' }]}>
-              <SubjectIcon iconName={selectedSubject?.icon} color={theme.colors.white} />
-            </View>
-
-            <View style={styles.heroCopy}>
-              <Text style={styles.heroTitle} numberOfLines={2}>
-                {selectedSubject?.name || t('subjects.noSubjectSelected')}
-              </Text>
-              <Text style={styles.heroSubtitle} numberOfLines={1}>
-                {subjectSubtitle}
-              </Text>
-              <Text style={styles.heroMeta}>{subjectScheduleLabel}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={styles.headerBadge}>
+                <Ionicons name="book-outline" size={18} color={theme.colors.primary} />
+              </View>
+              <TouchableOpacity style={styles.headerAction} onPress={() => router.push('/gallery')}>
+                <Ionicons name="images-outline" size={16} color={theme.colors.text.primary} />
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
 
-        <SubjectStats
-          averageGrade={averageGrade}
-          projectedGrade={projectedGrade}
-          deliveredText={deliveredText}
-        />
+          <SubjectHeroCard
+            color={selectedSubject?.color}
+            iconName={selectedSubject?.icon}
+            title={selectedSubject?.name || t('subjects.noSubjectSelected')}
+            subtitle={subjectSubtitle}
+            meta={subjectScheduleLabel}
+          />
 
-        <SubjectThreshold
-          securedPercent={securedPercent}
-          finalNeededText={finalNeededText}
-          subjectColor={selectedSubject?.color ?? undefined}
-        />
+          <SubjectStats
+            averageGrade={averageGrade}
+            projectedGrade={projectedGrade}
+            deliveredText={deliveredText}
+          />
 
-        <SubjectInsights recentAssessments={recentAssessments} />
+          <SubjectThreshold
+            securedPercent={securedPercent}
+            finalNeededText={finalNeededText}
+            subjectColor={selectedSubject?.color ?? undefined}
+          />
 
-        <SubjectGalleryGrid
-          photos={photos}
-          subjectName={selectedSubject?.name ? selectedSubject.name : undefined}
-          onOpenScanner={handleOpenScanner}
-          onTakePhoto={handleTakePhoto}
-          onOpenViewer={(index) => {
-            setInitialViewerIndex(index);
-            setIsViewerVisible(true);
-          }}
-        />
+          <SubjectInsights recentAssessments={recentAssessments} />
 
-        {isDetailLoading && (
-          <View style={styles.detailLoadingRow}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-            <Text style={styles.detailLoadingText}>{t('subjects.refreshing')}</Text>
-          </View>
-        )}
-      </ScrollView>
+          <SubjectGalleryGrid
+            photos={photos}
+            subjectName={selectedSubject?.name ? selectedSubject.name : undefined}
+            onOpenScanner={handleOpenScanner}
+            onTakePhoto={handleTakePhoto}
+            onOpenViewer={(index) => {
+              setInitialViewerIndex(index);
+              setIsViewerVisible(true);
+            }}
+          />
+
+          <SubjectRecentRecordings
+            recentRecordings={recentRecordings}
+            playingId={playingId}
+            playSound={playSound}
+            stopSound={stopSound}
+            deleteRecording={deleteRecording}
+          />
+
+          {isDetailLoading && (
+            <View style={styles.detailLoadingRow}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.detailLoadingText}>{t('subjects.refreshing')}</Text>
+            </View>
+          )}
+        </ScrollView>
       </SafeAreaView>
 
       <DocumentScannerModal
@@ -288,5 +265,3 @@ export default function SubjectDetailScreen() {
     </>
   );
 }
-
-

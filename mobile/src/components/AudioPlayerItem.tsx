@@ -10,7 +10,7 @@ interface AudioPlayerItemProps {
   isPlaying: boolean;
   onPlay: (uri: string, id: string) => void;
   onStop: () => void;
-  onDelete: (uri: string) => void;
+  onDelete: (id: string | number, uri: string) => void;
   onPress?: () => void;
 }
 
@@ -31,10 +31,22 @@ export const AudioPlayerItem: React.FC<AudioPlayerItemProps> = ({
       <View style={styles.recordingInfo}>
         <Text style={styles.recordingName}>{item.name}</Text>
         <Text style={styles.recordingDate}>{item.date}</Text>
+        {item.subject_name && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+            <View style={{ 
+              width: 8, 
+              height: 8, 
+              borderRadius: 4, 
+              backgroundColor: item.subject_color || theme.colors.primary, 
+              marginRight: 6 
+            }} />
+            <Text style={{ fontSize: 12, color: theme.colors.text.secondary }}>{item.subject_name}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.recordingActions}>
         <TouchableOpacity 
-          onPress={() => isPlaying ? onStop() : onPlay(item.uri, item.id)}
+          onPress={() => isPlaying ? onStop() : onPlay(item.uri, item.id_string || item.id?.toString() || '')}
           style={styles.actionButton}
         >
           <Ionicons 
@@ -44,7 +56,7 @@ export const AudioPlayerItem: React.FC<AudioPlayerItemProps> = ({
           />
         </TouchableOpacity>
         <TouchableOpacity 
-          onPress={() => onDelete(item.uri)}
+          onPress={() => onDelete(item.id_string || item.id || 0, item.uri)}
           style={styles.actionButton}
         >
           <Ionicons name="trash-outline" size={24} color={theme.colors.text.secondary} />

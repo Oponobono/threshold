@@ -218,8 +218,19 @@ const initializePostgresDb = async () => {
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id),
         subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+        name TEXT,
         local_uri TEXT NOT NULL,
         duration INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS audio_transcripts (
+        id SERIAL PRIMARY KEY,
+        recording_id INTEGER NOT NULL REFERENCES audio_recordings(id) ON DELETE CASCADE,
+        transcript_uri TEXT,
+        summary_uri TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -457,11 +468,23 @@ const initializeSqliteDb = () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         subject_id INTEGER,
+        name TEXT,
         local_uri TEXT NOT NULL,
         duration INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS audio_transcripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recording_id INTEGER NOT NULL,
+        transcript_uri TEXT,
+        summary_uri TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (recording_id) REFERENCES audio_recordings(id) ON DELETE CASCADE
       )
     `);
 

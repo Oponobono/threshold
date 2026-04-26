@@ -1,30 +1,51 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, SafeAreaView, Modal, Animated, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  SafeAreaView,
+  Modal,
+  Animated,
+  Dimensions,
+} from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
 import { Audio } from 'expo-av';
-
+import { Picker } from '@react-native-picker/picker';
 
 import { theme } from '../../src/styles/theme';
 import { detailStyles as styles } from '../../src/styles/RecordingDetailScreen.styles';
 import { globalStyles } from '../../src/styles/globalStyles';
 import { useWhisper, WhisperModelType } from '../../src/hooks/useWhisper';
+import { RecordingAITabs, AITabType } from '../../src/components/RecordingAITabs';
+import { RecordingAIContent } from '../../src/components/RecordingAIContent';
+import {
+  getSubjects,
+  Subject,
+  getAudioRecordings,
+  AudioRecording,
+  upsertAudioTranscript,
+  updateAudioRecording,
+} from '../../src/services/api';
 
-// Gemini API call helper
+// ---------------------------------------------------------------------------
+// Gemini API helper
+// ---------------------------------------------------------------------------
 async function fetchGeminiSummary(transcription: string): Promise<string> {
-  // IMPORTANTE: Reemplaza con tu API key real
-  const apiKey = 'AIzaSyBCDyJG69zE-YiP6c6svgBon7mXbjzXO_U'; 
+  const apiKey = 'AIzaSyBCDyJG69zE-YiP6c6svgBon7mXbjzXO_U';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
-  
+
   const body = {
-    contents: [{ 
-      parts: [{ 
-        text: `Eres un asistente educativo. Resume el siguiente texto de forma clara, estructurada y breve para un estudiante universitario, resaltando los puntos clave:\n\n${transcription}` 
-      }] 
-    }]
+    contents: [{
+      parts: [{
+        text: `Eres un asistente educativo. Resume el siguiente texto de forma clara, estructurada y breve para un estudiante universitario, resaltando los puntos clave:\n\n${transcription}`,
+      }],
+    }],
   };
 
   const response = await fetch(url, {
@@ -34,26 +55,35 @@ async function fetchGeminiSummary(transcription: string): Promise<string> {
   });
 
   if (!response.ok) throw new Error('Gemini API Error');
-
   const data = await response.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar el resumen.';
 }
 
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 export default function RecordingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
-  
+
+  // Playback
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // AI state
   const [transcription, setTranscription] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transcription' | 'summary'>('transcription');
+  const [activeTab, setActiveTab] = useState<AITabType>('transcription');
   const [showTutorial, setShowTutorial] = useState(true);
-  const scrollX = useRef(new Animated.Value(0)).current;
   const [isModelModalVisible, setIsModelModalVisible] = useState(false);
-  
+
+  // Recording metadata
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [recordingData, setRecordingData] = useState<AudioRecording | null>(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
+
   const {
     isDownloading,
     downloadProgress,
@@ -63,15 +93,91 @@ export default function RecordingDetailScreen() {
     transcribeAudio,
   } = useWhisper();
 
-  const audioUri = `${FileSystem.documentDirectory}Threshold/audio/${id}`;
+  const audioUri = recordingData?.local_uri || `${FileSystem.documentDirectory}Threshold/audio/${id}`;
   const timestamp = parseInt(id.split('_')[1] || '0');
-  const date = timestamp ? new Date(timestamp).toLocaleString() : '';
+  const date = recordingData?.created_at
+    ? new Date(recordingData.created_at).toLocaleString()
+    : timestamp ? new Date(timestamp).toLocaleString() : '';
   const screenWidth = Dimensions.get('window').width - 48;
 
+  // ---------------------------------------------------------------------------
+  // Load data
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    return () => {
-      if (sound) sound.unloadAsync();
-    };
+    loadInitialData();
+  }, [id]);
+
+  const loadInitialData = async () => {
+    try {
+      const subs = await getSubjects();
+      setSubjects(subs);
+
+      const allRecs = await getAudioRecordings();
+      const rec = allRecs.find(r => r.id?.toString() === id || r.local_uri.endsWith(id));
+      if (rec) {
+        setRecordingData(rec);
+        setSelectedSubjectId(rec.subject_id || null);
+
+        if (rec.transcript_uri) {
+          try {
+            const tStr = await FileSystem.readAsStringAsync(rec.transcript_uri);
+            setTranscription(JSON.parse(tStr).text);
+          } catch (e) { console.warn('Error reading transcript', e); }
+        }
+        if (rec.summary_uri) {
+          try {
+            const sStr = await FileSystem.readAsStringAsync(rec.summary_uri);
+            setSummary(JSON.parse(sStr).text);
+          } catch (e) { console.warn('Error reading summary', e); }
+        }
+      }
+    } catch (e) {
+      console.error('Error loading initial data:', e);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Subject association
+  // ---------------------------------------------------------------------------
+  const handleSubjectChange = async (newSubjectId: number | null) => {
+    setSelectedSubjectId(newSubjectId);
+    if (recordingData?.id) {
+      try {
+        await updateAudioRecording(recordingData.id, { subject_id: newSubjectId });
+      } catch (e) {
+        console.error('Failed to update subject', e);
+      }
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Local JSON persistence
+  // ---------------------------------------------------------------------------
+  const saveTextToFile = async (text: string, type: 'transcript' | 'summary') => {
+    if (!recordingData?.id) return;
+    const folderUri = `${FileSystem.documentDirectory}Threshold/transcripts/`;
+    const fileUri = `${folderUri}${type}_${recordingData.id}.json`;
+
+    try {
+      const dirInfo = await FileSystem.getInfoAsync(folderUri);
+      if (!dirInfo.exists) await FileSystem.makeDirectoryAsync(folderUri, { intermediates: true });
+
+      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify({ text, date: new Date().toISOString() }));
+
+      await upsertAudioTranscript({
+        recording_id: recordingData.id,
+        ...(type === 'transcript' ? { transcript_uri: fileUri } : { summary_uri: fileUri }),
+      });
+    } catch (error) {
+      console.error('Failed to save to local file:', error);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Playback
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    return () => { if (sound) sound.unloadAsync(); };
   }, [sound]);
 
   const togglePlayback = async () => {
@@ -83,10 +189,7 @@ export default function RecordingDetailScreen() {
         await sound.playAsync();
         setIsPlaying(true);
       } else {
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: audioUri },
-          { shouldPlay: true }
-        );
+        const { sound: newSound } = await Audio.Sound.createAsync({ uri: audioUri }, { shouldPlay: true });
         setSound(newSound);
         setIsPlaying(true);
         newSound.setOnPlaybackStatusUpdate((status) => {
@@ -101,20 +204,18 @@ export default function RecordingDetailScreen() {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Transcription flow
+  // ---------------------------------------------------------------------------
   const startTranscriptionFlow = async () => {
     try {
       const hasBase = await checkModelExists('base');
       const hasTiny = await checkModelExists('tiny');
-
-      if (hasBase) {
-        processAudio('base');
-      } else if (hasTiny) {
-        processAudio('tiny');
-      } else {
-        setIsModelModalVisible(true);
-      }
+      if (hasBase) processAudio('base');
+      else if (hasTiny) processAudio('tiny');
+      else setIsModelModalVisible(true);
     } catch (e) {
-      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
+      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error al iniciar la transcripción');
     }
   };
 
@@ -125,8 +226,9 @@ export default function RecordingDetailScreen() {
       const text = await transcribeAudio(audioUri, modelType);
       setTranscription(text);
       setShowTutorial(false);
+      await saveTextToFile(text, 'transcript');
     } catch (e) {
-      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
+      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error en transcripción');
     }
   };
 
@@ -136,10 +238,13 @@ export default function RecordingDetailScreen() {
       await downloadModel(modelType);
       processAudio(modelType);
     } catch (e) {
-      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
+      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error descargando el modelo');
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Summary flow
+  // ---------------------------------------------------------------------------
   const startSummaryFlow = async () => {
     if (!transcription) {
       Alert.alert(t('dashboard.audioRecorderModal.ai.emptyTranscription'));
@@ -151,33 +256,31 @@ export default function RecordingDetailScreen() {
       const result = await fetchGeminiSummary(transcription);
       setSummary(result);
       setShowTutorial(false);
-      handleTabPress('summary');
+      setActiveTab('summary');
+      await saveTextToFile(result, 'summary');
     } catch (e) {
-      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
+      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error al generar el resumen');
     } finally {
       setIsSummarizing(false);
     }
   };
 
-  const handleTabPress = (tab: 'transcription' | 'summary') => {
-    setActiveTab(tab);
-    Animated.spring(scrollX, {
-      toValue: tab === 'transcription' ? 0 : screenWidth,
-      useNativeDriver: true,
-      tension: 20,
-    }).start();
-  };
-
+  // ---------------------------------------------------------------------------
+  // Clipboard
+  // ---------------------------------------------------------------------------
   const copyToClipboard = async (text: string | null) => {
     if (!text) return;
     await Clipboard.setStringAsync(text);
     Alert.alert(t('common.success'), t('dashboard.audioRecorderModal.ai.copied'));
   };
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -188,52 +291,46 @@ export default function RecordingDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
         {/* Player Card */}
         <View style={styles.playerCard}>
-          <View>
-            <Text style={styles.playerTitle}>{t('dashboard.audioRecorderModal.ai.recording') || 'Grabación'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.playerTitle}>
+              {recordingData?.name || t('dashboard.audioRecorderModal.ai.recording') || 'Grabación'}
+            </Text>
             <Text style={styles.playerDate}>{date}</Text>
+
+            {/* Subject Selector */}
+            <View style={{ marginTop: 12, backgroundColor: theme.colors.background, borderRadius: 8, overflow: 'hidden' }}>
+              <Picker
+                selectedValue={selectedSubjectId}
+                onValueChange={handleSubjectChange}
+                style={{ height: 40, width: '100%', color: theme.colors.text.primary }}
+                dropdownIconColor={theme.colors.primary}
+              >
+                <Picker.Item label="-- Sin Materia (Huérfana) --" value={null} />
+                {subjects.map(sub => (
+                  <Picker.Item key={sub.id} label={sub.name} value={sub.id} />
+                ))}
+              </Picker>
+            </View>
           </View>
-          <TouchableOpacity style={styles.playButton} onPress={togglePlayback}>
-            <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={theme.colors.primary} />
+
+          <TouchableOpacity style={[styles.playButton, { marginLeft: 16 }]} onPress={togglePlayback}>
+            <Ionicons name={isPlaying ? 'pause' : 'play'} size={32} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
 
         {/* AI Tabs */}
-        <View style={styles.tabRow}>
-          <TouchableOpacity 
-            style={[styles.tabIcon, activeTab === 'transcription' && styles.tabIconActive]}
-            onPress={() => handleTabPress('transcription')}
-          >
-            <Ionicons 
-              name="text-outline" 
-              size={24} 
-              color={activeTab === 'transcription' ? theme.colors.primary : theme.colors.text.secondary} 
-            />
-            <Text style={styles.tabLabel}>
-              {t('dashboard.audioRecorderModal.ai.tabTranscription')}
-            </Text>
-          </TouchableOpacity>
+        <RecordingAITabs
+          activeTab={activeTab}
+          onTabPress={setActiveTab}
+          onSummaryPress={startSummaryFlow}
+          hasTranscription={!!transcription}
+          hasSummary={!!summary}
+        />
 
-          <TouchableOpacity 
-            style={[styles.tabIcon, activeTab === 'summary' && styles.tabIconActive]}
-            onPress={() => {
-              if (!summary && transcription) startSummaryFlow();
-              else handleTabPress('summary');
-            }}
-            disabled={!transcription && !summary}
-          >
-            <MaterialCommunityIcons 
-              name="lightbulb-outline" 
-              size={24} 
-              color={activeTab === 'summary' ? theme.colors.primary : theme.colors.text.secondary} 
-            />
-            <Text style={styles.tabLabel}>
-              {t('dashboard.audioRecorderModal.ai.tabSummary')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
+        {/* Tutorial hint */}
         {showTutorial && !transcription && (
           <View style={styles.tutorialBox}>
             <Ionicons name="information-circle-outline" size={20} color={theme.colors.primary} />
@@ -244,74 +341,21 @@ export default function RecordingDetailScreen() {
           </View>
         )}
 
-        {/* Sliding AI Content */}
-        <View>
-          <Animated.View 
-            style={{ flexDirection: 'row', width: screenWidth * 2, transform: [{ translateX: scrollX.interpolate({ inputRange: [0, screenWidth], outputRange: [0, -screenWidth] }) }] }}
-          >
-            {/* Transcription View */}
-            <View style={[styles.aiCard, { width: screenWidth }]}> 
-              {isDownloading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={theme.colors.primary} />
-                  <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.downloadingModel')}</Text>
-                  <Text style={styles.loadingText}>{Math.round(downloadProgress * 100)}%</Text>
-                </View>
-              ) : isTranscribing ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={theme.colors.primary} />
-                  <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.loading')}</Text>
-                </View>
-              ) : transcription ? (
-                <View style={styles.transcriptionBox}>
-                  <ScrollView nestedScrollEnabled>
-                    <Text style={styles.transcriptionText}>{transcription}</Text>
-                  </ScrollView>
-                  <TouchableOpacity onPress={() => copyToClipboard(transcription)} style={styles.copyBtn}>
-                    <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
-                    <Text style={styles.copyBtnText}>{t('common.copy') || 'Copiar'}</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity style={styles.transcriptionBox} onPress={startTranscriptionFlow}>
-                  <Ionicons name="mic-outline" size={40} color={theme.colors.text.secondary} />
-                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.generateTranscription')}</Text>
-                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.transcriptionHint')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+        {/* AI Content */}
+        <RecordingAIContent
+          activeTab={activeTab}
+          screenWidth={screenWidth}
+          isDownloading={isDownloading}
+          downloadProgress={downloadProgress}
+          isTranscribing={isTranscribing}
+          transcription={transcription}
+          isSummarizing={isSummarizing}
+          summary={summary}
+          onCopy={copyToClipboard}
+          onStartTranscriptionFlow={startTranscriptionFlow}
+          onStartSummaryFlow={startSummaryFlow}
+        />
 
-            {/* Summary View */}
-            <View style={[styles.aiCard, { width: screenWidth }]}> 
-              {isSummarizing ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={theme.colors.primary} />
-                  <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.loading')}</Text>
-                </View>
-              ) : summary ? (
-                <View style={styles.transcriptionBox}>
-                  <ScrollView nestedScrollEnabled>
-                    <Text style={styles.transcriptionText}>{summary}</Text>
-                  </ScrollView>
-                  <TouchableOpacity onPress={() => copyToClipboard(summary)} style={styles.copyBtn}>
-                    <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
-                    <Text style={styles.copyBtnText}>{t('common.copy') || 'Copiar'}</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity 
-                  style={[styles.transcriptionBox, !transcription && { opacity: 0.5 }]} 
-                  onPress={startSummaryFlow}
-                  disabled={!transcription}
-                >
-                  <MaterialCommunityIcons name="auto-fix" size={40} color={theme.colors.text.secondary} />
-                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.generateSummary')}</Text>
-                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.summaryHint')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </Animated.View>
-        </View>
       </ScrollView>
 
       {/* Model Selection Modal */}
@@ -325,27 +369,18 @@ export default function RecordingDetailScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('dashboard.audioRecorderModal.ai.downloadingModel')}</Text>
             <Text style={styles.modalSubtitle}>{t('dashboard.audioRecorderModal.ai.downloadingModelDesc')}</Text>
-            
-            <TouchableOpacity 
-              style={styles.modelOptionBtn} 
-              onPress={() => handleDownloadAndProcess('tiny')}
-            >
+
+            <TouchableOpacity style={styles.modelOptionBtn} onPress={() => handleDownloadAndProcess('tiny')}>
               <Text style={styles.modelOptionTitle}>⚡ Modelo Tiny (~42 MB)</Text>
               <Text style={styles.modelOptionDesc}>Rápido y ligero. Ideal para notas rápidas.</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.modelOptionBtn} 
-              onPress={() => handleDownloadAndProcess('base')}
-            >
+            <TouchableOpacity style={styles.modelOptionBtn} onPress={() => handleDownloadAndProcess('base')}>
               <Text style={styles.modelOptionTitle}>🎯 Modelo Base (~78 MB)</Text>
               <Text style={styles.modelOptionDesc}>Más preciso. Recomendado para clases largas.</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.modalCancelBtn} 
-              onPress={() => setIsModelModalVisible(false)}
-            >
+            <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsModelModalVisible(false)}>
               <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>

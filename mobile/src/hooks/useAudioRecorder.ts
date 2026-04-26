@@ -3,13 +3,13 @@ import { Alert } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
+import { getAudioRecordings, createAudioRecording, deleteAudioRecording, AudioRecording } from '../services/api';
 
-export interface RecordingItem {
-  id: string;
+export interface RecordingItem extends AudioRecording {
+  // Aliases for compatibility
+  id_string: string;
   uri: string;
-  duration: string;
   date: string;
-  name: string;
 }
 
 export function useAudioRecorder() {
@@ -64,30 +64,52 @@ export function useAudioRecorder() {
 
   const loadRecordings = async () => {
     try {
+      // 1. Sync orphans (local files not in DB)
       const audioDir = `${FileSystem.documentDirectory}Threshold/audio/`;
       const dirInfo = await FileSystem.getInfoAsync(audioDir);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(audioDir, { intermediates: true });
-        return;
+      } else {
+        const files = await FileSystem.readDirectoryAsync(audioDir);
+        const m4aFiles = files.filter(f => f.endsWith('.m4a'));
+        
+        // Fetch current DB recordings to check what's missing
+        const dbRecordings = await getAudioRecordings();
+        const dbUris = new Set(dbRecordings.map(r => r.local_uri));
+
+        // Sync missing
+        for (const file of m4aFiles) {
+          const fullUri = audioDir + file;
+          if (!dbUris.has(fullUri)) {
+            const timestamp = parseInt(file.split('_')[1]) || Date.now();
+            const dateObj = new Date(timestamp);
+            const defaultName = t('dashboard.audioRecorderModal.fileLabel', { date: dateObj.toLocaleDateString() });
+            
+            try {
+              await createAudioRecording({
+                local_uri: fullUri,
+                duration: 0,
+                name: defaultName,
+                subject_id: null
+              });
+            } catch (syncErr) {
+              console.warn('Error syncing orphan file:', file, syncErr);
+            }
+          }
+        }
       }
 
-      const files = await FileSystem.readDirectoryAsync(audioDir);
-      const loadedRecordings: RecordingItem[] = files
-        .filter(file => file.endsWith('.m4a'))
-        .map(file => {
-          const timestamp = parseInt(file.split('_')[1]);
-          const date = new Date(timestamp);
-          return {
-            id: file,
-            uri: audioDir + file,
-            name: t('dashboard.audioRecorderModal.fileLabel', { date: date.toLocaleDateString() }),
-            date: date.toLocaleString(),
-            duration: '--:--', 
-          };
-        })
-        .sort((a, b) => b.id.localeCompare(a.id));
+      // 2. Fetch all from DB
+      const updatedDbRecordings = await getAudioRecordings();
+      const mappedRecordings: RecordingItem[] = updatedDbRecordings.map(rec => ({
+        ...rec,
+        id_string: rec.id?.toString() || rec.local_uri,
+        uri: rec.local_uri,
+        date: new Date(rec.created_at || Date.now()).toLocaleString(),
+        name: rec.name || t('dashboard.audioRecorderModal.fileLabel', { date: new Date(rec.created_at || Date.now()).toLocaleDateString() }),
+      }));
 
-      setRecordings(loadedRecordings);
+      setRecordings(mappedRecordings);
     } catch (error) {
       console.error('Error loading recordings:', error);
     }
@@ -143,6 +165,7 @@ export function useAudioRecorder() {
   async function stopRecording() {
     if (!recording) return;
 
+    const currentDuration = recordingDuration;
     setIsRecording(false);
     setIsPaused(false);
     setRecording(null);
@@ -160,6 +183,16 @@ export function useAudioRecorder() {
         await FileSystem.moveAsync({
           from: uri,
           to: permanentUri,
+        });
+
+        const defaultName = t('dashboard.audioRecorderModal.fileLabel', { date: new Date().toLocaleDateString() });
+        
+        // Save to DB
+        await createAudioRecording({
+          local_uri: permanentUri,
+          duration: currentDuration,
+          name: defaultName,
+          subject_id: null
         });
         
         loadRecordings();
@@ -200,7 +233,7 @@ export function useAudioRecorder() {
     }
   }
 
-  async function deleteRecording(uri: string) {
+  async function deleteRecording(id: number | string, uri: string) {
     Alert.alert(
       t('dashboard.audioRecorderModal.delete'),
       '¿Estás seguro de que quieres eliminar esta grabación?',
@@ -211,7 +244,13 @@ export function useAudioRecorder() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await FileSystem.deleteAsync(uri);
+              if (typeof id === 'number') {
+                await deleteAudioRecording(id);
+              }
+              const fileInfo = await FileSystem.getInfoAsync(uri);
+              if (fileInfo.exists) {
+                await FileSystem.deleteAsync(uri);
+              }
               loadRecordings();
             } catch (error) {
               console.error('Error deleting recording', error);

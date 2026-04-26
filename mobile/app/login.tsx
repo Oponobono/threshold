@@ -206,8 +206,8 @@ export default function LoginScreen() {
         <View style={loginStyles.brandHeaderContainer}>
           <View style={loginStyles.titleRow}>
             <Image 
-              source={require('../assets/images/icon.png')} 
-              style={[loginStyles.brandLogo, { width: 38, height: 38 }]}
+              source={require('../src/images/logo_threshold.png')} 
+              style={[loginStyles.brandLogo, { width: 44, height: 44 }]}
               resizeMode="contain"
             />
             <Text style={loginStyles.brandAppName}>hreshold</Text>

@@ -106,10 +106,11 @@ export const styles = StyleSheet.create({
   },
   secondaryBtn: {
     flex: 1,
-    paddingVertical: 16,
+    height: 56,
     borderRadius: 16,
     backgroundColor: theme.colors.card,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   secondaryBtnText: {
     color: theme.colors.text.primary,
@@ -118,10 +119,11 @@ export const styles = StyleSheet.create({
   },
   primaryBtn: {
     flex: 2,
-    paddingVertical: 16,
+    height: 56,
     borderRadius: 16,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryBtnDisabled: {
     opacity: 0.5,

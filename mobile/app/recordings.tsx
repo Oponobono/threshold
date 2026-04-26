@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Animated, Easing, SafeAreaView } from 'react-native';
+import React, { useEffect, useRef, useMemo } from 'react';
+import { View, Text, TouchableOpacity, SectionList, Animated, Easing, SafeAreaView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -67,14 +67,39 @@ export default function RecordingsScreen() {
     return (
       <AudioPlayerItem
         item={item}
-        isPlaying={playingId === item.id}
+        isPlaying={playingId === (item.id_string || item.id)}
         onPlay={playSound}
         onStop={stopSound}
         onDelete={deleteRecording}
-        onPress={() => router.push(`/recordings/${encodeURIComponent(item.id)}` as any)}
+        onPress={() => router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}` as any)}
       />
     );
   };
+
+  const groupedRecordings = useMemo(() => {
+    const groups: { [key: string]: RecordingItem[] } = {};
+    const orphans: RecordingItem[] = [];
+
+    recordings.forEach(rec => {
+      if (rec.subject_name) {
+        if (!groups[rec.subject_name]) groups[rec.subject_name] = [];
+        groups[rec.subject_name].push(rec);
+      } else {
+        orphans.push(rec);
+      }
+    });
+
+    const sections = Object.keys(groups).map(title => ({
+      title,
+      data: groups[title]
+    }));
+
+    if (orphans.length > 0) {
+      sections.push({ title: 'Sin Materia (Huérfanas)', data: orphans });
+    }
+
+    return sections;
+  }, [recordings]);
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
@@ -88,10 +113,15 @@ export default function RecordingsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <FlatList
-        data={recordings}
-        keyExtractor={(item) => item.id}
+      <SectionList
+        sections={groupedRecordings}
+        keyExtractor={(item) => item.id_string || item.id?.toString() || Math.random().toString()}
         renderItem={renderRecordingItem}
+        renderSectionHeader={({ section: { title } }) => (
+          <View style={{ backgroundColor: theme.colors.background, paddingVertical: 8, paddingHorizontal: 16 }}>
+            <Text style={{ color: theme.colors.primary, fontWeight: 'bold', fontSize: 16 }}>{title}</Text>
+          </View>
+        )}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyState}>
