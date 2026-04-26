@@ -34,7 +34,7 @@ export const DragonflyIcon: React.FC<DragonflyIconProps> = ({
       <Path d="M 49.2 44 L 50 116 L 50.8 44 Z" />
 
       {/* === ALAS === */}
-      <AnimatedG style={{ opacity: wingOpacity }}>
+      <AnimatedG opacity={wingOpacity}>
         {/* === ALAS SUPERIORES === */}
         {/* Ala superior izquierda — amplia, con curva y vena */}
         <Path d="M 46 17 C 36 10, 14 6, 2 12 C 8 18, 28 24, 44 30 Z" />

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, Modal, Pressable, TextInput, Alert, FlatList, Platform, Animated, Easing } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, TextInput, Alert, FlatList, Platform, Animated, Easing } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThresholdDatePicker } from '../../src/components/ThresholdDatePicker';
 import { useTranslation } from 'react-i18next';
@@ -9,13 +10,13 @@ import { theme } from '../../src/styles/theme';
 import { dashboardStyles as styles } from '../../src/styles/Dashboard.styles';
 import { createSubject, getCurrentUserProfile, getSubjects, createAssessment, getAssessments, getPredictedSubject, getTodaySchedules, createSchedule, deleteSchedule, getAllSchedules, createPhoto, type Subject, type UserProfile, type Assessment } from '../../src/services/api';
 
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import * as LegacyFS from 'expo-file-system/legacy';
 import { AudioRecorderModal } from '../../src/components/AudioRecorderModal';
 import { StudyTimerCard } from '../../src/components/StudyTimerCard';
 import { StudyTimerModal } from '../../src/components/StudyTimerModal';
 import { DocumentScannerModal } from '../../src/components/DocumentScannerModal';
+import { PhotoCaptureModal } from '../../src/components/PhotoCaptureModal';
 import { FlashcardsModal } from '../../src/components/FlashcardsModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -103,19 +104,14 @@ export default function HybridDashboardScreen() {
   const [scheduleDraftKeys, setScheduleDraftKeys] = useState<Set<string>>(new Set());
   const [allSchedules, setAllSchedules] = useState<any[]>([]);
 
-  // Camera states
-  const [permission, requestPermission] = useCameraPermissions();
-  const [isCameraVisible, setIsCameraVisible] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
-  const [isPhotoSubjectSelectorVisible, setIsPhotoSubjectSelectorVisible] = useState(false);
+  // States
   const [isAudioModalVisible, setIsAudioModalVisible] = useState(false);
   const [isTimerModalVisible, setIsTimerModalVisible] = useState(false);
   const [timerViewState, setTimerViewState] = useState<'config' | 'feedback'>('config');
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [isFlashcardsVisible, setIsFlashcardsVisible] = useState(false);
   const [timerRefreshTrigger, setTimerRefreshTrigger] = useState(0);
-  const cameraRef = useRef<any>(null);
+  const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
 
   const loadData = async () => {
     const [userProfile, userSubjects, schedulesToday, schedulesAll] = await Promise.all([
@@ -345,82 +341,7 @@ export default function HybridDashboardScreen() {
     }
   };
 
-  const handleTakePhoto = async () => {
-    if (!permission?.granted) {
-      const res = await requestPermission();
-      if (!res.granted) {
-        Alert.alert(t('common.error'), t('dashboard.quickAddMenu.camera.permissionError'));
-        return;
-      }
-    }
-    setIsQuickAddMenuVisible(false);
-    setIsCameraVisible(true);
-  };
 
-  const capturePhoto = async () => {
-    if (cameraRef.current && !isCapturing) {
-      try {
-        setIsCapturing(true);
-        const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
-          base64: false,
-          skipProcessing: false,
-        });
-        
-        setCapturedImageUri(photo.uri);
-        setIsCameraVisible(false);
-        
-        // Paso C: Selector de Materia
-        setIsPhotoSubjectSelectorVisible(true);
-      } catch (error) {
-        console.error('Error capturando foto:', error);
-        Alert.alert(t('common.error'), t('dashboard.quickAddMenu.camera.captureError'));
-      } finally {
-        setIsCapturing(false);
-      }
-    }
-  };
-
-  const handleSavePhotoToSubject = async (subjectId: number) => {
-    if (!capturedImageUri) return;
-
-    try {
-      setIsCapturing(true);
-
-      // 1. Construir ruta permanente: documentDirectory/Threshold/data/subjects/{subjectId}/
-      //    El subjectId actúa como identificador único de la carpeta
-      const subjectDir = `${LegacyFS.documentDirectory}Threshold/data/subjects/${subjectId}/`;
-
-      // 2. Asegurar que la carpeta existe (crea todos los padres si no existen)
-      const folderInfo = await LegacyFS.getInfoAsync(subjectDir);
-      if (!folderInfo.exists) {
-        await LegacyFS.makeDirectoryAsync(subjectDir, { intermediates: true });
-      }
-
-      // 3. Mover la foto del caché temporal a la ubicación permanente
-      //    Nombre: img_{timestamp}.jpg → único y ordenable cronológicamente
-      const fileName     = `img_${Date.now()}.jpg`;
-      const permanentUri = `${subjectDir}${fileName}`;
-      await LegacyFS.moveAsync({ from: capturedImageUri, to: permanentUri });
-
-      // 4. Registrar la ruta permanente en SQLite vía API backend
-      await createPhoto({
-        subject_id: subjectId,
-        local_uri: permanentUri,
-        es_favorita: 0,
-      });
-
-      const subjectName = subjects.find(s => s.id === subjectId)?.name || '';
-      showToast(t('dashboard.quickAddMenu.camera.saveSuccess', { subject: subjectName }));
-      setIsPhotoSubjectSelectorVisible(false);
-      setCapturedImageUri(null);
-    } catch (error: any) {
-      console.error('Error guardando foto:', error);
-      Alert.alert(t('common.error'), error.message || t('dashboard.quickAddMenu.camera.saveError'));
-    } finally {
-      setIsCapturing(false);
-    }
-  };
 
   const handleToggleScheduleSlot = (day: number, hour: number) => {
     if (!selectedSubjectId) {
@@ -525,6 +446,11 @@ export default function HybridDashboardScreen() {
     } finally {
       setIsSavingGrade(false);
     }
+  };
+
+  const handleTakePhoto = () => {
+    setIsQuickAddMenuVisible(false);
+    setIsPhotoModalVisible(true);
   };
 
   const handleSaveTask = async () => {
@@ -1379,93 +1305,6 @@ export default function HybridDashboardScreen() {
         </Pressable>
       </Modal>
       
-      {/* CAMERA MODAL */}
-      <Modal
-        visible={isCameraVisible}
-        animationType="slide"
-        onRequestClose={() => setIsCameraVisible(false)}
-      >
-        <View style={styles.cameraContainer}>
-          <CameraView 
-            style={styles.camera} 
-            ref={cameraRef}
-            facing="back"
-            autofocus="on"
-          />
-          <View style={styles.cameraControls}>
-            <TouchableOpacity 
-              style={styles.cameraCloseBtn} 
-              onPress={() => setIsCameraVisible(false)}
-            >
-              <Ionicons name="close" size={28} color="#FFF" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.captureBtn} 
-              onPress={capturePhoto}
-              disabled={isCapturing}
-            >
-              <View style={styles.captureBtnInner} />
-            </TouchableOpacity>
-
-            <View style={{ width: 50 }} />{/* Spacer to center capture btn */}
-          </View>
-        </View>
-      </Modal>
-
-      {/* PHOTO SUBJECT SELECTOR MODAL */}
-      <Modal
-        visible={isPhotoSubjectSelectorVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setIsPhotoSubjectSelectorVisible(false)}
-      >
-        <Pressable style={styles.sheetBackdrop} onPress={() => setIsPhotoSubjectSelectorVisible(false)}>
-          <View style={[styles.sheetContent, { maxHeight: '70%' }]}>
-            <Text style={styles.sheetTitle}>{t('dashboard.quickAddMenu.takePhoto')}</Text>
-            <Text style={styles.sheetSubtitle}>Selecciona a qué materia pertenece este apunte</Text>
-            
-            {capturedImageUri ? (
-              <Image 
-                source={{ uri: capturedImageUri }} 
-                style={{ width: '100%', height: 150, borderRadius: 12, marginBottom: 20 }} 
-                resizeMode="cover"
-              />
-            ) : null}
-
-            <FlatList
-              data={subjects}
-              keyExtractor={(item) => `photo-sub-${item.id}`}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={[styles.quickAddMenuItem, { marginBottom: 10 }]}
-                  onPress={() => handleSavePhotoToSubject(item.id)}
-                >
-                  <View style={[styles.subjectBadge, { backgroundColor: item.color || '#CCCCCC', marginBottom: 0, marginRight: 12, width: 40, height: 40 }]}>
-                    <MaterialCommunityIcons name={(item.icon as any) || 'book-outline'} size={20} color={theme.colors.text.primary} />
-                  </View>
-                  <View style={styles.quickAddMenuInfo}>
-                    <Text style={styles.quickAddMenuText}>{item.name}</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
-                <Text style={{ textAlign: 'center', marginVertical: 20, color: theme.colors.text.secondary }}>
-                  No tienes materias creadas aún.
-                </Text>
-              }
-            />
-
-            <TouchableOpacity style={styles.sheetCancelBtn} onPress={() => {
-              setIsPhotoSubjectSelectorVisible(false);
-              setCapturedImageUri(null);
-            }}>
-              <Text style={styles.sheetCancelText}>{t('dashboard.newSubject.cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
-
       {/* METRIC DETAIL MODAL */}
       <Modal
         visible={!!selectedMetric}
@@ -1541,6 +1380,13 @@ export default function HybridDashboardScreen() {
       <DocumentScannerModal
         isVisible={isScannerVisible}
         onClose={() => setIsScannerVisible(false)}
+        subjects={subjects}
+        onSave={() => loadData()}
+      />
+
+      <PhotoCaptureModal
+        isVisible={isPhotoModalVisible}
+        onClose={() => setIsPhotoModalVisible(false)}
         subjects={subjects}
         onSave={() => loadData()}
       />

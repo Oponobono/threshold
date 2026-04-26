@@ -6,7 +6,6 @@ import {
   Image,
   SafeAreaView,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -27,6 +26,11 @@ import {
   type Subject,
   type UserProfile,
 } from '../../src/services/api';
+import { DocumentScannerModal } from '../../src/components/DocumentScannerModal';
+import { PhotoCaptureModal } from '../../src/components/PhotoCaptureModal';
+import { ImageViewerModal } from '../../src/components/ImageViewerModal';
+import { PremiumLoader } from '../../src/components/PremiumLoader';
+import { subjectDetailStyles as styles } from '../../src/styles/SubjectDetail.styles';
 import { useCameraPermissions, CameraView } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -143,69 +147,51 @@ export default function SubjectDetailScreen() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isScannerVisible, setIsScannerVisible] = useState(false);
+  const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+  const [initialViewerIndex, setInitialViewerIndex] = useState(0);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = React.useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
-  useEffect(() => {
+  
+
+    useEffect(() => {
     let mounted = true;
 
-    const loadSubjectData = async () => {
+    const loadAllData = async () => {
       if (!subjectId) return;
 
       setIsLoading(true);
       try {
-        const [profileResult, subjectResult, photosResult] = await Promise.allSettled([
+        const [profileRes, subjectRes, photosRes, assessmentsRes, schedulesRes] = await Promise.allSettled([
           getCurrentUserProfile(),
           getSubjectById(subjectId),
           getPhotosBySubject(subjectId),
-        ]);
-
-        if (!mounted) return;
-
-        if (profileResult.status === 'fulfilled') setProfile(profileResult.value);
-        if (subjectResult.status === 'fulfilled') setSelectedSubject(subjectResult.value as DetailSubject);
-        setPhotos(photosResult.status === 'fulfilled' ? (photosResult.value || []) : []);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    };
-
-    loadSubjectData();
-
-    return () => {
-      mounted = false;
-    };
-  }, [subjectId]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadSubjectDetail = async () => {
-      if (!subjectId) {
-        setAssessments([]);
-        setSubjectSchedules([]);
-        return;
-      }
-
-      setIsDetailLoading(true);
-      try {
-        const [subjectAssessments, schedules] = await Promise.all([
           getAssessments(subjectId),
           getSchedulesBySubject(subjectId),
         ]);
 
         if (!mounted) return;
 
-        setAssessments((subjectAssessments || []) as Assessment[]);
-        setSubjectSchedules(schedules || []);
+        if (profileRes.status === 'fulfilled') setProfile(profileRes.value);
+        if (subjectRes.status === 'fulfilled') setSelectedSubject(subjectRes.value as DetailSubject);
+        if (photosRes.status === 'fulfilled') setPhotos(photosRes.value || []);
+        if (assessmentsRes.status === 'fulfilled') setAssessments((assessmentsRes.value || []) as Assessment[]);
+        if (schedulesRes.status === 'fulfilled') setSubjectSchedules(schedulesRes.value || []);
+      } catch (err) {
+        console.error('Error loading subject data:', err);
       } finally {
-        if (mounted) setIsDetailLoading(false);
+        if (mounted) {
+          // PremiumLoader se encargará del fade-out suave
+          if (mounted) setIsLoading(false);
+        }
       }
     };
 
-    loadSubjectDetail();
+    loadAllData();
 
     return () => {
       mounted = false;
@@ -260,7 +246,7 @@ export default function SubjectDetailScreen() {
     return missingPoints / (remainingPercentage / 100);
   }, [targetGrade, accumulatedPoints, remainingPercentage]);
 
-  // Otras métricas
+  // Otras m├®tricas
   const projectedGrade = useMemo(() => averageGrade, [averageGrade]); // Simplificado, o usa recentAverage si quieres.
 
   const securedPercent = useMemo(() => {
@@ -289,7 +275,7 @@ export default function SubjectDetailScreen() {
   const recentAssessments = useMemo(() => {
     return [...assessments]
       .sort((a, b) => parseDate(b.date) - parseDate(a.date))
-      .slice(0, 5);
+      .slice(0, 15);
   }, [assessments]);
 
   const subjectGallery = useMemo(() => {
@@ -318,51 +304,30 @@ export default function SubjectDetailScreen() {
     ? `${subjectSchedules[0].start_time} - ${subjectSchedules[0].end_time}`
     : t('subjects.noSchedule');
 
-  const handleOpenCamera = async () => {
-    if (!cameraPermission?.granted) {
-      const res = await requestCameraPermission();
-      if (!res.granted) {
-        Alert.alert(t('subjects.cameraPermissionTitle'), t('subjects.cameraPermissionMessage'));
-        return;
-      }
-    }
-    setIsCameraOpen(true);
+  const handleTakePhoto = () => {
+    setIsPhotoModalVisible(true);
   };
 
-  const captureAndSave = async () => {
-    if (!cameraRef.current || isCapturing || !subjectId) return;
-    try {
-      setIsCapturing(true);
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
-      if (!photo?.uri) throw new Error(t('subjects.cameraErrorUri'));
-
-      const subjectDir = `${FileSystem.documentDirectory}Threshold/data/subjects/${subjectId}/`;
-      const folderInfo = await FileSystem.getInfoAsync(subjectDir);
-      if (!folderInfo.exists) {
-        await FileSystem.makeDirectoryAsync(subjectDir, { intermediates: true });
-      }
-      const permanentUri = `${subjectDir}img_${Date.now()}.jpg`;
-      await FileSystem.moveAsync({ from: photo.uri, to: permanentUri });
-
-      await createPhoto({ subject_id: subjectId, local_uri: permanentUri, es_favorita: 0 });
-
-      setIsCameraOpen(false);
-      // Refresh photos
-      const updated = await getPhotosBySubject(subjectId);
-      setPhotos(updated || []);
-    } catch (err: any) {
-      Alert.alert(t('common.error'), err.message || t('subjects.cameraErrorSave'));
-    } finally {
-      setIsCapturing(false);
-    }
+  const handleOpenScanner = () => {
+    setIsScannerVisible(true);
   };
 
-  if (isLoading) {
+
+
+    if (isLoading) {
     return (
-      <SafeAreaView style={globalStyles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>{t('subjects.loading')}</Text>
+      <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: '#fff' }]}>
+        <View style={styles.premiumLoadingContainer}>
+          <View style={styles.loadingLogoContainer}>
+            <View style={styles.loadingLogoCircle}>
+              <Ionicons name="leaf-outline" size={32} color={theme.colors.primary} />
+            </View>
+            <View style={styles.loadingPulse} />
+          </View>
+          <Text style={styles.premiumLoadingText}>{t('subjects.loading').toUpperCase()}</Text>
+          <View style={styles.loadingBarTrack}>
+            <View style={styles.loadingBarFill} />
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -434,7 +399,7 @@ export default function SubjectDetailScreen() {
 
         <View style={styles.thresholdCard}>
           <View style={styles.thresholdHeader}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.thresholdTitle}>{t('subjects.thresholdTitle')}</Text>
               <Text style={styles.thresholdSubtitle}>{t('subjects.thresholdSubtitle')}</Text>
             </View>
@@ -471,15 +436,18 @@ export default function SubjectDetailScreen() {
               recentAssessments.map((assessment) => {
                 const progress = getAssessmentProgress(assessment);
                 const grade = normalizeGrade(assessment);
-                const scoreText = typeof assessment.grade_value === 'number'
-                  ? `${formatGrade(assessment.grade_value)} / ${SCALE_MAX}`
-                  : typeof assessment.score === 'number' && typeof assessment.out_of === 'number' && assessment.out_of > 0
-                    ? `${assessment.score} / ${assessment.out_of}`
-                    : typeof assessment.percentage === 'number'
-                      ? `${Math.round(assessment.percentage)}%`
-                      : grade !== null
-                        ? `${formatGrade(grade)} / ${SCALE_MAX}`
-                        : t('subjects.pending');
+                const typeLabel = assessment.type === 'task' 
+                  ? t('dashboard.quickAddMenu.newTask') 
+                  : t('subjects.note');
+                const weightValue = parseWeight(assessment);
+                const weightText = weightValue > 0 ? ` (${weightValue}%)` : '';
+
+                let scoreText = t('subjects.pending');
+                if (grade !== null) {
+                  scoreText = `${formatGrade(grade)} / ${SCALE_MAX}`;
+                } else if (assessment.type === 'task') {
+                  scoreText = assessment.is_completed ? (t('common.done') || 'Completado') : t('subjects.pending');
+                }
 
                 return (
                   <View key={`${assessment.id ?? assessment.name}-${assessment.date ?? 'no-date'}`} style={styles.insightRow}>
@@ -487,7 +455,7 @@ export default function SubjectDetailScreen() {
                       <View style={styles.insightTextBlock}>
                         <Text style={styles.insightTitle} numberOfLines={1}>{assessment.name}</Text>
                         <Text style={styles.insightMeta} numberOfLines={1}>
-                          {assessment.type || t('subjects.note')}{assessment.date ? ` · ${assessment.date}` : ''}
+                          {typeLabel}{weightText}{assessment.date ? ` · ${assessment.date}` : ''}
                         </Text>
                       </View>
                       <Text style={styles.insightScore}>{scoreText}</Text>
@@ -512,9 +480,14 @@ export default function SubjectDetailScreen() {
               <Text style={styles.sectionTitle}>{t('subjects.galleryTitle')}</Text>
               <Text style={styles.sectionHint}>{t('subjects.galleryHint')}</Text>
             </View>
-            <TouchableOpacity style={styles.galleryIconBtn} onPress={() => router.push('/gallery')}>
-              <Ionicons name="images-outline" size={18} color={theme.colors.primary} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity style={styles.galleryIconBtn} onPress={handleOpenScanner}>
+                <Ionicons name="scan-outline" size={18} color={theme.colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.galleryIconBtn} onPress={() => router.push('/gallery')}>
+                <Ionicons name="images-outline" size={18} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.galleryCard}>
@@ -527,31 +500,49 @@ export default function SubjectDetailScreen() {
               </View>
             ) : photos.length === 1 ? (
               <View style={styles.galleryGridSingle}>
-                <Image source={{ uri: photos[0].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                <TouchableOpacity style={{ flex: 1 }} onPress={() => { setInitialViewerIndex(0); setIsViewerVisible(true); }}>
+                  <Image source={{ uri: photos[0].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                </TouchableOpacity>
               </View>
             ) : photos.length === 2 ? (
               <View style={styles.galleryGridTwo}>
                 {photos.slice(0, 2).map((p, i) => (
-                  <Image key={i} source={{ uri: p.local_uri }} style={styles.galleryImageHalf} resizeMode="cover" />
+                  <TouchableOpacity key={i} style={styles.galleryImageHalf} onPress={() => { setInitialViewerIndex(i); setIsViewerVisible(true); }}>
+                    <Image source={{ uri: p.local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                  </TouchableOpacity>
                 ))}
               </View>
             ) : photos.length === 3 ? (
               <View style={styles.galleryGridThree}>
-                <Image source={{ uri: photos[0].local_uri }} style={styles.galleryImageLeft} resizeMode="cover" />
+                <TouchableOpacity style={styles.galleryImageLeft} onPress={() => { setInitialViewerIndex(0); setIsViewerVisible(true); }}>
+                  <Image source={{ uri: photos[0].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                </TouchableOpacity>
                 <View style={styles.galleryGridThreeRight}>
-                  <Image source={{ uri: photos[1].local_uri }} style={styles.galleryImageQuarter} resizeMode="cover" />
-                  <Image source={{ uri: photos[2].local_uri }} style={styles.galleryImageQuarter} resizeMode="cover" />
+                  <TouchableOpacity style={styles.galleryImageQuarter} onPress={() => { setInitialViewerIndex(1); setIsViewerVisible(true); }}>
+                    <Image source={{ uri: photos[1].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.galleryImageQuarter} onPress={() => { setInitialViewerIndex(2); setIsViewerVisible(true); }}>
+                    <Image source={{ uri: photos[2].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                  </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <View style={styles.galleryGridFour}>
                 <View style={styles.galleryGridFourRow}>
-                  <Image source={{ uri: photos[0].local_uri }} style={styles.galleryImageQuad} resizeMode="cover" />
-                  <Image source={{ uri: photos[1].local_uri }} style={styles.galleryImageQuad} resizeMode="cover" />
+                  <TouchableOpacity style={styles.galleryImageQuad} onPress={() => { setInitialViewerIndex(0); setIsViewerVisible(true); }}>
+                    <Image source={{ uri: photos[0].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.galleryImageQuad} onPress={() => { setInitialViewerIndex(1); setIsViewerVisible(true); }}>
+                    <Image source={{ uri: photos[1].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.galleryGridFourRow}>
-                  <Image source={{ uri: photos[2].local_uri }} style={styles.galleryImageQuad} resizeMode="cover" />
-                  <Image source={{ uri: photos[3].local_uri }} style={styles.galleryImageQuad} resizeMode="cover" />
+                  <TouchableOpacity style={styles.galleryImageQuad} onPress={() => { setInitialViewerIndex(2); setIsViewerVisible(true); }}>
+                    <Image source={{ uri: photos[2].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.galleryImageQuad} onPress={() => { setInitialViewerIndex(3); setIsViewerVisible(true); }}>
+                    <Image source={{ uri: photos[3].local_uri }} style={styles.galleryImageFull} resizeMode="cover" />
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -568,8 +559,8 @@ export default function SubjectDetailScreen() {
                       : t('subjects.photoCount', { count: photos.length })}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.galleryFooterAction} onPress={handleOpenCamera}>
-                <Ionicons name="add" size={22} color={theme.colors.white} />
+              <TouchableOpacity style={styles.galleryFooterAction} onPress={handleTakePhoto}>
+                <Ionicons name="camera" size={22} color={theme.colors.white} />
               </TouchableOpacity>
             </View>
           </View>
@@ -584,23 +575,30 @@ export default function SubjectDetailScreen() {
       </ScrollView>
       </SafeAreaView>
 
-      {/* Inline camera overlay */}
-      {isCameraOpen && (
-        <View style={styles.cameraOverlay}>
-          <CameraView ref={cameraRef} style={styles.cameraView} facing="back" />
-          <View style={styles.cameraControls}>
-            <TouchableOpacity style={styles.cameraCancelBtn} onPress={() => setIsCameraOpen(false)}>
-              <Ionicons name="close" size={24} color={theme.colors.white} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cameraShutterBtn} onPress={captureAndSave} disabled={isCapturing}>
-              {isCapturing
-                ? <ActivityIndicator color={theme.colors.primary} />
-                : <View style={styles.cameraShutterInner} />}
-            </TouchableOpacity>
-            <View style={{ width: 44 }} />
-          </View>
-        </View>
-      )}
+      <DocumentScannerModal
+        isVisible={isScannerVisible}
+        onClose={() => setIsScannerVisible(false)}
+        subjects={selectedSubject ? [selectedSubject as Subject] : []}
+        onSave={async () => {
+          if (subjectId) {
+            const updated = await getPhotosBySubject(subjectId);
+            setPhotos(updated || []);
+          }
+        }}
+      />
+
+      <PhotoCaptureModal
+        isVisible={isPhotoModalVisible}
+        onClose={() => setIsPhotoModalVisible(false)}
+        subjects={selectedSubject ? [selectedSubject as Subject] : []}
+        initialSubjectId={subjectId || undefined}
+        onSave={async () => {
+          if (subjectId) {
+            const updated = await getPhotosBySubject(subjectId);
+            setPhotos(updated || []);
+          }
+        }}
+      />
     </>
   );
 }
@@ -632,466 +630,3 @@ function StatCard({
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: 8,
-    paddingBottom: 36,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.text.secondary,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
-  },
-  headerBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: `${theme.colors.primary}12`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerAction: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  heroCard: {
-    backgroundColor: theme.colors.background,
-    borderRadius: 30,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.lg,
-    ...globalStyles.shadow,
-  },
-  heroInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  heroIcon: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroCopy: {
-    flex: 1,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: theme.colors.text.primary,
-    letterSpacing: -0.4,
-  },
-  heroSubtitle: {
-    marginTop: 4,
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.text.secondary,
-  },
-  heroMeta: {
-    marginTop: 10,
-    fontSize: 12,
-    color: theme.colors.text.secondary,
-    fontWeight: '600',
-  },
-  sectionBlock: {
-    marginBottom: theme.spacing.lg,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: theme.colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  sectionHint: {
-    marginTop: 4,
-    fontSize: 11,
-    color: theme.colors.text.secondary,
-  },
-  sectionLink: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
-  },
-  sectionChip: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.text.secondary,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    overflow: 'hidden',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    borderRadius: 24,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...globalStyles.shadow,
-  },
-  statHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    minHeight: 36,
-  },
-  statIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statLabel: {
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 14,
-    color: theme.colors.text.secondary,
-    fontWeight: '700',
-  },
-  statValue: {
-    marginTop: 12,
-    fontSize: 24,
-    fontWeight: '800',
-    color: theme.colors.text.primary,
-    letterSpacing: -0.4,
-  },
-  statNote: {
-    marginTop: 4,
-    fontSize: 11,
-    color: theme.colors.text.secondary,
-    lineHeight: 14,
-  },
-  thresholdCard: {
-    backgroundColor: theme.colors.background,
-    borderRadius: 30,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.lg,
-    ...globalStyles.shadow,
-  },
-  thresholdHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  thresholdTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: theme.colors.text.primary,
-    letterSpacing: -0.3,
-  },
-  thresholdSubtitle: {
-    marginTop: 4,
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.text.secondary,
-  },
-  thresholdBadge: {
-    minWidth: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  thresholdBadgeText: {
-    color: theme.colors.white,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  thresholdNeed: {
-    marginTop: 16,
-    fontSize: 22,
-    fontWeight: '800',
-    color: theme.colors.text.primary,
-    letterSpacing: -0.4,
-  },
-  thresholdHint: {
-    marginTop: 6,
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.text.secondary,
-  },
-  thresholdTrackWrap: {
-    marginTop: 18,
-  },
-  thresholdTrack: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: theme.colors.inputBackground,
-    overflow: 'hidden',
-  },
-  thresholdFill: {
-    height: '100%',
-    borderRadius: 999,
-  },
-  thresholdMetaRow: {
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  thresholdMetaLabel: {
-    fontSize: 11,
-    color: theme.colors.text.secondary,
-    fontWeight: '600',
-  },
-  thresholdMetaValue: {
-    fontSize: 11,
-    color: theme.colors.text.primary,
-    fontWeight: '700',
-  },
-  insightsCard: {
-    backgroundColor: theme.colors.background,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
-    gap: 16,
-    ...globalStyles.shadow,
-  },
-  insightRow: {
-    gap: 10,
-  },
-  insightTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  insightTextBlock: {
-    flex: 1,
-  },
-  insightTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
-  },
-  insightMeta: {
-    marginTop: 3,
-    fontSize: 11,
-    color: theme.colors.text.secondary,
-  },
-  insightScore: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: theme.colors.inputBackground,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-  },
-  emptyStateCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 10,
-    gap: 8,
-  },
-  emptyStateTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.text.primary,
-  },
-  emptyStateText: {
-    fontSize: 12,
-    color: theme.colors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 17,
-  },
-  galleryIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: `${theme.colors.primary}15`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  galleryCard: {
-    backgroundColor: theme.colors.background,
-    borderRadius: 30,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...globalStyles.shadow,
-  },
-  // Single photo: full width
-  galleryGridSingle: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    height: 200,
-  },
-  galleryImageFull: {
-    width: '100%',
-    height: '100%',
-  },
-  // Two photos: 50/50 columns
-  galleryGridTwo: {
-    flexDirection: 'row',
-    gap: 6,
-    height: 160,
-  },
-  galleryImageHalf: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  } as any,
-  // Three photos: big left, two stacked right
-  galleryGridThree: {
-    flexDirection: 'row',
-    gap: 6,
-    height: 200,
-  },
-  galleryImageLeft: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  } as any,
-  galleryGridThreeRight: {
-    flex: 1,
-    gap: 6,
-  },
-  galleryImageQuarter: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  } as any,
-  // Four photos: 2x2 grid
-  galleryGridFour: {
-    gap: 6,
-    height: 200,
-  },
-  galleryGridFourRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-  },
-  galleryImageQuad: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  } as any,
-  galleryFooter: {
-    marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  galleryFooterTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.colors.text.primary,
-  },
-  galleryFooterText: {
-    marginTop: 3,
-    fontSize: 11,
-    color: theme.colors.text.secondary,
-  },
-  galleryFooterAction: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Camera overlay
-  cameraOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#000',
-    zIndex: 999,
-  },
-  cameraView: {
-    flex: 1,
-  },
-  cameraControls: {
-    position: 'absolute',
-    bottom: 48,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 32,
-  },
-  cameraCancelBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cameraShutterBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: theme.colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  cameraShutterInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.white,
-  },
-  detailLoadingRow: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  detailLoadingText: {
-    fontSize: 11,
-    color: theme.colors.text.secondary,
-  },
-});

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import {
-  View, Text, ScrollView, SafeAreaView, StyleSheet,
-  TextInput, TouchableOpacity, Alert,
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { globalStyles } from '../../src/styles/globalStyles';

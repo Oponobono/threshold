@@ -3,10 +3,16 @@ import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../src/styles/theme';
 
 export default function TabLayout() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  
+  // Calculate bottom padding factoring in the system navigation bar (Android/iOS)
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 28 : 16);
+  const tabHeight = 60 + bottomPadding;
 
   return (
     <Tabs
@@ -18,9 +24,9 @@ export default function TabLayout() {
           backgroundColor: theme.colors.background,
           borderTopWidth: 1,
           borderTopColor: theme.colors.border,
-          height: Platform.OS === 'ios' ? 90 : 80,
+          height: tabHeight,
           paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+          paddingBottom: bottomPadding,
           elevation: 10,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },

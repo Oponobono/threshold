@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, SafeAreaView, Text, View, Easing } from 'react-native';
+import { Animated, Text, View, Easing, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { welcomeStyles as styles } from '../src/styles/Welcome.styles';
-import { DragonflyIcon } from '../src/components/DragonflyIcon';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -55,7 +55,11 @@ export default function WelcomeScreen() {
         {/* Contenedor del Logo Inline y Título Principal */}
         <Animated.View style={[styles.logoContainer, { opacity: fadeTitle }]}>
           <View style={styles.titleRow}>
-            <DragonflyIcon size={46} color="#F5F5F0" style={styles.logoIcon} />
+            <Image 
+              source={require('../assets/images/icon.png')} 
+              style={[styles.logoIcon, { width: 46, height: 46 }]}
+              resizeMode="contain"
+            />
             <Text style={styles.appName}>hreshold</Text>
           </View>
         </Animated.View>
