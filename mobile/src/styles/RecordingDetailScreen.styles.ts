@@ -255,4 +255,16 @@ export const detailStyles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text.secondary,
   },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 12,
+    gap: 4,
+  },
+  copyBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
 });

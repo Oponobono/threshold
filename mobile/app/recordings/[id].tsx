@@ -3,26 +3,38 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Saf
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
 import { Audio } from 'expo-av';
+
 
 import { theme } from '../../src/styles/theme';
 import { detailStyles as styles } from '../../src/styles/RecordingDetailScreen.styles';
 import { globalStyles } from '../../src/styles/globalStyles';
+import { useWhisper, WhisperModelType } from '../../src/hooks/useWhisper';
 
-// Gemini API call helper (simple fetch, replace with your own endpoint/API key)
+// Gemini API call helper
 async function fetchGeminiSummary(transcription: string): Promise<string> {
-  // TODO: Reemplaza con tu endpoint real y API key
-  const apiKey = 'TU_API_KEY_GEMINI';
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey;
+  // IMPORTANTE: Reemplaza con tu API key real
+  const apiKey = 'AIzaSyBCDyJG69zE-YiP6c6svgBon7mXbjzXO_U'; 
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+  
   const body = {
-    contents: [{ parts: [{ text: `Resume el siguiente texto en español, de forma clara y breve para un estudiante universitario:\n${transcription}` }] }]
+    contents: [{ 
+      parts: [{ 
+        text: `Eres un asistente educativo. Resume el siguiente texto de forma clara, estructurada y breve para un estudiante universitario, resaltando los puntos clave:\n\n${transcription}` 
+      }] 
+    }]
   };
+
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+
+  if (!response.ok) throw new Error('Gemini API Error');
+
   const data = await response.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar el resumen.';
 }
@@ -45,7 +57,6 @@ export default function RecordingDetailScreen() {
   const {
     isDownloading,
     downloadProgress,
-    const { t } = useTranslation();
     isTranscribing,
     checkModelExists,
     downloadModel,
@@ -55,6 +66,7 @@ export default function RecordingDetailScreen() {
   const audioUri = `${FileSystem.documentDirectory}Threshold/audio/${id}`;
   const timestamp = parseInt(id.split('_')[1] || '0');
   const date = timestamp ? new Date(timestamp).toLocaleString() : '';
+  const screenWidth = Dimensions.get('window').width - 48;
 
   useEffect(() => {
     return () => {
@@ -80,20 +92,17 @@ export default function RecordingDetailScreen() {
         newSound.setOnPlaybackStatusUpdate((status) => {
           if (status.isLoaded && status.didJustFinish) {
             setIsPlaying(false);
-            sound?.setPositionAsync(0);
+            newSound.setPositionAsync(0);
           }
         });
       }
     } catch (e) {
       console.error(e);
-      Alert.alert(t('common.error'), 'No se pudo reproducir el audio.');
     }
   };
 
   const startTranscriptionFlow = async () => {
     try {
-      setActiveTab('transcription');
-      // Prioritize checking if Base exists, if not, check Tiny
       const hasBase = await checkModelExists('base');
       const hasTiny = await checkModelExists('tiny');
 
@@ -105,7 +114,7 @@ export default function RecordingDetailScreen() {
         setIsModelModalVisible(true);
       }
     } catch (e) {
-      Alert.alert('Error', 'No se pudo comprobar el estado del motor.');
+      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
     }
   };
 
@@ -117,174 +126,212 @@ export default function RecordingDetailScreen() {
       setTranscription(text);
       setShowTutorial(false);
     } catch (e) {
-      Alert.alert('Error', 'No se pudo generar la transcripción.');
+      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
+    }
+  };
+
+  const handleDownloadAndProcess = async (modelType: WhisperModelType) => {
+    setIsModelModalVisible(false);
+    try {
+      await downloadModel(modelType);
+      processAudio(modelType);
+    } catch (e) {
+      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
     }
   };
 
   const startSummaryFlow = async () => {
     if (!transcription) {
-      Alert.alert('Primero genera la transcripción.');
+      Alert.alert(t('dashboard.audioRecorderModal.ai.emptyTranscription'));
       return;
     }
-    setActiveTab('summary');
     setIsSummarizing(true);
     setSummary(null);
     try {
       const result = await fetchGeminiSummary(transcription);
       setSummary(result);
       setShowTutorial(false);
+      handleTabPress('summary');
     } catch (e) {
-      setSummary('No se pudo generar el resumen.');
+      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.ai.error'));
     } finally {
       setIsSummarizing(false);
-        Alert.alert(t('dashboard.audioRecorderModal.ai.firstTranscribe'));
+    }
   };
 
-  const handleDownloadAndProcess = async (modelType: WhisperModelType) => {
-    // Card slider logic
-    const width = Dimensions.get('window').width - 48;
+  const handleTabPress = (tab: 'transcription' | 'summary') => {
+    setActiveTab(tab);
+    Animated.spring(scrollX, {
+      toValue: tab === 'transcription' ? 0 : screenWidth,
+      useNativeDriver: true,
+      tension: 20,
+    }).start();
+  };
 
-    const handleTabPress = (tab: 'transcription' | 'summary') => {
-      setActiveTab(tab);
-      Animated.spring(scrollX, {
-        toValue: tab === 'transcription' ? 0 : width,
-        setSummary(t('dashboard.audioRecorderModal.ai.summaryError'));
-      }).start();
-    };
+  const copyToClipboard = async (text: string | null) => {
+    if (!text) return;
+    await Clipboard.setStringAsync(text);
+    Alert.alert(t('common.success'), t('dashboard.audioRecorderModal.ai.copied'));
+  };
 
-    return (
-      <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detalle de Audio</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.playerCard}>
-            <Text style={styles.playerTitle}>Grabación</Text>
+  return (
+    <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('dashboard.audioRecorderModal.title')}</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Player Card */}
+        <View style={styles.playerCard}>
+          <View>
+            <Text style={styles.playerTitle}>{t('dashboard.audioRecorderModal.ai.recording') || 'Grabación'}</Text>
             <Text style={styles.playerDate}>{date}</Text>
-            <TouchableOpacity style={styles.playButton} onPress={togglePlayback}>
-              <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={theme.colors.primary} />
-            </TouchableOpacity>
           </View>
-          {/* Iconos de tabs y tutorial */}
-          <View style={styles.tabRow}>
-            <TouchableOpacity
-            <Text style={styles.headerTitle}>{t('dashboard.audioRecorderModal.ai.detailTitle')}</Text>
-              onPress={() => { if (!transcription) startTranscriptionFlow(); else handleTabPress('transcription'); }}
-            >
-              <Ionicons name="text-outline" size={24} color={activeTab === 'transcription' ? theme.colors.primary : theme.colors.text.secondary} />
-              <Text style={styles.tabLabel}>Transcripción</Text>
-              <Text style={styles.playerTitle}>{t('dashboard.audioRecorderModal.ai.recording')}</Text>
-            <TouchableOpacity
-              style={[styles.tabIcon, activeTab === 'summary' && styles.tabIconActive]}
-              onPress={() => { if (!summary) startSummaryFlow(); else handleTabPress('summary'); }}
-              disabled={!transcription}
-            >
-              <MaterialCommunityIcons name="lightbulb-outline" size={24} color={activeTab === 'summary' ? theme.colors.primary : theme.colors.text.secondary} />
-              <Text style={styles.tabLabel}>Resumen</Text>
-            </TouchableOpacity>
-          </View>
-          {showTutorial && (
-            <View style={styles.tutorialBox}>
-              <Text style={styles.tutorialText}>
-                <Text style={styles.tabLabel}>{t('dashboard.audioRecorderModal.ai.transcriptionTab')}</Text>
-              </Text>
+          <TouchableOpacity style={styles.playButton} onPress={togglePlayback}>
+            <Ionicons name={isPlaying ? "pause" : "play"} size={32} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* AI Tabs */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity 
+            style={[styles.tabIcon, activeTab === 'transcription' && styles.tabIconActive]}
+            onPress={() => handleTabPress('transcription')}
+          >
+            <Ionicons 
+              name="text-outline" 
+              size={24} 
+              color={activeTab === 'transcription' ? theme.colors.primary : theme.colors.text.secondary} 
+            />
+            <Text style={styles.tabLabel}>
+              {t('dashboard.audioRecorderModal.ai.tabTranscription')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.tabIcon, activeTab === 'summary' && styles.tabIconActive]}
+            onPress={() => {
+              if (!summary && transcription) startSummaryFlow();
+              else handleTabPress('summary');
+            }}
+            disabled={!transcription && !summary}
+          >
+            <MaterialCommunityIcons 
+              name="lightbulb-outline" 
+              size={24} 
+              color={activeTab === 'summary' ? theme.colors.primary : theme.colors.text.secondary} 
+            />
+            <Text style={styles.tabLabel}>
+              {t('dashboard.audioRecorderModal.ai.tabSummary')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showTutorial && !transcription && (
+          <View style={styles.tutorialBox}>
+            <Ionicons name="information-circle-outline" size={20} color={theme.colors.primary} />
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={styles.tutorialText}>{t('dashboard.audioRecorderModal.ai.tutorialTitle')}</Text>
+              <Text style={styles.tutorialText}>{t('dashboard.audioRecorderModal.ai.tutorialBody')}</Text>
             </View>
-          )}
-          {/* Card deslizable */}
-          <View style={{ width: width, alignSelf: 'center', marginTop: 16, overflow: 'hidden' }}>
-            <Animated.View style={{ flexDirection: 'row', width: width * 2, transform: [{ translateX: scrollX.interpolate({ inputRange: [0, width], outputRange: [0, -width] }) }] }}>
-              {/* Transcripción */}
-                <Text style={styles.tabLabel}>{t('dashboard.audioRecorderModal.ai.summaryTab')}</Text>
-                {isDownloading && (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <Text style={styles.loadingText}>
-                <Text style={styles.tutorialText}>{t('dashboard.audioRecorderModal.ai.tutorial')}</Text>
-                )}
-                {isTranscribing && (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <Text style={styles.loadingText}>Procesando audio localmente...</Text>
-                  </View>
-                )}
-                {transcription && !isTranscribing && (
-                  <View style={styles.transcriptionBox}>
+          </View>
+        )}
+
+        {/* Sliding AI Content */}
+        <View>
+          <Animated.View 
+            style={{ flexDirection: 'row', width: screenWidth * 2, transform: [{ translateX: scrollX.interpolate({ inputRange: [0, screenWidth], outputRange: [0, -screenWidth] }) }] }}
+          >
+            {/* Transcription View */}
+            <View style={[styles.aiCard, { width: screenWidth }]}> 
+              {isDownloading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                  <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.downloadingModel')}</Text>
+                  <Text style={styles.loadingText}>{Math.round(downloadProgress * 100)}%</Text>
+                </View>
+              ) : isTranscribing ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                  <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.loading')}</Text>
+                </View>
+              ) : transcription ? (
+                <View style={styles.transcriptionBox}>
+                  <ScrollView nestedScrollEnabled>
                     <Text style={styles.transcriptionText}>{transcription}</Text>
-                  </View>
-                )}
-                {!transcription && !isDownloading && !isTranscribing && (
-                  <View style={styles.transcriptionBox}>
-                    <Text style={styles.transcriptionHint}>Pulsa el icono para transcribir el audio.</Text>
-                  </View>
-                )}
-              </View>
-                      <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.processing')}</Text>
-              <View style={[styles.aiCard, { width }]}> 
-                {isSummarizing && (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <Text style={styles.loadingText}>Generando resumen...</Text>
-                  </View>
-                )}
-                {summary && !isSummarizing && (
-                  <View style={styles.transcriptionBox}>
-                      <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.transcriptionHint')}</Text>
-                  </View>
-                )}
-                {!summary && !isSummarizing && (
-                  <View style={styles.transcriptionBox}>
-                    <Text style={styles.transcriptionHint}>Pulsa el icono para generar el resumen.</Text>
-                  </View>
-                )}
-              </View>
-                      <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.generatingSummary')}</Text>
-          </View>
-        </ScrollView>
-        {/* Modal de Selección de Modelo */}
-        <Modal
-          visible={isModelModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsModelModalVisible(false)}
-        >
-                      <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.summaryHint')}</Text>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Descargar motor IA</Text>
-              <Text style={styles.modalDesc}>Elige un modelo para descargar y poder transcribir audios localmente.</Text>
-              <TouchableOpacity style={styles.modalBtn} onPress={() => handleDownloadAndProcess('tiny')}>
-                <Text style={styles.modalBtnText}>Descargar Modelo Tiny (rápido, menos preciso)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalBtn} onPress={() => handleDownloadAndProcess('base')}>
-                <Text style={styles.modalBtnText}>Descargar Modelo Base (más preciso, más lento)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsModelModalVisible(false)}>
-                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
+                  </ScrollView>
+                  <TouchableOpacity onPress={() => copyToClipboard(transcription)} style={styles.copyBtn}>
+                    <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+                    <Text style={styles.copyBtnText}>{t('common.copy') || 'Copiar'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.transcriptionBox} onPress={startTranscriptionFlow}>
+                  <Ionicons name="mic-outline" size={40} color={theme.colors.text.secondary} />
+                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.generateTranscription')}</Text>
+                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.transcriptionHint')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
-        </Modal>
-                <Text style={styles.modalTitle}>{t('dashboard.audioRecorderModal.ai.downloadTitle')}</Text>
-                <Text style={styles.modalDesc}>{t('dashboard.audioRecorderModal.ai.downloadDesc')}</Text>
-                <TouchableOpacity style={styles.modalBtn} onPress={() => handleDownloadAndProcess('tiny')}>
-                  <Text style={styles.modalBtnText}>{t('dashboard.audioRecorderModal.ai.downloadTiny')}</Text>
+
+            {/* Summary View */}
+            <View style={[styles.aiCard, { width: screenWidth }]}> 
+              {isSummarizing ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                  <Text style={styles.loadingText}>{t('dashboard.audioRecorderModal.ai.loading')}</Text>
+                </View>
+              ) : summary ? (
+                <View style={styles.transcriptionBox}>
+                  <ScrollView nestedScrollEnabled>
+                    <Text style={styles.transcriptionText}>{summary}</Text>
+                  </ScrollView>
+                  <TouchableOpacity onPress={() => copyToClipboard(summary)} style={styles.copyBtn}>
+                    <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+                    <Text style={styles.copyBtnText}>{t('common.copy') || 'Copiar'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.transcriptionBox, !transcription && { opacity: 0.5 }]} 
+                  onPress={startSummaryFlow}
+                  disabled={!transcription}
+                >
+                  <MaterialCommunityIcons name="auto-fix" size={40} color={theme.colors.text.secondary} />
+                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.generateSummary')}</Text>
+                  <Text style={styles.transcriptionHint}>{t('dashboard.audioRecorderModal.ai.summaryHint')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.modalBtn} onPress={() => handleDownloadAndProcess('base')}>
-                  <Text style={styles.modalBtnText}>{t('dashboard.audioRecorderModal.ai.downloadBase')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsModelModalVisible(false)}>
-                  <Text style={styles.modalCancelBtnText}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
+        </View>
+      </ScrollView>
+
+      {/* Model Selection Modal */}
+      <Modal
+        visible={isModelModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsModelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{t('dashboard.audioRecorderModal.ai.downloadingModel')}</Text>
+            <Text style={styles.modalSubtitle}>{t('dashboard.audioRecorderModal.ai.downloadingModelDesc')}</Text>
+            
+            <TouchableOpacity 
+              style={styles.modelOptionBtn} 
               onPress={() => handleDownloadAndProcess('tiny')}
             >
               <Text style={styles.modelOptionTitle}>⚡ Modelo Tiny (~42 MB)</Text>
-              <Text style={styles.modelOptionDesc}>
-                Muy rápido y liviano. Ideal para grabaciones cortas, dictados o notas de voz personales con buena acústica.
-              </Text>
+              <Text style={styles.modelOptionDesc}>Rápido y ligero. Ideal para notas rápidas.</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -292,16 +339,14 @@ export default function RecordingDetailScreen() {
               onPress={() => handleDownloadAndProcess('base')}
             >
               <Text style={styles.modelOptionTitle}>🎯 Modelo Base (~78 MB)</Text>
-              <Text style={styles.modelOptionDesc}>
-                Más preciso pero un poco más pesado. Recomendado para clases magistrales largas, auditorios o charlas grupales.
-              </Text>
+              <Text style={styles.modelOptionDesc}>Más preciso. Recomendado para clases largas.</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.modalCancelBtn} 
               onPress={() => setIsModelModalVisible(false)}
             >
-              <Text style={styles.modalCancelText}>Cancelar</Text>
+              <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
