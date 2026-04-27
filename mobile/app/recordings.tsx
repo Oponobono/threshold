@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, SectionList, Animated, Easing, SafeAreaView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, SectionList, Animated, Easing, SafeAreaView, TextInput, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -131,10 +131,14 @@ export default function RecordingsScreen() {
           >
             <MaterialCommunityIcons name="youtube" size={40} color={theme.colors.text.error} style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }} numberOfLines={2}>
+              <Text 
+                style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }} 
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
                 {item.name || 'Video de YouTube'}
               </Text>
-              <Text style={{ color: theme.colors.text.secondary, fontSize: 13, marginTop: 2 }}>
+              <Text style={{ color: theme.colors.text.secondary, fontSize: 12, marginTop: 4 }}>
                 {item.subject_name || 'Sin materia'}
               </Text>
             </View>

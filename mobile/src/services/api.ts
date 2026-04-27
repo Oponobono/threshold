@@ -919,3 +919,21 @@ export const upsertYouTubeTranscript = async (payload: {
   return data;
 };
 
+/**
+ * Obtiene subtítulos de un video de YouTube
+ */
+export const getYouTubeSubtitles = async (videoId: string, language: string = 'es'): Promise<{ captions: string; language: string }> => {
+  const response = await fetchWithFallback('/youtube-captions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ video_id: videoId, language }),
+  });
+
+  const data = await parseJsonSafely(response);
+  if (!response.ok) {
+    throw new Error(data?.error || 'No se pudieron obtener los subtítulos del video.');
+  }
+
+  return data;
+};
+

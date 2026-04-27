@@ -32,6 +32,7 @@ import {
   YouTubeVideo,
   upsertYouTubeTranscript,
   updateYouTubeVideo,
+  getYouTubeSubtitles,
 } from '../services/api';
 
 // ---------------------------------------------------------------------------
@@ -44,37 +45,15 @@ const YOUTUBE_API_KEY: string = process.env.EXPO_PUBLIC_YOUTUBE_API_KEY ?? '';
 // ---------------------------------------------------------------------------
 // Groq helpers
 // ---------------------------------------------------------------------------
+// Groq helpers
+// ---------------------------------------------------------------------------
 async function transcribeYouTubeWithWhisper(videoId: string, apiKey: string): Promise<string> {
-  // Obtener subtítulos del backend - devuelve TEXT de subtítulos, no audio
+  // Obtener subtítulos del backend mediante api.ts (usa fetchWithFallback)
+  // Esto devuelve TEXT de subtítulos, no audio
   try {
-    // Build full API URL with fallback support for LAN/cloud
-    const apiEndpoints = [
-      'http://192.168.1.100:3000/api/youtube-captions', // LAN common
-      'http://localhost:3000/api/youtube-captions', // Localhost
-      (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000') + '/api/youtube-captions', // Env override
-    ];
-
-    let lastError: any = null;
-    
-    for (const endpoint of apiEndpoints) {
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ video_id: videoId, language: 'es' }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✓ YouTube captions fetched in', data.language);
-          return data.captions || '';
-        }
-      } catch (err) {
-        lastError = err;
-      }
-    }
-
-    throw lastError || new Error('No se pudieron obtener los subtítulos de ningún servidor');
+    const result = await getYouTubeSubtitles(videoId, 'es');
+    console.log('✓ YouTube captions fetched in', result.language);
+    return result.captions || '';
   } catch (error) {
     console.error('✗ Error fetching YouTube captions:', error);
     throw new Error(`Error obteniendo subtítulos: ${error instanceof Error ? error.message : error}`);
@@ -384,15 +363,20 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       return;
     }
 
+    if (!videoData?.video_id) {
+      Alert.alert('Error', 'No se encontró el ID del video. Por favor intenta recargar.');
+      return;
+    }
+
     setIsTranscribing(true);
     setTranscription(null);
     setSummary(null);
 
     try {
-      const text = await transcribeYouTubeWithWhisper(videoData?.video_id || '', GROQ_API_KEY);
+      const text = await transcribeYouTubeWithWhisper(videoData.video_id, GROQ_API_KEY);
       
       if (!text) {
-        Alert.alert(t('common.error') || 'Error', 'No se pudo obtener los subtítulos del video.');
+        Alert.alert(t('common.error') || 'Error', 'No se pudieron obtener los subtítulos del video. Es posible que:\n• El video no tenga subtítulos disponibles\n• El video sea privado o no exista\n• Hay problemas de conectividad');
         return;
       }
 
@@ -407,7 +391,19 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       }
     } catch (e) {
       console.error('ERROR EN TRANSCRIPCIÓN:', e);
-      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error al transcribir el video.');
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      
+      // Better error messages
+      let userMessage = '⚠️ Error al obtener subtítulos:\n\n';
+      if (errorMsg.includes('Network')) {
+        userMessage += 'Problema de conexión. Verifica que:\n• Tu backend esté corriendo en puerto 3000\n• Tengas conexión a internet\n• El servidor Render sea accesible';
+      } else if (errorMsg.includes('No se encontraron subtítulos')) {
+        userMessage += 'Este video no tiene subtítulos disponibles en YouTube';
+      } else {
+        userMessage += errorMsg;
+      }
+      
+      Alert.alert(t('common.error') || 'Error', userMessage);
     } finally {
       setIsTranscribing(false);
     }
@@ -463,7 +459,11 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]} numberOfLines={1}>
+        <Text 
+          style={[styles.headerTitle, { flex: 1, textAlign: 'center', fontSize: 16 }]} 
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {videoTitle}
         </Text>
         <View style={{ width: 32 }} />
@@ -503,6 +503,15 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
           <Text style={{ fontSize: 12, color: theme.colors.text.secondary, textAlign: 'center', marginBottom: 12 }}>
             {date}
           </Text>
+        )}
+
+        {/* Full title info box (si es muy largo) */}
+        {videoTitle.length > 50 && (
+          <View style={{ paddingHorizontal: 12, marginBottom: 12, paddingVertical: 8, backgroundColor: `${theme.colors.primary}08`, borderRadius: 8, borderLeftWidth: 3, borderLeftColor: theme.colors.primary }}>
+            <Text style={{ fontSize: 11, color: theme.colors.text.secondary, fontStyle: 'italic' }}>
+              Título: {videoTitle}
+            </Text>
+          </View>
         )}
 
         {/* Animated Subject Selector */}
