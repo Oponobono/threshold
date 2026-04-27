@@ -22,6 +22,7 @@ import { theme } from '../styles/theme';
 import { detailStyles as styles } from '../styles/RecordingDetailScreen.styles';
 import { RecordingAITabs, AITabType } from './RecordingAITabs';
 import { RecordingAIContent } from './RecordingAIContent';
+import { PremiumLoading } from './PremiumLoading';
 import {
   getSubjects,
   Subject,
@@ -79,7 +80,7 @@ async function summarizeWithGroq(transcription: string, apiKey: string): Promise
     messages: [
       {
         role: 'system',
-        content: 'Eres un asistente educativo experto. Tu tarea es resumir transcripciones de clases de forma clara, estructurada y concisa para estudiantes universitarios, resaltando los puntos clave con viñetas o secciones.',
+        content: 'Eres un asistente educativo experto especializado en crear material de estudio universitario altamente efectivo. A partir de la transcripción proporcionada, genera un resumen estructurado siguiendo estas reglas:\n1. Extrae los conceptos fundamentales y ordénalos por temas usando títulos claros (###).\n2. Usa viñetas breves para desglosar los detalles importantes de cada tema.\n3. Identifica términos clave, definiciones o fechas y resáltalos en **negrita**.\n4. Elimina toda la "paja" (titubeos, saludos, repeticiones) y ve directo al grano.\n5. Finaliza con una sección de "Idea Central" de máximo 2 oraciones.\nTu tono debe ser académico, estructurado y directo. No agregues introducciones conversacionales (como "Aquí tienes el resumen").',
       },
       {
         role: 'user',
@@ -312,6 +313,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [activeTab, setActiveTab] = useState<AITabType>('transcription');
   const [showTutorial, setShowTutorial] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Recording metadata
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -374,7 +376,11 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
 
       const key = rec?.id?.toString() ?? recordingId.replace(/\.m4a$/, '');
       await loadPersistedTexts(key);
-    } catch (e) { console.error('loadInitialData:', e); }
+    } catch (e) {
+      console.error('loadInitialData:', e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loadPersistedTexts = async (key: string) => {
@@ -533,6 +539,10 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+  if (isLoading) {
+    return <PremiumLoading text={t('subjects.loading') || 'CARGANDO'} />;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.card} translucent={false} />

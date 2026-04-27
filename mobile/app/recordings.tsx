@@ -1,12 +1,13 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, SectionList, Animated, Easing, SafeAreaView, TextInput, ActivityIndicator } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../src/styles/theme';
 import { recordingsStyles as styles } from '../src/styles/RecordingsScreen.styles';
 import { useAudioRecorder, RecordingItem } from '../src/hooks/useAudioRecorder';
 import { AudioPlayerItem } from '../src/components/AudioPlayerItem';
+import { PremiumLoading } from '../src/components/PremiumLoading';
 import { globalStyles } from '../src/styles/globalStyles';
 import { getYouTubeVideos, createYouTubeVideo, YouTubeVideo, deleteYouTubeVideo } from '../src/services/api';
 
@@ -69,10 +70,13 @@ export default function RecordingsScreen() {
     prevIsRecording.current = isRecording;
   }, [isRecording]);
 
-  // Load YouTube videos
-  useEffect(() => {
-    loadYouTubeVideos();
-  }, []);
+  // Load data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadYouTubeVideos();
+      loadRecordings();
+    }, [loadRecordings])
+  );
 
   const loadYouTubeVideos = async () => {
     setIsLoadingVideos(true);
@@ -131,8 +135,8 @@ export default function RecordingsScreen() {
           >
             <MaterialCommunityIcons name="youtube" size={40} color={theme.colors.text.error} style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
-              <Text 
-                style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }} 
+              <Text
+                style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }}
                 numberOfLines={2}
                 ellipsizeMode="tail"
               >
@@ -210,7 +214,7 @@ export default function RecordingsScreen() {
       .sort()
       .forEach(subjectName => {
         const { recordings: recs, videos: vids } = groups[subjectName];
-        
+
         // Add recordings sub-section if any
         if (recs.length > 0) {
           sections.push({
@@ -219,7 +223,7 @@ export default function RecordingsScreen() {
             subtype: 'recordings'
           });
         }
-        
+
         // Add videos sub-section if any
         if (vids.length > 0) {
           sections.push({
@@ -321,17 +325,21 @@ export default function RecordingsScreen() {
     }
   };
 
+  if (isLoadingVideos && youTubeVideos.length === 0 && recordings.length === 0) {
+    return <PremiumLoading text={t('subjects.loading') || 'CARGANDO'} />;
+  }
+
   return (
     <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('dashboard.audioRecorderModal.recordingsList')}</Text>
-        <TouchableOpacity 
-          style={styles.backBtn} 
+        <TouchableOpacity
+          style={styles.backBtn}
           onPress={() => setShowYoutubeModal(true)}
         >
           <MaterialCommunityIcons name="youtube" size={28} color={theme.colors.text.error} />
@@ -385,23 +393,23 @@ export default function RecordingsScreen() {
               />
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   setShowYoutubeModal(false);
                   setYoutubeUrl('');
-                }} 
+                }}
                 disabled={isAddingYouTubeVideo}
                 style={{ padding: 10, opacity: isAddingYouTubeVideo ? 0.5 : 1 }}
               >
                 <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={handleAddYoutube} 
+              <TouchableOpacity
+                onPress={handleAddYoutube}
                 disabled={isAddingYouTubeVideo || !youtubeUrl.trim()}
-                style={{ 
+                style={{
                   backgroundColor: (isAddingYouTubeVideo || !youtubeUrl.trim()) ? theme.colors.border : theme.colors.primary,
-                  paddingHorizontal: 16, 
-                  paddingVertical: 10, 
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
                   borderRadius: 8,
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -418,62 +426,63 @@ export default function RecordingsScreen() {
         </View>
       )}
 
-      <View style={styles.recorderContainer}>
-        <View style={styles.timerContainer}>
-          <Text style={[styles.timerText, isRecording && { color: theme.colors.text.error }]}>
-            {formatDuration(recordingDuration)}
-          </Text>
-          {isRecording && (
-            <Text style={[styles.statusText, isPaused && { color: theme.colors.text.secondary }]}>
-              {isPaused 
-                ? t('dashboard.audioRecorderModal.recordingPaused') 
-                : t('dashboard.audioRecorderModal.recordingInProgress')}
-            </Text>
-          )}
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 }}>
-          {isRecording && (
-            <TouchableOpacity 
-              onPress={isPaused ? resumeRecording : pauseRecording}
-              activeOpacity={0.7}
-              style={styles.secondaryRecordBtn}
-            >
-              <Ionicons 
-                name={isPaused ? "play" : "pause"} 
-                size={24} 
-                color={theme.colors.text.secondary} 
-              />
-            </TouchableOpacity>
-          )}
-
+      {/* ── BOTONES DE GRABACIÓN TIPO WHATSAPP ─────────────────────────────── */}
+      {!isRecording ? (
+        <View style={styles.idleRecorderContainer}>
           <TouchableOpacity 
-            onPress={isRecording ? stopRecording : startRecording}
+            onPress={startRecording}
+            style={styles.startRecordingBtn}
             activeOpacity={0.8}
           >
-            <Animated.View style={[
-              styles.recordButton,
-              { transform: [{ scale: pulseAnim }] },
-              isRecording && styles.recordingButtonActive
-            ]}>
-              <View style={[
-                styles.recordButtonInner,
-                isRecording && styles.recordingButtonInnerActive
-              ]} />
-            </Animated.View>
+            <Ionicons name="mic" size={20} color="white" style={{marginRight: 8}}/>
+            <Text style={styles.startRecordingText}>{t('dashboard.audioRecorderModal.startRecording') || 'Iniciar Grabación'}</Text>
           </TouchableOpacity>
-
-          {isRecording && (
-            <View style={{ width: 44 }} />
-          )}
         </View>
-        
-        <Text style={styles.hintText}>
-          {isRecording 
-            ? t('dashboard.audioRecorderModal.stopRecording') 
-            : t('dashboard.audioRecorderModal.startRecording')}
-        </Text>
-      </View>
+      ) : (
+        <Animated.View style={[
+          styles.activeRecorderContainer, 
+          { borderColor: isPaused ? theme.colors.border : theme.colors.primary }
+        ]}>
+          {/* Izquierda: Timer y Ondas (WhatsApp Style) */}
+          <View style={styles.recordingInfo}>
+            <Animated.View style={[
+              styles.recordingDot, 
+              isPaused && { backgroundColor: theme.colors.text.secondary },
+              !isPaused && { opacity: pulseAnim } // El punto rojo palpita cuando graba
+            ]} />
+            <Text style={styles.recordingTimerText}>
+              {formatDuration(recordingDuration)}
+            </Text>
+            
+            <View style={styles.wavesContainer}>
+              {/* Animación falsa de ondas */}
+              {[0.4, 0.8, 0.5, 1, 0.6, 0.3, 0.7, 0.9, 0.4, 0.6].map((h, i) => (
+                <Animated.View key={i} style={[
+                  styles.waveBar,
+                  {
+                    height: isPaused ? 4 : 24 * h,
+                    backgroundColor: isPaused ? theme.colors.text.placeholder : theme.colors.primary,
+                    opacity: isPaused ? 0.5 : pulseAnim.interpolate({
+                      inputRange: [1, 1.2],
+                      outputRange: [0.5, 1] // Variación de opacidad para que se vea vivo
+                    })
+                  }
+                ]} />
+              ))}
+            </View>
+          </View>
+
+          {/* Derecha: Controles */}
+          <View style={styles.recordingControls}>
+            <TouchableOpacity onPress={isPaused ? resumeRecording : pauseRecording} style={styles.iconBtn}>
+              <Ionicons name={isPaused ? "play" : "pause"} size={20} color={theme.colors.text.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={stopRecording} style={styles.stopBtn}>
+              <Ionicons name="stop" size={18} color="white" />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }

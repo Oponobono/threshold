@@ -25,6 +25,7 @@ import { theme } from '../styles/theme';
 import { detailStyles as styles } from '../styles/RecordingDetailScreen.styles';
 import { RecordingAITabs, AITabType } from './RecordingAITabs';
 import { RecordingAIContent } from './RecordingAIContent';
+import { PremiumLoading } from './PremiumLoading';
 import {
   getSubjects,
   Subject,
@@ -66,7 +67,7 @@ async function summarizeWithGroq(transcription: string, apiKey: string): Promise
     messages: [
       {
         role: 'system',
-        content: 'Eres un asistente educativo experto. Tu tarea es resumir transcripciones de videos educativos de forma clara, estructurada y concisa para estudiantes universitarios, resaltando los puntos clave con viñetas o secciones.',
+        content: 'Eres un asistente educativo experto especializado en crear material de estudio universitario altamente efectivo. A partir de la transcripción de este video de YouTube, genera un resumen estructurado siguiendo estas reglas:\n1. Extrae los conceptos fundamentales y ordénalos por temas usando títulos claros (###).\n2. Usa viñetas breves para desglosar los detalles importantes de cada tema.\n3. Identifica términos clave, definiciones o fechas y resáltalos en **negrita**.\n4. Elimina toda la "paja" (titubeos, saludos, anuncios de patrocinadores, repeticiones) y ve directo al grano.\n5. Finaliza con una sección de "Idea Central" de máximo 2 oraciones.\nTu tono debe ser académico, estructurado y directo. No agregues introducciones conversacionales (como "Aquí tienes el resumen").',
       },
       {
         role: 'user',
@@ -290,6 +291,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [activeTab, setActiveTab] = useState<AITabType>('transcription');
   const [showTutorial, setShowTutorial] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Video metadata
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -331,7 +333,9 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
               if (metadata.title) {
                 video.title = metadata.title;
                 // Update in backend
-                await updateYouTubeVideo(video.id, { title: metadata.title }).catch(e => console.warn('updateTitle:', e));
+                if (video.id) {
+                  await updateYouTubeVideo(video.id, { title: metadata.title }).catch(e => console.warn('updateTitle:', e));
+                }
               }
             }
           } catch (err) {
@@ -341,7 +345,11 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
         setVideoData(video);
         setSelectedSubjectId(video.subject_id ?? null);
       }
-    } catch (e) { console.error('loadInitialData:', e); }
+    } catch (e) {
+      console.error('loadInitialData:', e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -447,6 +455,10 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+  if (isLoading) {
+    return <PremiumLoading text={t('subjects.loading') || 'CARGANDO'} />;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.card} translucent={false} />
@@ -481,10 +493,10 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
               height={Dimensions.get('window').width * 9 / 16}
               play={false}
               videoId={videoData.video_id}
-              onChangeState={(event) => {
+              onChangeState={(event: string) => {
                 console.log('YouTube player state:', event);
               }}
-              onError={(error) => {
+              onError={(error: string) => {
                 console.error('YouTube player error:', error);
                 Alert.alert('Error', 'No se pudo cargar el video. Intenta abrirlo directamente en YouTube.');
               }}

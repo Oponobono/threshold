@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Animated, Pressable } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { detailStyles } from '../styles/RecordingDetailScreen.styles';
@@ -19,6 +20,75 @@ interface RecordingAIContentProps {
   onStartSummaryFlow: () => void;
 }
 
+const AnimatedRegenerateButton = ({ count, onRegenerate }: { count: number, onRegenerate: () => void }) => {
+  const fillAnim = useRef(new Animated.Value(0)).current;
+  
+  const handlePressIn = () => {
+    if (count <= 0) return;
+    Animated.timing(fillAnim, {
+      toValue: 1,
+      duration: 1500, // 1.5 segundos para llenarse y activar
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) {
+        onRegenerate();
+        Animated.timing(fillAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+      }
+    });
+  };
+
+  const handlePressOut = () => {
+    if (count <= 0) return;
+    Animated.timing(fillAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const widthInterpolation = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%']
+  });
+
+  const isDisabled = count <= 0;
+
+  return (
+    <Pressable
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: isDisabled ? theme.colors.border : theme.colors.primary,
+        backgroundColor: isDisabled ? theme.colors.background : 'transparent',
+        overflow: 'hidden',
+        opacity: isDisabled ? 0.6 : 1
+      }}
+    >
+      <Animated.View style={{
+        position: 'absolute',
+        left: 0, top: 0, bottom: 0,
+        width: widthInterpolation,
+        backgroundColor: `${theme.colors.primary}40`,
+      }} />
+      <Ionicons name="refresh-outline" size={16} color={isDisabled ? theme.colors.text.placeholder : theme.colors.primary} />
+      <Text style={{ 
+        marginLeft: 6, 
+        fontSize: 13, 
+        fontWeight: '600', 
+        color: isDisabled ? theme.colors.text.placeholder : theme.colors.primary 
+      }}>
+        Regenerar (x{count})
+      </Text>
+    </Pressable>
+  );
+};
+
 export const RecordingAIContent: React.FC<RecordingAIContentProps> = ({
   activeTab,
   onTabPress,
@@ -31,6 +101,7 @@ export const RecordingAIContent: React.FC<RecordingAIContentProps> = ({
   onStartSummaryFlow,
 }) => {
   const { t } = useTranslation();
+  const [regenerateCount, setRegenerateCount] = useState(1);
   
   const canGenerateSummary = activeTab === 'summary' && !transcription;
 
@@ -39,16 +110,27 @@ export const RecordingAIContent: React.FC<RecordingAIContentProps> = ({
       if (transcription) {
         return (
           <View>
-            <Text style={detailStyles.transcriptionText}>{transcription}</Text>
-            <TouchableOpacity
-              onPress={() => onCopy(transcription)}
-              style={[detailStyles.copyBtn, { marginTop: 16, alignSelf: 'flex-end' }]}
-            >
-              <Ionicons name="copy-outline" size={18} color={theme.colors.primary} />
-              <Text style={detailStyles.copyBtnText}>
-                {t('common.copy', { defaultValue: 'Copiar' }) === 'common.copy' ? 'Copiar' : t('common.copy', { defaultValue: 'Copiar' })}
-              </Text>
-            </TouchableOpacity>
+            <Markdown style={markdownStyles}>
+              {transcription}
+            </Markdown>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+              <AnimatedRegenerateButton 
+                 count={regenerateCount} 
+                 onRegenerate={() => {
+                   setRegenerateCount(0);
+                   onStartTranscriptionFlow();
+                 }} 
+              />
+              <TouchableOpacity
+                onPress={() => onCopy(transcription)}
+                style={[detailStyles.copyBtn, { marginTop: 0, alignSelf: 'auto', paddingVertical: 8 }]}
+              >
+                <Ionicons name="copy-outline" size={18} color={theme.colors.primary} />
+                <Text style={detailStyles.copyBtnText}>
+                  {t('common.copy', { defaultValue: 'Copiar' }) === 'common.copy' ? 'Copiar' : t('common.copy', { defaultValue: 'Copiar' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         );
       }
@@ -82,7 +164,9 @@ export const RecordingAIContent: React.FC<RecordingAIContentProps> = ({
     if (summary) {
       return (
         <View>
-          <Text style={detailStyles.transcriptionText}>{summary}</Text>
+          <Markdown style={markdownStyles}>
+            {summary}
+          </Markdown>
           <TouchableOpacity
             onPress={() => onCopy(summary)}
             style={[detailStyles.copyBtn, { marginTop: 16, alignSelf: 'flex-end' }]}
@@ -241,4 +325,19 @@ const localStyles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
+});
+
+const markdownStyles = StyleSheet.create({
+  body: {
+    fontSize: 15,
+    color: theme.colors.text.primary,
+    lineHeight: 24,
+  },
+  heading1: { fontSize: 20, fontWeight: '700', color: theme.colors.primary, marginTop: 16, marginBottom: 8 },
+  heading2: { fontSize: 18, fontWeight: '700', color: theme.colors.primary, marginTop: 16, marginBottom: 8 },
+  heading3: { fontSize: 16, fontWeight: '700', color: theme.colors.primary, marginTop: 16, marginBottom: 8 },
+  paragraph: { marginBottom: 12 },
+  list_item: { marginBottom: 6 },
+  bullet_list: { marginTop: 4, marginBottom: 12 },
+  strong: { fontWeight: 'bold', color: theme.colors.text.primary },
 });
