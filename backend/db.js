@@ -225,6 +225,20 @@ const initializePostgresDb = async () => {
       )
     `);
 
+    // Migrate existing audio_recordings table (add missing columns)
+    const audioRecCols = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'audio_recordings'`);
+    const existingAudioCols = new Set(audioRecCols.rows.map(r => r.column_name));
+    const missingAudioCols = [
+      { name: 'name', type: 'TEXT' },
+      { name: 'subject_id', type: 'INTEGER REFERENCES subjects(id) ON DELETE SET NULL' },
+      { name: 'duration', type: 'INTEGER' },
+    ].filter(col => !existingAudioCols.has(col.name));
+    for (const col of missingAudioCols) {
+      await pool.query(`ALTER TABLE audio_recordings ADD COLUMN ${col.name} ${col.type}`);
+      console.log(`Columna agregada en audio_recordings: ${col.name}`);
+    }
+
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS audio_transcripts (
         id SERIAL PRIMARY KEY,
