@@ -349,7 +349,8 @@
         "errorSave": "No pudimos guardar esta tarea. Inténtalo de nuevo."
       },
       "errors": {
-        "fillFields": "Por favor, completa todos los campos requeridos."
+        "fillFields": "Por favor, completa todos los campos requeridos.",
+        "cameraPermission": "Se requieren permisos de cámara para continuar."
       }
     },
     "newSubject": {

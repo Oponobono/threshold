@@ -477,6 +477,27 @@ const initializeSqliteDb = () => {
       )
     `);
 
+    db.all(`PRAGMA table_info(audio_recordings)`, (err, rows) => {
+      if (err) {
+        console.error('Error verificando columnas de audio_recordings:', err.message);
+        return;
+      }
+      const existingColumns = new Set(rows.map((row) => row.name));
+      const missingColumns = [
+        { name: 'name', type: 'TEXT' },
+      ].filter((column) => !existingColumns.has(column.name));
+
+      missingColumns.forEach((column) => {
+        db.run(`ALTER TABLE audio_recordings ADD COLUMN ${column.name} ${column.type}`, (alterErr) => {
+          if (alterErr) {
+            console.error(`Error agregando columna ${column.name} en audio_recordings:`, alterErr.message);
+            return;
+          }
+          console.log(`Columna agregada en audio_recordings: ${column.name}`);
+        });
+      });
+    });
+
     db.run(`
       CREATE TABLE IF NOT EXISTS audio_transcripts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

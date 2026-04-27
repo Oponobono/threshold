@@ -349,7 +349,8 @@
         "errorSave": "We could not save this task. Please try again."
       },
       "errors": {
-        "fillFields": "Please fill in all required fields."
+        "fillFields": "Please fill in all required fields.",
+        "cameraPermission": "Camera permissions are required to continue."
       }
     },
     "newSubject": {
