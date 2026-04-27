@@ -100,7 +100,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
           <TouchableOpacity onPress={resetAndClose} style={styles.closeBtn}>
             <Ionicons name="close" size={28} color={theme.colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{capturedImage ? t('common.preview') || 'Preview' : t('dashboard.quickAddMenu.takePhoto') || 'Tomar Foto'}</Text>
+          <Text style={styles.headerTitle}>{capturedImage ? t('common.preview') || 'Vista Previa' : t('dashboard.quickAddMenu.takePhotoLabel') || 'Tomar Foto'}</Text>
           <View style={{ width: 44 }} />
         </View>
 
