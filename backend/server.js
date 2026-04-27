@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
+const { fetchTranscript } = require('youtube-transcript');
 const { db, initializeDb } = require('./db');
 
 const app = express();
@@ -945,7 +946,7 @@ app.delete('/api/youtube-videos/:id', (req, res) => {
   });
 });
 
-// Obtener subtítulos de un video de YouTube
+// Obtener subtítulos de un video de YouTube usando youtube-transcript
 app.post('/api/youtube-captions', async (req, res) => {
   const { video_id, language = 'es' } = req.body;
 
@@ -954,53 +955,47 @@ app.post('/api/youtube-captions', async (req, res) => {
   }
 
   try {
-    // Usar youtube-captions-extractor para obtener los subtítulos
-    // Primero, necesitamos instalar: npm install youtube-captions-extractor
-    // O usamos una API libre como: https://www.youtube.com/api/timedtext?v=VIDEO_ID&lang=ES
+    console.log(`[YouTube Captions] Obteniendo transcripción para video_id=${video_id}, language=${language}`);
     
-    const response = await fetch(
-      `https://www.youtube.com/api/timedtext?v=${video_id}&lang=${language}&fmt=json`,
-      {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      // Si no hay subtítulos en el idioma especificado, intentar con 'en'
-      const fallbackResponse = await fetch(
-        `https://www.youtube.com/api/timedtext?v=${video_id}&lang=en&fmt=json`,
-        {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        }
-      );
-
-      if (!fallbackResponse.ok) {
-        return res.status(404).json({ error: 'No se encontraron subtítulos para este video' });
-      }
-
-      const data = await fallbackResponse.json();
-      const captions = data.events
-        ?.map(event => event.segs?.map(seg => seg.utf8).join('') || '')
-        .join(' ')
-        .trim() || '';
-
-      return res.json({ captions, language: 'en' });
+    // Usar youtube-transcript library (mantiene batalla contra bloqueos de YouTube)
+    const transcript = await fetchTranscript(video_id, { lang: language });
+    
+    if (!transcript || transcript.length === 0) {
+      console.log(`[YouTube Captions] No hay transcripción disponible para ${video_id}`);
+      return res.status(404).json({ error: 'No se encontraron subtítulos para este video' });
     }
 
-    const data = await response.json();
-    const captions = data.events
-      ?.map(event => event.segs?.map(seg => seg.utf8).join('') || '')
+    // Juntar los textos de la transcripción
+    const captions = transcript
+      .map(item => item.text)
       .join(' ')
-      .trim() || '';
+      .trim();
 
-    res.json({ captions, language });
+    if (!captions) {
+      console.log(`[YouTube Captions] Transcripción vacía para ${video_id}`);
+      return res.status(404).json({ error: 'Los subtítulos están vacíos' });
+    }
+
+    console.log(`[YouTube Captions] ✓ Transcripción obtenida exitosamente (${captions.length} caracteres, ${transcript.length} segmentos)`);
+    res.json({ 
+      captions, 
+      language: language,
+      segmentCount: transcript.length 
+    });
   } catch (error) {
-    console.error('Error obteniendo subtítulos:', error);
-    res.status(500).json({ error: 'Error obteniendo subtítulos del video' });
+    console.error('[YouTube Captions] Error:', error.message);
+    
+    // Mensajes de error más específicos
+    let errorMsg = 'Error obteniendo subtítulos del video';
+    if (error.message.includes('Could not find')) {
+      errorMsg = 'Video no encontrado o es privado';
+    } else if (error.message.includes('transcript')) {
+      errorMsg = 'No hay subtítulos disponibles para este video';
+    } else if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED')) {
+      errorMsg = 'Problema de conexión al obtener subtítulos';
+    }
+    
+    res.status(500).json({ error: errorMsg, details: error.message });
   }
 });
 
