@@ -1,10 +1,20 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import 'react-native-gesture-handler';
 import 'react-native-reanimated';
-import '../src/locales/i18n';
+import * as SplashScreen from 'expo-splash-screen';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+// Importación diferida para no bloquear el hilo principal en el milisegundo 0
+import '../src/locales/i18n';
 import { useColorScheme } from '@/src/hooks/use-color-scheme';
+
+// Mantener el Splash Screen visible hasta que decidamos ocultarlo
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* ignore error */
+});
 
 export const unstable_settings = {
   initialRouteName: 'welcome',
@@ -12,18 +22,49 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [appIsReady, setAppIsReady] = useState(false);
+
+  useEffect(() => {
+    async function prepare() {
+      try {
+        console.log('[RootLayout] Starting preparation...');
+        // Aquí podrías cargar fuentes o hacer checks mínimos
+        // Pero no bloqueamos más de lo necesario
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
+
+    prepare();
+  }, []);
+
+  useEffect(() => {
+    if (appIsReady) {
+      console.log('[RootLayout] App is ready, hiding splash screen');
+      // Ocultamos el splash screen inmediatamente después de que el primer render sea posible
+      // Usamos un pequeño delay para asegurar que el motor JSI de la Nueva Arquitectura esté estable
+      const timer = setTimeout(() => {
+        SplashScreen.hideAsync().catch(() => {});
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [appIsReady]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="welcome" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="settings" options={{ headerShown: false }} />
-        <Stack.Screen name="about" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack initialRouteName="welcome">
+          <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="register" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
+          <Stack.Screen name="about" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

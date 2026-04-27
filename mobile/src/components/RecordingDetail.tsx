@@ -34,7 +34,7 @@ import {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const GROQ_API_KEY: string = process.env.EXPO_PUBLIC_GROK_API_KEY ?? process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
+const GROQ_API_KEY: string = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 const AUDIO_DIR = () => `${FileSystem.documentDirectory}Threshold/audio/`;
 const TRANSCRIPTS_DIR = () => `${FileSystem.documentDirectory}Threshold/transcripts/`;
@@ -454,7 +454,6 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       sound.setOnPlaybackStatusUpdate((s: AVPlaybackStatus) => {
         if (s.isLoaded && s.didJustFinish) {
           setIsPlaying(false);
-          sound.setPositionAsync(0).catch(() => {});
         }
       });
     } catch (e) {

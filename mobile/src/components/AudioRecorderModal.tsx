@@ -101,7 +101,7 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
         onDelete={deleteRecording}
         onPress={() => {
           onClose();
-          router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}` as any);
+          router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}?type=recording` as any);
         }}
       />
     );
