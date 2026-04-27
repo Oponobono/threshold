@@ -945,6 +945,65 @@ app.delete('/api/youtube-videos/:id', (req, res) => {
   });
 });
 
+// Obtener subtítulos de un video de YouTube
+app.post('/api/youtube-captions', async (req, res) => {
+  const { video_id, language = 'es' } = req.body;
+
+  if (!video_id) {
+    return res.status(400).json({ error: 'Falta video_id' });
+  }
+
+  try {
+    // Usar youtube-captions-extractor para obtener los subtítulos
+    // Primero, necesitamos instalar: npm install youtube-captions-extractor
+    // O usamos una API libre como: https://www.youtube.com/api/timedtext?v=VIDEO_ID&lang=ES
+    
+    const response = await fetch(
+      `https://www.youtube.com/api/timedtext?v=${video_id}&lang=${language}&fmt=json`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      // Si no hay subtítulos en el idioma especificado, intentar con 'en'
+      const fallbackResponse = await fetch(
+        `https://www.youtube.com/api/timedtext?v=${video_id}&lang=en&fmt=json`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        }
+      );
+
+      if (!fallbackResponse.ok) {
+        return res.status(404).json({ error: 'No se encontraron subtítulos para este video' });
+      }
+
+      const data = await fallbackResponse.json();
+      const captions = data.events
+        ?.map(event => event.segs?.map(seg => seg.utf8).join('') || '')
+        .join(' ')
+        .trim() || '';
+
+      return res.json({ captions, language: 'en' });
+    }
+
+    const data = await response.json();
+    const captions = data.events
+      ?.map(event => event.segs?.map(seg => seg.utf8).join('') || '')
+      .join(' ')
+      .trim() || '';
+
+    res.json({ captions, language });
+  } catch (error) {
+    console.error('Error obteniendo subtítulos:', error);
+    res.status(500).json({ error: 'Error obteniendo subtítulos del video' });
+  }
+});
+
 // Upsert transcripción/resumen de YouTube
 app.post('/api/youtube-transcripts', (req, res) => {
   const { video_id, transcript_uri, summary_uri } = req.body;

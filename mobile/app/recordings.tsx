@@ -50,6 +50,7 @@ export default function RecordingsScreen() {
   const [showYoutubeModal, setShowYoutubeModal] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+  const [isAddingYouTubeVideo, setIsAddingYouTubeVideo] = useState(false);
 
   useEffect(() => {
     if (isRecording && !isPaused) {
@@ -228,7 +229,7 @@ export default function RecordingsScreen() {
     // Add orphan recordings
     if (orphanRecordings.length > 0) {
       sections.push({
-        title: t('recordings.unclassified') || 'Sin clasificar • Audios',
+        title: `${t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar'} • ${t('dashboard.audioRecorderModal.recordings') || 'Audios'}`,
         data: orphanRecordings,
         subtype: 'recordings'
       });
@@ -237,7 +238,7 @@ export default function RecordingsScreen() {
     // Add orphan videos
     if (orphanVideos.length > 0) {
       sections.push({
-        title: t('recordings.unclassified') || 'Sin clasificar • Videos',
+        title: `${t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar'} • Videos`,
         data: orphanVideos,
         subtype: 'videos'
       });
@@ -247,25 +248,60 @@ export default function RecordingsScreen() {
   }, [recordings, youTubeVideos, t]);
 
   const handleAddYoutube = async () => {
-    if (!youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be')) {
-      alert('Por favor, ingresa un enlace válido de YouTube.');
+    // Validate URL format
+    const trimmedUrl = youtubeUrl.trim();
+    if (!trimmedUrl) {
+      alert('Por favor, ingresa un enlace de YouTube.');
+      return;
+    }
+
+    if (!trimmedUrl.includes('youtube.com') && !trimmedUrl.includes('youtu.be')) {
+      alert('Por favor, ingresa un enlace válido de YouTube (youtube.com o youtu.be).');
       return;
     }
 
     try {
+      setIsAddingYouTubeVideo(true);
+
       // Extract video ID from URL
       let videoId = '';
-      if (youtubeUrl.includes('youtube.com/watch?v=')) {
-        videoId = youtubeUrl.split('v=')[1]?.split('&')[0] || '';
-      } else if (youtubeUrl.includes('youtu.be/')) {
-        videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0] || '';
+      if (trimmedUrl.includes('youtube.com/watch?v=')) {
+        videoId = trimmedUrl.split('v=')[1]?.split('&')[0]?.trim() || '';
+      } else if (trimmedUrl.includes('youtu.be/')) {
+        videoId = trimmedUrl.split('youtu.be/')[1]?.split('?')[0]?.split('#')[0]?.trim() || '';
+      }
+
+      if (!videoId || videoId.length < 10) {
+        alert('No se pudo extraer un ID de video válido de este enlace. Verifica que sea un enlace directo a un video.');
+        setIsAddingYouTubeVideo(false);
+        return;
+      }
+
+      // Get video metadata from YouTube
+      let videoTitle = 'Video de YouTube';
+      let thumbnailUrl = '';
+      try {
+        const metadataRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+        if (metadataRes.ok) {
+          const metadata = await metadataRes.json();
+          if (metadata.title) videoTitle = metadata.title;
+          if (metadata.thumbnail_url) thumbnailUrl = metadata.thumbnail_url;
+        } else if (metadataRes.status === 404) {
+          alert('No se encontró información sobre este video. Verifica que el enlace sea válido.');
+          setIsAddingYouTubeVideo(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Error fetching video metadata:', err);
+        // Continue anyway with default title
       }
 
       // Create YouTube video record
       await createYouTubeVideo({
-        youtube_url: youtubeUrl,
+        youtube_url: trimmedUrl,
         video_id: videoId,
-        title: 'Video de YouTube',
+        title: videoTitle,
+        thumbnail_url: thumbnailUrl,
         subject_id: null,
       });
 
@@ -274,7 +310,10 @@ export default function RecordingsScreen() {
       await loadYouTubeVideos();
     } catch (e) {
       console.error('Error adding YouTube video:', e);
-      alert('Error al agregar el video. Por favor, intenta de nuevo.');
+      const errorMsg = e instanceof Error ? e.message : 'Error desconocido';
+      alert(`Error al agregar el video: ${errorMsg}. Por favor, intenta de nuevo.`);
+    } finally {
+      setIsAddingYouTubeVideo(false);
     }
   };
 
@@ -338,14 +377,37 @@ export default function RecordingsScreen() {
                 style={{ height: 44, color: theme.colors.text.primary }}
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isAddingYouTubeVideo}
               />
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
-              <TouchableOpacity onPress={() => setShowYoutubeModal(false)} style={{ padding: 10 }}>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowYoutubeModal(false);
+                  setYoutubeUrl('');
+                }} 
+                disabled={isAddingYouTubeVideo}
+                style={{ padding: 10, opacity: isAddingYouTubeVideo ? 0.5 : 1 }}
+              >
                 <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddYoutube} style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>Añadir</Text>
+              <TouchableOpacity 
+                onPress={handleAddYoutube} 
+                disabled={isAddingYouTubeVideo || !youtubeUrl.trim()}
+                style={{ 
+                  backgroundColor: (isAddingYouTubeVideo || !youtubeUrl.trim()) ? theme.colors.border : theme.colors.primary,
+                  paddingHorizontal: 16, 
+                  paddingVertical: 10, 
+                  borderRadius: 8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+              >
+                {isAddingYouTubeVideo && <ActivityIndicator size="small" color="white" />}
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                  {isAddingYouTubeVideo ? 'Añadiendo...' : 'Añadir'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

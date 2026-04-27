@@ -10,11 +10,16 @@ import {
   StatusBar,
   Animated,
   Pressable,
+  Linking,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import YoutubePlayer from 'react-native-youtube-iframe';
+import { WebView } from 'react-native-webview';
 
 import { theme } from '../styles/theme';
 import { detailStyles as styles } from '../styles/RecordingDetailScreen.styles';
@@ -39,11 +44,41 @@ const YOUTUBE_API_KEY: string = process.env.EXPO_PUBLIC_YOUTUBE_API_KEY ?? '';
 // ---------------------------------------------------------------------------
 // Groq helpers
 // ---------------------------------------------------------------------------
-async function transcribeYouTubeWithWhisper(videoUrl: string, apiKey: string): Promise<string> {
-  // Este es un placeholder para obtener el audio de YouTube y transcribirlo
-  // En realidad, necesitarías usar algo como youtube-dl o similar
-  // Por ahora, solo mostramos el placeholder
-  throw new Error('Transcripción de YouTube requiere descarga de audio (pendiente de implementación)');
+async function transcribeYouTubeWithWhisper(videoId: string, apiKey: string): Promise<string> {
+  // Obtener subtítulos del backend - devuelve TEXT de subtítulos, no audio
+  try {
+    // Build full API URL with fallback support for LAN/cloud
+    const apiEndpoints = [
+      'http://192.168.1.100:3000/api/youtube-captions', // LAN common
+      'http://localhost:3000/api/youtube-captions', // Localhost
+      (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000') + '/api/youtube-captions', // Env override
+    ];
+
+    let lastError: any = null;
+    
+    for (const endpoint of apiEndpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_id: videoId, language: 'es' }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✓ YouTube captions fetched in', data.language);
+          return data.captions || '';
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error('No se pudieron obtener los subtítulos de ningún servidor');
+  } catch (error) {
+    console.error('✗ Error fetching YouTube captions:', error);
+    throw new Error(`Error obteniendo subtítulos: ${error instanceof Error ? error.message : error}`);
+  }
 }
 
 async function summarizeWithGroq(transcription: string, apiKey: string): Promise<string> {
@@ -307,7 +342,26 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
         video = all.find(v => v.id?.toString() === videoId) ?? null;
       } catch (e) { console.warn('videos:', e); }
 
-      if (video) { setVideoData(video); setSelectedSubjectId(video.subject_id ?? null); }
+      if (video) {
+        // If title is empty, try to fetch from noembed
+        if (!video.title && video.video_id) {
+          try {
+            const metadataRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${video.video_id}`);
+            if (metadataRes.ok) {
+              const metadata = await metadataRes.json();
+              if (metadata.title) {
+                video.title = metadata.title;
+                // Update in backend
+                await updateYouTubeVideo(video.id, { title: metadata.title }).catch(e => console.warn('updateTitle:', e));
+              }
+            }
+          } catch (err) {
+            console.warn('Error fetching video title from noembed:', err);
+          }
+        }
+        setVideoData(video);
+        setSelectedSubjectId(video.subject_id ?? null);
+      }
     } catch (e) { console.error('loadInitialData:', e); }
   };
 
@@ -335,10 +389,10 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
     setSummary(null);
 
     try {
-      const text = await transcribeYouTubeWithWhisper(videoData?.youtube_url || '', GROQ_API_KEY);
+      const text = await transcribeYouTubeWithWhisper(videoData?.video_id || '', GROQ_API_KEY);
       
       if (!text) {
-        Alert.alert(t('common.error') || 'Error', 'No se pudo transcribir el video.');
+        Alert.alert(t('common.error') || 'Error', 'No se pudo obtener los subtítulos del video.');
         return;
       }
 
@@ -420,16 +474,36 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Video Info Card */}
-        <View style={[styles.playerCard, { flexDirection: 'row', alignItems: 'center' }]}>
-          <View style={{ flex: 1, marginRight: 16 }}>
-            <Text style={styles.playerTitle} numberOfLines={2}>{videoTitle}</Text>
-            <Text style={[styles.playerDate, { marginBottom: 0 }]}>{date}</Text>
+        {/* YouTube Video Player */}
+        {videoData?.video_id && (
+          <View style={{ marginBottom: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' }}>
+            <YoutubePlayer
+              height={Dimensions.get('window').width * 9 / 16}
+              play={false}
+              videoId={videoData.video_id}
+              onChangeState={(event) => {
+                console.log('YouTube player state:', event);
+              }}
+              onError={(error) => {
+                console.error('YouTube player error:', error);
+                Alert.alert('Error', 'No se pudo cargar el video. Intenta abrirlo directamente en YouTube.');
+              }}
+              webViewProps={{
+                javaScriptEnabled: true,
+                domStorageEnabled: true,
+                mediaPlaybackRequiresUserAction: false,
+                allowsFullscreenVideo: true,
+              }}
+            />
           </View>
+        )}
 
-          {/* YouTube icon */}
-          <MaterialCommunityIcons name="youtube" size={32} color={theme.colors.text.error} />
-        </View>
+        {/* Video Meta (Date) - Compact */}
+        {date && (
+          <Text style={{ fontSize: 12, color: theme.colors.text.secondary, textAlign: 'center', marginBottom: 12 }}>
+            {date}
+          </Text>
+        )}
 
         {/* Animated Subject Selector */}
         <AnimatedSubjectSelector 
@@ -438,18 +512,20 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
         />
 
         {/* AI Control Bar + Content (unified) */}
-        <RecordingAIContent
-          activeTab={activeTab}
-          onTabPress={setActiveTab}
-          screenWidth={screenWidth}
-          isTranscribing={isTranscribing}
-          transcription={transcription}
-          isSummarizing={isSummarizing}
-          summary={summary}
-          onCopy={copyToClipboard}
-          onStartTranscriptionFlow={startTranscriptionFlow}
-          onStartSummaryFlow={startSummaryFlow}
-        />
+        <View style={{ marginTop: 8 }}>
+          <RecordingAIContent
+            activeTab={activeTab}
+            onTabPress={setActiveTab}
+            screenWidth={screenWidth}
+            isTranscribing={isTranscribing}
+            transcription={transcription}
+            isSummarizing={isSummarizing}
+            summary={summary}
+            onCopy={copyToClipboard}
+            onStartTranscriptionFlow={startTranscriptionFlow}
+            onStartSummaryFlow={startSummaryFlow}
+          />
+        </View>
       </ScrollView>
 
       {/* Subject picker */}
