@@ -250,6 +250,30 @@ const initializePostgresDb = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS youtube_videos (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+        youtube_url TEXT NOT NULL,
+        video_id TEXT NOT NULL,
+        title TEXT,
+        thumbnail_url TEXT,
+        duration INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS youtube_transcripts (
+        id SERIAL PRIMARY KEY,
+        video_id INTEGER NOT NULL REFERENCES youtube_videos(id) ON DELETE CASCADE,
+        transcript_uri TEXT,
+        summary_uri TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS flashcard_decks (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id),
@@ -520,6 +544,33 @@ const initializeSqliteDb = () => {
         summary_uri TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (recording_id) REFERENCES audio_recordings(id) ON DELETE CASCADE
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS youtube_videos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        subject_id INTEGER,
+        youtube_url TEXT NOT NULL,
+        video_id TEXT NOT NULL,
+        title TEXT,
+        thumbnail_url TEXT,
+        duration INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS youtube_transcripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        video_id INTEGER NOT NULL,
+        transcript_uri TEXT,
+        summary_uri TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (video_id) REFERENCES youtube_videos(id) ON DELETE CASCADE
       )
     `);
 

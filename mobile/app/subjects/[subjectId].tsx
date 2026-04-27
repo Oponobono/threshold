@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { globalStyles } from '../../src/styles/globalStyles';
@@ -19,9 +19,11 @@ import {
   getCurrentUserProfile,
   getSchedulesBySubject,
   getAudioRecordings,
+  getYouTubeVideos,
   type Assessment,
   type Subject,
   type UserProfile,
+  type YouTubeVideo,
 } from '../../src/services/api';
 import { useAudioRecorder, RecordingItem } from '../../src/hooks/useAudioRecorder';
 import { SubjectHeroCard } from '../../src/components/SubjectHeroCard';
@@ -68,6 +70,7 @@ export default function SubjectDetailScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = React.useRef<CameraView>(null);
   const [recentRecordings, setRecentRecordings] = useState<RecordingItem[]>([]);
+  const [recentVideos, setRecentVideos] = useState<YouTubeVideo[]>([]);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const { playSound, stopSound, playingId, deleteRecording } = useAudioRecorder();
 
@@ -79,7 +82,7 @@ export default function SubjectDetailScreen() {
 
       setIsLoading(true);
       try {
-        const [profileRes, subjectRes, photosRes, assessmentsRes, schedulesRes, recordingsRes] =
+        const [profileRes, subjectRes, photosRes, assessmentsRes, schedulesRes, recordingsRes, videosRes] =
           await Promise.allSettled([
             getCurrentUserProfile(),
             getSubjectById(subjectId),
@@ -87,6 +90,7 @@ export default function SubjectDetailScreen() {
             getAssessments(subjectId),
             getSchedulesBySubject(subjectId),
             getAudioRecordings(),
+            getYouTubeVideos(),
           ]);
 
         if (!mounted) return;
@@ -112,6 +116,11 @@ export default function SubjectDetailScreen() {
                 }),
             }))
           );
+        }
+        if (videosRes.status === 'fulfilled') {
+          // eslint-disable-next-line eqeqeq
+          const filtered = videosRes.value.filter(v => v.subject_id == subjectId).slice(0, 3);
+          setRecentVideos(filtered);
         }
       } catch (err) {
         console.error('Error loading subject data:', err);
@@ -219,6 +228,43 @@ export default function SubjectDetailScreen() {
             stopSound={stopSound}
             deleteRecording={deleteRecording}
           />
+
+          {recentVideos.length > 0 && (
+            <View style={{ marginTop: 24, paddingHorizontal: 16, marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text.primary }}>
+                  Videos de YouTube
+                </Text>
+              </View>
+              <View style={{ gap: 12 }}>
+                {recentVideos.map(video => (
+                  <TouchableOpacity
+                    key={video.id}
+                    onPress={() => router.push(`/recordings/${video.id}?type=video` as any)}
+                    style={{
+                      backgroundColor: theme.colors.card,
+                      borderRadius: 12,
+                      padding: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <MaterialCommunityIcons name="youtube" size={40} color={theme.colors.text.error} style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }} numberOfLines={2}>
+                        {video.title || 'Video de YouTube'}
+                      </Text>
+                      <Text style={{ color: theme.colors.text.secondary, fontSize: 13, marginTop: 2 }}>
+                        {video.created_at
+                          ? new Date(video.created_at).toLocaleDateString()
+                          : 'Fecha desconocida'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
 
           {isDetailLoading && (
             <View style={styles.detailLoadingRow}>

@@ -852,6 +852,136 @@ app.post('/api/audio-transcripts', (req, res) => {
   });
 });
 
+// --- YOUTUBE VIDEOS ENDPOINTS ---
+
+// Obtener todos los videos de YouTube de un usuario
+app.get('/api/youtube-videos/:userId', (req, res) => {
+  const { userId } = req.params;
+  const query = `
+    SELECT 
+      yv.id,
+      yv.user_id,
+      yv.subject_id,
+      yv.youtube_url,
+      yv.video_id,
+      yv.title,
+      yv.thumbnail_url,
+      yv.duration,
+      yv.created_at,
+      s.name as subject_name,
+      s.color as subject_color,
+      s.icon as subject_icon,
+      yt.transcript_uri,
+      yt.summary_uri
+    FROM youtube_videos yv
+    LEFT JOIN subjects s ON yv.subject_id = s.id
+    LEFT JOIN youtube_transcripts yt ON yv.id = yt.video_id
+    WHERE yv.user_id = ?
+    ORDER BY yv.created_at DESC
+  `;
+  
+  db.all(query, [userId], (err, videos) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(videos || []);
+  });
+});
+
+// Crear un nuevo video de YouTube
+app.post('/api/youtube-videos', (req, res) => {
+  const { user_id, subject_id, youtube_url, video_id, title, thumbnail_url, duration } = req.body;
+  
+  if (!user_id || !youtube_url || !video_id) {
+    return res.status(400).json({ error: 'Faltan campos requeridos: user_id, youtube_url, video_id' });
+  }
+
+  const query = `
+    INSERT INTO youtube_videos (user_id, subject_id, youtube_url, video_id, title, thumbnail_url, duration)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  db.run(query, [user_id, subject_id || null, youtube_url, video_id, title || null, thumbnail_url || null, duration || null], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json({ success: true, id: this.lastID });
+  });
+});
+
+// Actualizar un video de YouTube (ej: cambiar materia, título)
+app.put('/api/youtube-videos/:id', (req, res) => {
+  const { id } = req.params;
+  const { subject_id, title } = req.body;
+  
+  const updateFields = [];
+  const updateValues = [];
+  
+  if (subject_id !== undefined) {
+    updateFields.push('subject_id = ?');
+    updateValues.push(subject_id);
+  }
+  
+  if (title !== undefined) {
+    updateFields.push('title = ?');
+    updateValues.push(title);
+  }
+  
+  if (updateFields.length === 0) {
+    return res.status(400).json({ error: 'No hay campos para actualizar' });
+  }
+  
+  updateValues.push(id);
+  const query = `UPDATE youtube_videos SET ${updateFields.join(', ')} WHERE id = ?`;
+  
+  db.run(query, updateValues, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, changes: this.changes });
+  });
+});
+
+// Eliminar un video de YouTube
+app.delete('/api/youtube-videos/:id', (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM youtube_videos WHERE id = ?`, [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, changes: this.changes });
+  });
+});
+
+// Upsert transcripción/resumen de YouTube
+app.post('/api/youtube-transcripts', (req, res) => {
+  const { video_id, transcript_uri, summary_uri } = req.body;
+  
+  if (!video_id) {
+    return res.status(400).json({ error: 'Falta video_id' });
+  }
+
+  db.get(`SELECT id FROM youtube_transcripts WHERE video_id = ?`, [video_id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    if (row) {
+      // Actualizar
+      const updateQuery = `
+        UPDATE youtube_transcripts 
+        SET transcript_uri = COALESCE(?, transcript_uri),
+            summary_uri = COALESCE(?, summary_uri)
+        WHERE video_id = ?
+      `;
+      db.run(updateQuery, [transcript_uri, summary_uri, video_id], function(updateErr) {
+        if (updateErr) return res.status(500).json({ error: updateErr.message });
+        res.json({ success: true, id: row.id, action: 'updated' });
+      });
+    } else {
+      // Crear
+      const insertQuery = `
+        INSERT INTO youtube_transcripts (video_id, transcript_uri, summary_uri)
+        VALUES (?, ?, ?)
+      `;
+      db.run(insertQuery, [video_id, transcript_uri, summary_uri], function(insertErr) {
+        if (insertErr) return res.status(500).json({ error: insertErr.message });
+        res.status(201).json({ success: true, id: this.lastID, action: 'created' });
+      });
+    }
+  });
+});
+
 
 function startServer(port, retriesLeft) {
   const server = app.listen(port, HOST, () => {

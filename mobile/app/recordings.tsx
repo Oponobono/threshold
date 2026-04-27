@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, SectionList, Animated, Easing, SafeAreaView } from 'react-native';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, SectionList, Animated, Easing, SafeAreaView, TextInput } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -8,12 +8,26 @@ import { recordingsStyles as styles } from '../src/styles/RecordingsScreen.style
 import { useAudioRecorder, RecordingItem } from '../src/hooks/useAudioRecorder';
 import { AudioPlayerItem } from '../src/components/AudioPlayerItem';
 import { globalStyles } from '../src/styles/globalStyles';
+import { getYouTubeVideos, createYouTubeVideo, YouTubeVideo, deleteYouTubeVideo } from '../src/services/api';
+
+interface MediaItem extends RecordingItem {
+  type?: 'recording' | 'video';
+  youtube_url?: string;
+  video_id?: string;
+}
+
+interface GroupedSection {
+  title: string;
+  data: MediaItem[];
+  subtype?: 'recordings' | 'videos'; // Para secciones tipo de contenido
+}
 
 export default function RecordingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Audio recordings state
   const {
     isRecording,
     isPaused,
@@ -31,6 +45,12 @@ export default function RecordingsScreen() {
     loadRecordings,
   } = useAudioRecorder();
 
+  // YouTube videos state
+  const [youTubeVideos, setYouTubeVideos] = useState<YouTubeVideo[]>([]);
+  const [showYoutubeModal, setShowYoutubeModal] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+
   useEffect(() => {
     if (isRecording && !isPaused) {
       startPulse();
@@ -47,6 +67,23 @@ export default function RecordingsScreen() {
     }
     prevIsRecording.current = isRecording;
   }, [isRecording]);
+
+  // Load YouTube videos
+  useEffect(() => {
+    loadYouTubeVideos();
+  }, []);
+
+  const loadYouTubeVideos = async () => {
+    setIsLoadingVideos(true);
+    try {
+      const videos = await getYouTubeVideos();
+      setYouTubeVideos(videos);
+    } catch (e) {
+      console.warn('Error loading YouTube videos:', e);
+    } finally {
+      setIsLoadingVideos(false);
+    }
+  };
 
   const startPulse = () => {
     pulseAnim.setValue(1);
@@ -73,7 +110,50 @@ export default function RecordingsScreen() {
     pulseAnim.setValue(1);
   };
 
-  const renderRecordingItem = ({ item }: { item: RecordingItem }) => {
+  const renderRecordingItem = ({ item }: { item: MediaItem }) => {
+    const isVideo = item.type === 'video';
+
+    if (isVideo) {
+      // Render video item
+      return (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: theme.colors.card,
+              borderRadius: 12,
+              padding: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 8,
+            }}
+            onPress={() => router.push(`/recordings/${item.id}?type=video` as any)}
+          >
+            <MaterialCommunityIcons name="youtube" size={40} color={theme.colors.text.error} style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }} numberOfLines={2}>
+                {item.name || 'Video de YouTube'}
+              </Text>
+              <Text style={{ color: theme.colors.text.secondary, fontSize: 13, marginTop: 2 }}>
+                {item.subject_name || 'Sin materia'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (item.id) {
+                  deleteYouTubeVideo(item.id).catch(e => console.warn('Error deleting video:', e));
+                  loadYouTubeVideos();
+                }
+              }}
+              style={{ padding: 8 }}
+            >
+              <Ionicons name="trash-outline" size={20} color={theme.colors.text.error} />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Render audio recording item
     return (
       <AudioPlayerItem
         item={item}
@@ -81,35 +161,122 @@ export default function RecordingsScreen() {
         onPlay={playSound}
         onStop={stopSound}
         onDelete={deleteRecording}
-        onPress={() => router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}` as any)}
+        onPress={() => router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}?type=recording` as any)}
       />
     );
   };
 
   const groupedRecordings = useMemo(() => {
-    const groups: { [key: string]: RecordingItem[] } = {};
-    const orphans: RecordingItem[] = [];
+    const groups: { [key: string]: { recordings: MediaItem[]; videos: MediaItem[] } } = {};
+    const orphanRecordings: MediaItem[] = [];
+    const orphanVideos: MediaItem[] = [];
 
+    // Add audio recordings
     recordings.forEach(rec => {
+      const item: MediaItem = { ...rec, type: 'recording' };
       if (rec.subject_name) {
-        if (!groups[rec.subject_name]) groups[rec.subject_name] = [];
-        groups[rec.subject_name].push(rec);
+        if (!groups[rec.subject_name]) groups[rec.subject_name] = { recordings: [], videos: [] };
+        groups[rec.subject_name].recordings.push(item);
       } else {
-        orphans.push(rec);
+        orphanRecordings.push(item);
       }
     });
 
-    const sections = Object.keys(groups).map(title => ({
-      title,
-      data: groups[title]
-    }));
+    // Add YouTube videos
+    youTubeVideos.forEach(video => {
+      const item: MediaItem = {
+        ...video,
+        id_string: video.id?.toString(),
+        type: 'video',
+        name: video.title || 'Video de YouTube',
+      } as MediaItem;
+      if (video.subject_name) {
+        if (!groups[video.subject_name]) groups[video.subject_name] = { recordings: [], videos: [] };
+        groups[video.subject_name].videos.push(item);
+      } else {
+        orphanVideos.push(item);
+      }
+    });
 
-    if (orphans.length > 0) {
-      sections.push({ title: 'Sin Materia (Huérfanas)', data: orphans });
+    const sections: GroupedSection[] = [];
+
+    // Create sections by subject with sub-sections for recordings/videos
+    Object.keys(groups)
+      .sort()
+      .forEach(subjectName => {
+        const { recordings: recs, videos: vids } = groups[subjectName];
+        
+        // Add recordings sub-section if any
+        if (recs.length > 0) {
+          sections.push({
+            title: `${subjectName} • ${t('dashboard.audioRecorderModal.recordingsList') || 'Audios'}`,
+            data: recs,
+            subtype: 'recordings'
+          });
+        }
+        
+        // Add videos sub-section if any
+        if (vids.length > 0) {
+          sections.push({
+            title: `${subjectName} • Videos`,
+            data: vids,
+            subtype: 'videos'
+          });
+        }
+      });
+
+    // Add orphan recordings
+    if (orphanRecordings.length > 0) {
+      sections.push({
+        title: t('recordings.unclassified') || 'Sin clasificar • Audios',
+        data: orphanRecordings,
+        subtype: 'recordings'
+      });
+    }
+
+    // Add orphan videos
+    if (orphanVideos.length > 0) {
+      sections.push({
+        title: t('recordings.unclassified') || 'Sin clasificar • Videos',
+        data: orphanVideos,
+        subtype: 'videos'
+      });
     }
 
     return sections;
-  }, [recordings]);
+  }, [recordings, youTubeVideos, t]);
+
+  const handleAddYoutube = async () => {
+    if (!youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be')) {
+      alert('Por favor, ingresa un enlace válido de YouTube.');
+      return;
+    }
+
+    try {
+      // Extract video ID from URL
+      let videoId = '';
+      if (youtubeUrl.includes('youtube.com/watch?v=')) {
+        videoId = youtubeUrl.split('v=')[1]?.split('&')[0] || '';
+      } else if (youtubeUrl.includes('youtu.be/')) {
+        videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0] || '';
+      }
+
+      // Create YouTube video record
+      await createYouTubeVideo({
+        youtube_url: youtubeUrl,
+        video_id: videoId,
+        title: 'Video de YouTube',
+        subject_id: null,
+      });
+
+      setShowYoutubeModal(false);
+      setYoutubeUrl('');
+      await loadYouTubeVideos();
+    } catch (e) {
+      console.error('Error adding YouTube video:', e);
+      alert('Error al agregar el video. Por favor, intenta de nuevo.');
+    }
+  };
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
@@ -120,18 +287,33 @@ export default function RecordingsScreen() {
           <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('dashboard.audioRecorderModal.recordingsList')}</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity 
+          style={styles.backBtn} 
+          onPress={() => setShowYoutubeModal(true)}
+        >
+          <MaterialCommunityIcons name="youtube" size={28} color={theme.colors.text.error} />
+        </TouchableOpacity>
       </View>
 
       <SectionList
         sections={groupedRecordings}
-        keyExtractor={(item) => item.id_string || item.id?.toString() || Math.random().toString()}
+        keyExtractor={(item, index) => item.id_string || item.id?.toString() || `${index}`}
         renderItem={renderRecordingItem}
-        renderSectionHeader={({ section: { title } }) => (
-          <View style={{ backgroundColor: theme.colors.background, paddingVertical: 8, paddingHorizontal: 16 }}>
-            <Text style={{ color: theme.colors.primary, fontWeight: 'bold', fontSize: 16 }}>{title}</Text>
-          </View>
-        )}
+        renderSectionHeader={({ section: { title, subtype } }: { section: GroupedSection }) => {
+          const isVideo = subtype === 'videos';
+          return (
+            <View style={{ backgroundColor: theme.colors.background, paddingVertical: 10, paddingHorizontal: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {isVideo ? (
+                  <MaterialCommunityIcons name="youtube" size={18} color={theme.colors.text.error} />
+                ) : (
+                  <Ionicons name="mic" size={18} color={theme.colors.primary} />
+                )}
+                <Text style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }}>{title}</Text>
+              </View>
+            </View>
+          );
+        }}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -140,6 +322,35 @@ export default function RecordingsScreen() {
           </View>
         }
       />
+
+      {/* ── YOUTUBE MODAL ─────────────────────────────── */}
+      {showYoutubeModal && (
+        <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+          <View style={{ backgroundColor: theme.colors.card, width: '85%', borderRadius: 16, padding: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: theme.colors.text.primary }}>Añadir Video de YouTube</Text>
+            <Text style={{ color: theme.colors.text.secondary, marginBottom: 12 }}>Pega el enlace del video para transcribirlo.</Text>
+            <View style={{ borderWidth: 1, borderColor: theme.colors.border, borderRadius: 8, paddingHorizontal: 12, marginBottom: 20 }}>
+              <TextInput
+                value={youtubeUrl}
+                onChangeText={setYoutubeUrl}
+                placeholder="https://www.youtube.com/watch?v=..."
+                placeholderTextColor={theme.colors.text.placeholder}
+                style={{ height: 44, color: theme.colors.text.primary }}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <TouchableOpacity onPress={() => setShowYoutubeModal(false)} style={{ padding: 10 }}>
+                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAddYoutube} style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>Añadir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       <View style={styles.recorderContainer}>
         <View style={styles.timerContainer}>

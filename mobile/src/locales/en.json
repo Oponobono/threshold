@@ -192,6 +192,8 @@
       "delete": "Delete",
       "noRecordings": "No recordings yet",
         "recordingsList": "My Recordings",
+        "recordings": "Recordings",
+        "unclassified": "Unclassified",
         "ai": {
           "tabTranscription": "Transcription",
           "tabSummary": "AI Summary",

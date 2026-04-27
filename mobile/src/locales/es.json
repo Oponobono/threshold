@@ -192,6 +192,8 @@
       "delete": "Eliminar",
       "noRecordings": "No hay grabaciones aún",
         "recordingsList": "Mis grabaciones",
+        "recordings": "Audios",
+        "unclassified": "Sin clasificar",
         "ai": {
           "tabTranscription": "Transcripción",
           "tabSummary": "Resumen IA",

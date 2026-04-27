@@ -91,7 +91,6 @@ export const detailStyles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    flex: 1,
   },
   playerCard: {
     backgroundColor: theme.colors.card,
