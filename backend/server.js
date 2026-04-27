@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { db, initializeDb } = require('./db');
+const { YoutubeTranscript } = require('youtube-transcript');
+const ytdl = require('@distube/ytdl-core');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -946,8 +948,7 @@ app.delete('/api/youtube-videos/:id', (req, res) => {
   });
 });
 
-// Obtener subtítulos de un video de YouTube
-// Estrategia en cascada: Supadata.ai → timedtext directo → error claro
+// Obtener subtítulos de un video de YouTube usando Supadata.ai
 app.post('/api/youtube-captions', async (req, res) => {
   const { video_id, language = 'es' } = req.body;
 
@@ -955,147 +956,84 @@ app.post('/api/youtube-captions', async (req, res) => {
     return res.status(400).json({ error: 'Falta video_id' });
   }
 
-  const SUPADATA_KEY = process.env.SUPADATA_API_KEY || '';
-  console.log(`[YouTube Captions] video_id=${video_id}, lang=${language}, supadata=${!!SUPADATA_KEY}`);
+  const SUPADATA_KEY = process.env.SUPADATA_API_KEY;
+  console.log(`\n====== [YouTube Captions] INICIO ======`);
+  console.log(`video_id: ${video_id}, language: ${language}`);
+  console.log(`SUPADATA_KEY presente: ${!!SUPADATA_KEY} (${SUPADATA_KEY ? SUPADATA_KEY.substring(0, 8) + '...' : 'VACÍA'})`);
 
-  // ─────────────────────────────────────────
-  // ESTRATEGIA 1: Supadata.ai (servicio externo, sin restricciones de Google)
-  // Registro gratuito en https://supadata.ai → 100 requests/mes gratis
-  // ─────────────────────────────────────────
-  if (SUPADATA_KEY) {
-    try {
-      console.log(`[YouTube Captions] Intentando Supadata.ai con idioma: ${language}...`);
-      const supadataRes = await fetch(
-        `https://api.supadata.ai/v1/youtube/transcript?videoId=${video_id}&text=true&lang=${language}`,
-        {
-          headers: {
-            'x-api-key': SUPADATA_KEY,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (supadataRes.ok) {
-        const data = await supadataRes.json();
-        
-        let captions = '';
-        // Si text=true, content a veces viene como string o como arreglo de objetos
-        if (typeof data.content === 'string') {
-          captions = data.content.trim();
-        } else if (Array.isArray(data.content)) {
-          captions = data.content.map(item => item.text || '').join(' ').trim();
-        } else if (Array.isArray(data.transcript)) {
-          captions = data.transcript.map(item => item.text || '').join(' ').trim();
-        }
-
-        if (captions && captions.length > 20) {
-          console.log(`[YouTube Captions] ✓ Supadata.ai OK (${captions.length} chars)`);
-          return res.json({ 
-            captions, 
-            language: data.lang || language, 
-            source: 'supadata' 
-          });
-        }
-      } else {
-        const err = await supadataRes.text();
-        console.warn(`[YouTube Captions] Supadata.ai HTTP ${supadataRes.status}: ${err}`);
-      }
-    } catch (e) {
-      console.warn(`[YouTube Captions] Supadata.ai falló: ${e.message}`);
-    }
-  }
-
-  // ─────────────────────────────────────────
-  // ESTRATEGIA 2: timedtext directo de YouTube (sin API key)
-  // Es el mismo endpoint que usa el reproductor oficial de YouTube
-  // ─────────────────────────────────────────
-  function parseTimedTextXml(xml) {
-    const texts = [];
-    const regex = /<text[^>]*>([\s\S]*?)<\/text>/g;
-    let match;
-    while ((match = regex.exec(xml)) !== null) {
-      let text = match[1]
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&apos;/g, "'")
-        .replace(/<[^>]*>/g, '')
-        .trim();
-      if (text) texts.push(text);
-    }
-    return texts.join(' ');
-  }
-
-  async function fetchTimedText(videoId, lang) {
-    const url = `https://www.youtube.com/api/timedtext?lang=${lang}&v=${videoId}&fmt=srv3`;
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      },
-    });
-    if (!r.ok) return null;
-    const xml = await r.text();
-    if (!xml || xml.trim().length < 10) return null;
-    return parseTimedTextXml(xml);
-  }
-
-  async function getAvailableTracks(videoId) {
-    const r = await fetch(`https://www.youtube.com/api/timedtext?v=${videoId}&type=list`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-    if (!r.ok) return [];
-    const xml = await r.text();
-    const tracks = [];
-    const regex = /<track[^>]+lang_code="([^"]+)"[^>]*>/g;
-    let m;
-    while ((m = regex.exec(xml)) !== null) tracks.push(m[1]);
-    return tracks;
+  if (!SUPADATA_KEY) {
+    return res.status(500).json({ error: 'SUPADATA_API_KEY no configurada en el servidor.' });
   }
 
   try {
-    console.log('[YouTube Captions] Intentando timedtext directo...');
-    let captions = null;
-    let usedLang = language;
+    // ─── ESTRATEGIA 1: Español ───
+    console.log(`[Paso 1] Probando con lang=${language}...`);
+    let supadataRes = await fetch(
+      `https://api.supadata.ai/v1/youtube/transcript?videoId=${video_id}&text=true&lang=${language}`,
+      { headers: { 'x-api-key': SUPADATA_KEY, 'Content-Type': 'application/json' } }
+    );
+    console.log(`[Paso 1] Status: ${supadataRes.status}`);
 
-    // Idioma solicitado → inglés → cualquier track disponible
-    captions = await fetchTimedText(video_id, language);
-    if (!captions) {
-      captions = await fetchTimedText(video_id, 'en');
-      if (captions) usedLang = 'en';
-    }
-    if (!captions) {
-      const tracks = await getAvailableTracks(video_id);
-      console.log(`[YouTube Captions] Tracks disponibles: ${JSON.stringify(tracks)}`);
-      for (const t of tracks) {
-        captions = await fetchTimedText(video_id, t);
-        if (captions) { usedLang = t; break; }
-      }
-    }
-
-    if (captions && captions.trim().length > 0) {
-      console.log(`[YouTube Captions] ✓ timedtext OK en "${usedLang}" (${captions.length} chars)`);
-      return res.json({ captions, language: usedLang, source: 'timedtext' });
+    // ─── ESTRATEGIA 2: Inglés como fallback ───
+    if (!supadataRes.ok && language !== 'en') {
+      console.log(`[Paso 2] Fallback a inglés...`);
+      supadataRes = await fetch(
+        `https://api.supadata.ai/v1/youtube/transcript?videoId=${video_id}&text=true&lang=en`,
+        { headers: { 'x-api-key': SUPADATA_KEY, 'Content-Type': 'application/json' } }
+      );
+      console.log(`[Paso 2] Status: ${supadataRes.status}`);
     }
 
-    // Sin subtítulos en ninguna fuente
-    console.log(`[YouTube Captions] Sin subtítulos disponibles para ${video_id}`);
-    return res.status(404).json({
-      error: 'Este video no tiene subtítulos disponibles. Prueba con otro video que tenga subtítulos activados.',
-    });
+    // ─── ESTRATEGIA 3: Sin especificar idioma ───
+    if (!supadataRes.ok) {
+      console.log(`[Paso 3] Sin idioma específico...`);
+      supadataRes = await fetch(
+        `https://api.supadata.ai/v1/youtube/transcript?videoId=${video_id}&text=true`,
+        { headers: { 'x-api-key': SUPADATA_KEY, 'Content-Type': 'application/json' } }
+      );
+      console.log(`[Paso 3] Status: ${supadataRes.status}`);
+    }
+
+    if (!supadataRes.ok) {
+      const errText = await supadataRes.text();
+      console.error(`[Supadata] Error final: ${supadataRes.status} → ${errText}`);
+      return res.status(404).json({
+        error: 'No se pudieron obtener los subtítulos de este video.',
+        details: `Supadata HTTP ${supadataRes.status}: ${errText}`,
+      });
+    }
+
+    const data = await supadataRes.json();
+    console.log(`[Supadata] Respuesta keys: ${Object.keys(data).join(', ')}`);
+
+    let captions = '';
+    if (typeof data.content === 'string') {
+      captions = data.content.trim();
+    } else if (Array.isArray(data.content)) {
+      captions = data.content.map(item => item.text || '').join(' ').trim();
+    } else if (Array.isArray(data.transcript)) {
+      captions = data.transcript.map(item => item.text || '').join(' ').trim();
+    }
+
+    console.log(`[Supadata] Texto extraído: ${captions.length} chars`);
+
+    if (captions.length < 10) {
+      console.error(`[Supadata] Respuesta vacía. Data completa:`, JSON.stringify(data).substring(0, 300));
+      return res.status(404).json({ error: 'Los subtítulos estaban vacíos.', details: JSON.stringify(data).substring(0, 200) });
+    }
+
+    console.log(`[✓] Supadata OK`);
+    return res.json({ captions, language: data.lang || language, source: 'supadata' });
 
   } catch (error) {
-    console.error('[YouTube Captions] Error inesperado:', error.message);
-    return res.status(500).json({
-      error: 'Error de conexión al intentar obtener los subtítulos.',
-      details: error.message,
-    });
+    console.error(`[YouTube Captions] Error:`, error.message);
+    return res.status(500).json({ error: 'Error interno al obtener subtítulos.', details: error.message });
   }
 });
 
+
 // Upsert transcripción/resumen de YouTube
+
 app.post('/api/youtube-transcripts', (req, res) => {
   const { video_id, transcript_uri, summary_uri } = req.body;
   
