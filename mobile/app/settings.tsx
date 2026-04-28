@@ -774,7 +774,7 @@ export default function SettingsScreen() {
                   </View>
                   <View style={{ marginTop: 16, padding: 12, backgroundColor: '#E3F2FD', borderRadius: 8 }}>
                     <Text style={{ fontSize: 12, color: '#1976D2' }}>
-                      {t('settings.recoveryInfo', 'ℹ️ Tu nombre, email y datos básicos se conservarán para permitir tu re-registro.')}
+                      {t('settings.recoveryInfo', 'ℹ️ Puedes recuperar tu cuenta iniciando sesión con tus credenciales en cualquier momento dentro de 14 días.')}
                     </Text>
                   </View>
                 </View>
