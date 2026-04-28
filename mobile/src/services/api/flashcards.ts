@@ -46,3 +46,20 @@ export const updateFlashcardStatus = async (cardId: number, status: string) => {
   });
   return await parseJsonSafely(response);
 };
+
+export const generateFlashcardsFromText = async (payload: {
+  text: string;
+  count: number;
+  title: string;
+  subject_id: number;
+  user_id: number;
+}) => {
+  const response = await fetchWithFallback('/flashcard-decks/generate-from-text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJsonSafely(response);
+  if (!response.ok) throw new Error(data?.error || 'Error generating flashcards');
+  return data;
+};

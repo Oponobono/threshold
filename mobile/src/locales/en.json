@@ -830,6 +830,30 @@
     "easy": "Got it!",
     "sessionDone": "Session Complete!",
     "sessionDoneMsg": "You reviewed {{count}} cards. Great job!",
-    "backToDecks": "Back to Decks"
+    "backToDecks": "Back to Decks",
+    "generate": {
+      "button": "Generate Flashcards",
+      "title": "Create Flashcards with AI",
+      "subtitle": "Transform content into study cards",
+      "countLabel": "How many cards do you want?",
+      "countHint": "We recommend between 5 and 20 cards for better retention",
+      "generate": "Generate",
+      "generating": "Generating cards...",
+      "preview": "Preview",
+      "accept": "Save Deck",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this card?",
+      "loading": "Creating deck...",
+      "tooShort": "Content is too short for {{count}} cards. Try {{recommended}} instead?",
+      "success": "Deck created successfully",
+      "suggestionLabel": "Suggested",
+      "errors": {
+        "groqApiKeyMissing": "Groq API Key is missing from .env.local file",
+        "generationFailed": "Error generating cards. Please try again.",
+        "saveFailed": "Error saving the deck."
+      }
+    }
   }
 }

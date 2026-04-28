@@ -855,6 +855,30 @@
     "easy": "¡Ya la sé!",
     "sessionDone": "¡Sesión Completa!",
     "sessionDoneMsg": "Repasaste {{count}} tarjetas. ¡Excelente trabajo!",
-    "backToDecks": "Volver a Mazos"
+    "backToDecks": "Volver a Mazos",
+    "generate": {
+      "button": "Generar Flashcards",
+      "title": "Crear Flashcards con IA",
+      "subtitle": "Transforma el contenido en tarjetas de estudio",
+      "countLabel": "¿Cuántas tarjetas deseas?",
+      "countHint": "Recomendamos entre 5 y 20 tarjetas para mejor retención",
+      "generate": "Generar",
+      "generating": "Generando tarjetas...",
+      "preview": "Previsualizar",
+      "accept": "Guardar Mazo",
+      "cancel": "Cancelar",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "deleteConfirm": "¿Eliminar esta tarjeta?",
+      "loading": "Creando mazo...",
+      "tooShort": "El contenido es muy corto para {{count}} tarjetas. ¿Intentamos con {{recommended}}?",
+      "success": "Mazo creado exitosamente",
+      "suggestionLabel": "Sugerido",
+      "errors": {
+        "groqApiKeyMissing": "Falta la API Key de Groq en el archivo .env.local",
+        "generationFailed": "Error al generar las tarjetas. Intenta de nuevo.",
+        "saveFailed": "Error al guardar el mazo."
+      }
+    }
   }
 }

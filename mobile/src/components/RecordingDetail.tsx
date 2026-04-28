@@ -24,6 +24,7 @@ import { detailStyles as styles } from '../styles/RecordingDetailScreen.styles';
 import { RecordingAITabs, AITabType } from './RecordingAITabs';
 import { RecordingAIContent } from './RecordingAIContent';
 import { PremiumLoading } from './PremiumLoading';
+import { FlashcardCreatorModal } from './FlashcardCreatorModal';
 import {
   getSubjects,
   Subject,
@@ -322,6 +323,9 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
 
+  // Flashcard generation
+  const [showFlashcardModal, setShowFlashcardModal] = useState(false);
+
   // Derived values
   const audioUri = recordingData?.local_uri
     || `${AUDIO_DIR()}${recordingId.endsWith('.m4a') ? recordingId : `${recordingId}.m4a`}`;
@@ -599,6 +603,29 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
           onStartTranscriptionFlow={startTranscriptionFlow}
           onStartSummaryFlow={startSummaryFlow}
         />
+
+        {/* Flashcard Generator Button */}
+        {(transcription || summary) && selectedSubjectId && (
+          <TouchableOpacity
+            style={{
+              marginTop: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.colors.primary,
+              borderRadius: 8,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              gap: 8,
+            }}
+            onPress={() => setShowFlashcardModal(true)}
+          >
+            <Ionicons name="sparkles" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
+              {t('flashcards.generate.button')}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Subject picker */}
@@ -608,6 +635,24 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
         selectedId={selectedSubjectId}
         onSelect={handleSubjectChange}
         onClose={() => setShowSubjectPicker(false)}
+      />
+
+      {/* Flashcard Generator Modal */}
+      <FlashcardCreatorModal
+        visible={showFlashcardModal}
+        onClose={() => setShowFlashcardModal(false)}
+        onSuccess={(deckId) => {
+          alertRef.show({
+            title: t('flashcards.generate.success'),
+            message: t('flashcards.generate.success'),
+            type: 'success',
+          });
+        }}
+        content={summary || transcription || ''}
+        contentType="recording"
+        title={recordingData?.name || 'Recording'}
+        subjectId={selectedSubjectId || 0}
+        userId={recordingData?.user_id || 0}
       />
     </View>
   );

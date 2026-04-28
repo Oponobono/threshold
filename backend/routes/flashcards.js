@@ -93,4 +93,140 @@ router.delete('/flashcard-decks/:deckId', (req, res) => {
   });
 });
 
+// Generar tarjetas automáticamente con Groq
+router.post('/flashcard-decks/generate-from-text', async (req, res) => {
+  const { text, count, title, subject_id, user_id } = req.body;
+  
+  if (!text || !count || !title || !subject_id || !user_id) {
+    return res.status(400).json({ error: 'Faltan campos requeridos (text, count, title, subject_id, user_id).' });
+  }
+
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey) {
+    return res.status(500).json({ error: 'Groq API Key no está configurada' });
+  }
+
+  try {
+    // Llamar a Groq para generar tarjetas
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `Actúa como un experto en pedagogía universitaria y especialista en técnicas de estudio de alto rendimiento (Active Recall y Spaced Repetition).
+
+Tu tarea es analizar el texto proporcionado (una transcripción o resumen de clase) y extraer los conceptos más importantes para crear exactamente ${count} tarjetas de repaso.
+
+Reglas de Oro para las Tarjetas:
+
+1. Conceptos Atómicos: Cada tarjeta debe tratar un solo concepto. No mezcles varios temas en una sola pregunta.
+2. Dificultad Progresiva: Crea una mezcla de definiciones, comparaciones y aplicaciones prácticas.
+3. Claridad: Las preguntas deben ser directas. Las respuestas deben ser explicativas pero concisas.
+4. No alucines: Si el texto no tiene suficiente información para el número de tarjetas solicitado, genera solo las que sean posibles con alta calidad.
+
+Formato de Salida (ESTRICTO):
+Debes responder EXCLUSIVAMENTE con un objeto JSON válido con la siguiente estructura:
+{
+  "deck_metadata": { "suggested_title": "Título corto y alusivo" },
+  "flashcards": [
+    { "question": "¿...?", "answer": "..." }
+  ]
+}
+
+NO incluyas texto adicional ni markdown. Solo el JSON.`
+          },
+          {
+            role: 'user',
+            content: `Por favor, genera exactamente ${count} tarjetas de estudio de alto calidad basadas en este contenido:\n\n${text}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 4096,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return res.status(500).json({ error: 'Error al llamar a Groq API', details: errorData });
+    }
+
+    const groqData = await response.json();
+    const groqResponse = groqData.choices[0].message.content.trim();
+
+    // Parsear la respuesta JSON de Groq
+    let cardsData;
+    try {
+      cardsData = JSON.parse(groqResponse);
+    } catch (parseError) {
+      return res.status(500).json({ error: 'Respuesta de Groq no es JSON válido', details: groqResponse });
+    }
+
+    // Validar estructura
+    if (!cardsData.flashcards || !Array.isArray(cardsData.flashcards)) {
+      return res.status(500).json({ error: 'Estructura de respuesta de Groq inválida' });
+    }
+
+    // Crear el mazo
+    db.run(
+      `INSERT INTO flashcard_decks (subject_id, user_id, title, description) VALUES (?, ?, ?, ?)`,
+      [subject_id, user_id, title, 'Mazo generado con IA'],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const deckId = this.lastID;
+        let insertedCount = 0;
+        let insertErrors = [];
+
+        // Insertar cada tarjeta
+        cardsData.flashcards.forEach((card) => {
+          db.run(
+            `INSERT INTO flashcards (deck_id, front, back, status) VALUES (?, ?, ?, 'new')`,
+            [deckId, card.question || card.front, card.answer || card.back],
+            (err) => {
+              if (err) {
+                insertErrors.push(err.message);
+              } else {
+                insertedCount++;
+              }
+            }
+          );
+        });
+
+        // Esperar a que se completen las inserciones
+        setTimeout(() => {
+          if (insertErrors.length > 0) {
+            return res.status(500).json({ error: 'Error al insertar tarjetas', details: insertErrors });
+          }
+
+          // Retornar el mazo con sus tarjetas
+          db.all(
+            `SELECT * FROM flashcards WHERE deck_id = ? ORDER BY created_at ASC`,
+            [deckId],
+            (err, cards) => {
+              if (err) return res.status(500).json({ error: err.message });
+              res.status(201).json({
+                id: deckId,
+                subject_id,
+                user_id,
+                title,
+                description: 'Mazo generado con IA',
+                card_count: insertedCount,
+                cards: cards
+              });
+            }
+          );
+        }, 500);
+      }
+    );
+  } catch (err) {
+    res.status(500).json({ error: 'Error al generar tarjetas', details: err.message });
+  }
+});
+
 module.exports = router;
