@@ -13,10 +13,10 @@
 3. **Variables requeridas:**
 
    ```
-   GROQ_API_KEY = YOUR_GROQ_API_KEY_HERE
+   GROQ_API_KEY = your_groq_api_key_here
    ```
 
-   (Reemplaza con tu propia API key de Groq)
+   (Reemplaza con tu propia API key de Groq desde https://console.groq.com/keys)
 
 4. **Variables opcionales:**
    ```
