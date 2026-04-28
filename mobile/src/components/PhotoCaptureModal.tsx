@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useCustomAlert } from './CustomAlert';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +25,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
   initialSubjectId
 }) => {
   const { t } = useTranslation();
+  const { showAlert } = useCustomAlert();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<any>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -57,14 +59,14 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         });
         setCapturedImage(photo.uri);
       } catch (err) {
-        Alert.alert(t('common.error'), t('subjects.errorTakingPhoto') || 'Error');
+        showAlert({ title: t('common.error'), message: t('subjects.errorTakingPhoto') || 'Error', type: 'error' });
       }
     }
   };
 
   const handleSave = async () => {
     if (!capturedImage || !selectedSubjectId) {
-      Alert.alert(t('common.error'), t('dashboard.documentScannerModal.selectSubjectError') || 'Error');
+      showAlert({ title: t('common.error'), message: t('dashboard.documentScannerModal.selectSubjectError') || 'Error', type: 'warning' });
       return;
     }
 
@@ -75,10 +77,10 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         local_uri: capturedImage,
       });
       if (onSave) onSave(capturedImage, selectedSubjectId);
-      Alert.alert(t('common.success'), t('dashboard.quickAddMenu.takePhoto.success') || 'Éxito');
+      showAlert({ title: t('common.success'), message: t('dashboard.quickAddMenu.takePhoto.success') || 'Éxito', type: 'success' });
       resetAndClose();
     } catch (error) {
-      Alert.alert(t('common.error'), t('dashboard.quickAddMenu.takePhoto.error') || 'Error');
+      showAlert({ title: t('common.error'), message: t('dashboard.quickAddMenu.takePhoto.error') || 'Error', type: 'error' });
     } finally {
       setIsProcessing(false);
     }

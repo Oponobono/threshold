@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { alertRef } from '../../src/components/CustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -68,7 +69,7 @@ export default function SubjectsScreen() {
     const rp = parseFloat(requiredPass);
     const rw = parseFloat(remainingWeight);
     if (isNaN(cg) || isNaN(rp) || isNaN(rw) || rw === 0) {
-      Alert.alert(t('common.error'), t('common.enterValidNumbers'));
+      alertRef.show({ title: t('common.error'), message: t('common.enterValidNumbers'), type: 'error' });
       return;
     }
     // Formula: minNeeded = (requiredPass - currentGrade * (1 - remainingWeight/100)) / (remainingWeight/100)

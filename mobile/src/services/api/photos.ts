@@ -1,0 +1,77 @@
+import { fetchWithFallback, parseJsonSafely } from './client';
+import { getUserId } from './auth';
+import { Photo } from './types';
+
+/**
+ * Obtiene ítems de la galería
+ */
+export const getGalleryItems = async () => {
+  const userId = await getUserId();
+  if (!userId) return [];
+  const response = await fetchWithFallback(`/gallery/${userId}`);
+  return (await parseJsonSafely(response)) || [];
+};
+
+/**
+ * Crea una nueva entrada de foto en la base de datos
+ */
+export const createPhoto = async (photoData: {
+  subject_id: number;
+  local_uri: string;
+  es_favorita?: number;
+}) => {
+  try {
+    const response = await fetchWithFallback('/photos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(photoData),
+    });
+
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Error al guardar la foto en la base de datos');
+    }
+
+    return data;
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al intentar guardar la foto');
+  }
+};
+
+/**
+ * Obtiene las fotos de una materia específica
+ */
+export const getPhotosBySubject = async (subjectId: number): Promise<Photo[]> => {
+  try {
+    const response = await fetchWithFallback(`/photos/${subjectId}`);
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      console.warn('[getPhotosBySubject] Error:', data?.error);
+      return [];
+    }
+    return data || [];
+  } catch (error: any) {
+    console.warn('[getPhotosBySubject] Network error:', error.message);
+    return [];
+  }
+};
+
+/**
+ * Elimina una foto por ID
+ */
+export const deletePhoto = async (photoId: number) => {
+  try {
+    const response = await fetchWithFallback(`/photos/${photoId}`, {
+      method: 'DELETE',
+    });
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Error al eliminar la foto');
+    }
+    return data;
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al intentar eliminar la foto');
+  }
+};

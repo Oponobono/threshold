@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, TextInput, Alert, FlatList, Platform, Animated, Easing } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, TextInput, FlatList, Platform, Animated, Easing } from 'react-native';
+import { alertRef } from '../../src/components/CustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThresholdDatePicker } from '../../src/components/ThresholdDatePicker';
@@ -237,7 +238,7 @@ export default function HybridDashboardScreen() {
 
   const handleSaveSubject = async () => {
     if (!subjectName.trim()) {
-      Alert.alert(t('common.error'), t('dashboard.newSubject.errors.nameRequired'));
+      alertRef.show({ title: t('common.error'), message: t('dashboard.newSubject.errors.nameRequired'), type: 'warning' });
       return;
     }
 
@@ -255,7 +256,7 @@ export default function HybridDashboardScreen() {
       setIsSubjectModalVisible(false);
       resetSubjectForm();
     } catch (error: any) {
-      Alert.alert(t('common.error'), error?.message || t('dashboard.newSubject.errors.createFailed'));
+      alertRef.show({ title: t('common.error'), message: error?.message || t('dashboard.newSubject.errors.createFailed'), type: 'error' });
     } finally {
       setIsSavingSubject(false);
     }
@@ -345,7 +346,7 @@ export default function HybridDashboardScreen() {
 
   const handleToggleScheduleSlot = (day: number, hour: number) => {
     if (!selectedSubjectId) {
-      Alert.alert(t('common.error'), t('dashboard.selectSubjectFirst'));
+      alertRef.show({ title: t('common.error'), message: t('dashboard.selectSubjectFirst'), type: 'warning' });
       return;
     }
 
@@ -365,7 +366,7 @@ export default function HybridDashboardScreen() {
 
   const handleSaveSchedule = async () => {
     if (!selectedSubjectId) {
-      Alert.alert(t('common.error'), t('dashboard.selectSubjectFirst'));
+      alertRef.show({ title: t('common.error'), message: t('dashboard.selectSubjectFirst'), type: 'warning' });
       return;
     }
 
@@ -405,7 +406,7 @@ export default function HybridDashboardScreen() {
       showToast(t('dashboard.scheduleSuccess'));
       handleCloseSchedulePlanner();
     } catch (error: any) {
-      Alert.alert(t('common.error'), error?.message || t('dashboard.schedulePlanner.saveError'));
+      alertRef.show({ title: t('common.error'), message: error?.message || t('dashboard.schedulePlanner.saveError'), type: 'error' });
     } finally {
       setIsSavingSchedule(false);
     }
@@ -413,7 +414,7 @@ export default function HybridDashboardScreen() {
 
   const handleSaveGrade = async () => {
     if (!selectedSubjectId || !gradeName.trim() || !gradeValue.trim() || !gradePercentage.trim()) {
-      Alert.alert(t('common.error'), t('dashboard.quickAddMenu.errors.fillFields'));
+      alertRef.show({ title: t('common.error'), message: t('dashboard.quickAddMenu.errors.fillFields'), type: 'warning' });
       return;
     }
 
@@ -442,7 +443,7 @@ export default function HybridDashboardScreen() {
       const userSubjects = await getSubjects();
       setSubjects(userSubjects || []);
     } catch (error: any) {
-      Alert.alert(t('common.error'), error?.message || t('dashboard.quickAddMenu.grade.errorSave'));
+      alertRef.show({ title: t('common.error'), message: error?.message || t('dashboard.quickAddMenu.grade.errorSave'), type: 'error' });
     } finally {
       setIsSavingGrade(false);
     }
@@ -455,7 +456,7 @@ export default function HybridDashboardScreen() {
 
   const handleSaveTask = async () => {
     if (!selectedSubjectId || !taskName.trim()) {
-      Alert.alert(t('common.error'), t('dashboard.quickAddMenu.errors.fillFields'));
+      alertRef.show({ title: t('common.error'), message: t('dashboard.quickAddMenu.errors.fillFields'), type: 'warning' });
       return;
     }
 
@@ -477,7 +478,7 @@ export default function HybridDashboardScreen() {
       // Refresh next assessment
       loadData();
     } catch (error: any) {
-      Alert.alert(t('common.error'), error?.message || t('dashboard.quickAddMenu.task.errorSave'));
+      alertRef.show({ title: t('common.error'), message: error?.message || t('dashboard.quickAddMenu.task.errorSave'), type: 'error' });
     } finally {
       setIsSavingTask(false);
     }

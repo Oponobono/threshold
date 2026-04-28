@@ -11,6 +11,7 @@ import {
   Animated,
   Pressable,
 } from 'react-native';
+import { alertRef } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
@@ -464,7 +465,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       });
     } catch (e) {
       setIsPlaying(false);
-      Alert.alert(t('common.error') || 'Error', 'No se pudo reproducir el audio.');
+      alertRef.show({ title: t('common.error') || 'Error', message: 'No se pudo reproducir el audio.', type: 'error' });
     }
   }, [audioUri, t]);
 
@@ -473,7 +474,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   // ---------------------------------------------------------------------------
   const startTranscriptionFlow = async () => {
     if (!GROQ_API_KEY) {
-      Alert.alert('Error', 'Falta la API Key de Groq en el archivo .env.local');
+      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
       return;
     }
 
@@ -485,7 +486,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       const text = await transcribeWithWhisper(audioUri, GROQ_API_KEY);
       
       if (!text) {
-        Alert.alert(t('common.error') || 'Error', 'Whisper no detectó voz en el audio.');
+        alertRef.show({ title: t('common.error') || 'Error', message: 'Whisper no detectó voz en el audio.', type: 'warning' });
         return;
       }
 
@@ -494,7 +495,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       await saveTextToFile(text, 'transcript');
     } catch (e) {
       console.error('ERROR EN TRANSCRIPCIÓN:', e);
-      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error al transcribir el audio.');
+      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : 'Error al transcribir el audio.', type: 'error' });
     } finally {
       setIsTranscribing(false);
     }
@@ -505,11 +506,11 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   // ---------------------------------------------------------------------------
   const startSummaryFlow = async () => {
     if (!GROQ_API_KEY) {
-      Alert.alert('Error', 'Falta la API Key de Groq en el archivo .env.local');
+      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
       return;
     }
     if (!transcription) {
-      Alert.alert(t('common.error') || 'Error', t('dashboard.audioRecorderModal.ai.emptyTranscription') || 'Primero genera la transcripción.');
+      alertRef.show({ title: t('common.error') || 'Error', message: t('dashboard.audioRecorderModal.ai.emptyTranscription') || 'Primero genera la transcripción.', type: 'warning' });
       return;
     }
     setIsSummarizing(true);
@@ -521,7 +522,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       setActiveTab('summary');
       await saveTextToFile(result, 'summary');
     } catch (e) {
-      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error al generar el resumen.');
+      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : 'Error al generar el resumen.', type: 'error' });
     } finally {
       setIsSummarizing(false);
     }
@@ -533,7 +534,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   const copyToClipboard = async (text: string | null) => {
     if (!text) return;
     await Clipboard.setStringAsync(text);
-    Alert.alert(t('common.success') || '¡Listo!', t('dashboard.audioRecorderModal.ai.copied') || '¡Texto copiado!');
+    alertRef.show({ title: t('common.success') || '¡Listo!', message: t('dashboard.audioRecorderModal.ai.copied') || '¡Texto copiado!', type: 'success' });
   };
 
   // ---------------------------------------------------------------------------

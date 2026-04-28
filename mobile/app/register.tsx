@@ -12,7 +12,7 @@ import { CustomInput } from '../src/components/CustomInput';
 import { CustomButton } from '../src/components/CustomButton';
 import { MapuviaFooter } from '../src/components/MapuviaFooter';
 import { registerUser } from '../src/services/api';
-import { Alert } from 'react-native';
+import { alertRef } from '../src/components/CustomAlert';
 
 const TOTAL_STEPS = 4;
 
@@ -112,10 +112,10 @@ export default function RegisterScreen() {
         major,
         university
       });
-      Alert.alert(t('common.success'), t('register.success.accountCreated'));
+      alertRef.show({ title: t('common.success'), message: t('register.success.accountCreated'), type: 'success' });
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert(t('common.error'), error?.message || t('register.errors.generic'));
+      alertRef.show({ title: t('common.error'), message: error?.message || t('register.errors.generic'), type: 'error' });
     } finally {
       setIsLoading(false);
     }

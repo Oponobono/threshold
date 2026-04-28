@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Dimensions, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, Dimensions, TextInput, TouchableOpacity } from 'react-native';
+import { alertRef } from '../../src/components/CustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -44,7 +45,7 @@ export default function GradesScreen() {
     const s = parseFloat(simScore);
     const p = parseFloat(simPossible);
     if (isNaN(s) || isNaN(p) || p === 0) {
-      Alert.alert(t('common.error'), t('common.enterValidScorePossible'));
+      alertRef.show({ title: t('common.error'), message: t('common.enterValidScorePossible'), type: 'error' });
       return;
     }
 

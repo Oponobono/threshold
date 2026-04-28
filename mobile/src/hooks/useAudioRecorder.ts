@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { alertRef } from '../components/CustomAlert';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
@@ -86,8 +86,23 @@ function mergeLocalAndDb(
     return local; // file exists locally but not in DB yet
   });
 
-  // Also include DB entries whose local file no longer exists (e.g. transferred device)
-  // We skip them — they would crash the audio player.
+  // Also include DB entries whose local file no longer exists — mark them
+  // so the UI can show a "file missing" state and let the user delete the record.
+  const mergedUris = new Set(merged.map((r) => r.uri));
+  for (const db of dbRecordings) {
+    if (!mergedUris.has(db.local_uri)) {
+      merged.push({
+        ...db,
+        id_string: db.id?.toString() || db.local_uri,
+        uri: db.local_uri,
+        date: new Date(db.created_at || Date.now()).toLocaleString(),
+        name: db.name || t('dashboard.audioRecorderModal.fileLabel', {
+          date: new Date(db.created_at || Date.now()).toLocaleDateString(),
+        }),
+        missingFile: true,
+      } as RecordingItem & { missingFile: boolean });
+    }
+  }
 
   return merged.sort(
     (a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime()
@@ -203,7 +218,7 @@ export function useAudioRecorder() {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== 'granted') {
-        Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.permissionError'));
+        alertRef.show({ title: t('common.error'), message: t('dashboard.audioRecorderModal.permissionError'), type: 'error' });
         return;
       }
 
@@ -219,7 +234,7 @@ export function useAudioRecorder() {
       setRecordingDuration(0);
     } catch (err) {
       console.error('Failed to start recording', err);
-      Alert.alert(t('common.error'), t('dashboard.audioRecorderModal.recordingError'));
+      alertRef.show({ title: t('common.error'), message: t('dashboard.audioRecorderModal.recordingError'), type: 'error' });
     }
   }
 
@@ -336,38 +351,37 @@ export function useAudioRecorder() {
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
-  async function deleteRecording(id: number | string, uri: string) {
-    Alert.alert(
-      t('dashboard.audioRecorderModal.delete'),
-      t('dashboard.audioRecorderModal.deleteConfirm') || '¿Estás seguro?',
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete') || t('dashboard.audioRecorderModal.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Remove from DB if we have a numeric id
-              if (typeof id === 'number') {
-                await deleteAudioRecording(id).catch((e) =>
-                  console.warn('Could not delete from DB:', e)
-                );
-              }
-              // Remove local file
-              const fileInfo = await FileSystem.getInfoAsync(uri);
-              if (fileInfo.exists) await FileSystem.deleteAsync(uri);
+  // deleteRecordingConfirmed: runs the actual deletion without showing any dialog.
+  // The calling component is responsible for showing the confirmation prompt.
+  async function deleteRecordingConfirmed(id: number | string, uri: string) {
+    try {
+      if (typeof id === 'number') {
+        await deleteAudioRecording(id).catch((e) =>
+          console.warn('Could not delete from DB:', e)
+        );
+      }
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (fileInfo.exists) await FileSystem.deleteAsync(uri);
 
-              // Optimistic removal from list
-              setRecordings((prev) =>
-                prev.filter((r) => r.uri !== uri && r.id_string !== String(id))
-              );
-            } catch (error) {
-              console.error('Error deleting recording', error);
-            }
-          },
-        },
-      ]
-    );
+      setRecordings((prev) =>
+        prev.filter((r) => r.uri !== uri && r.id_string !== String(id))
+      );
+    } catch (error) {
+      console.error('Error deleting recording', error);
+    }
+  }
+
+  // Fallback with native Alert (kept for backward compatibility)
+  async function deleteRecording(id: number | string, uri: string) {
+    alertRef.show({
+      title: t('dashboard.audioRecorderModal.delete'),
+      message: t('dashboard.audioRecorderModal.deleteConfirm') || '¿Estás seguro? Esta acción no se puede deshacer.',
+      type: 'confirm',
+      buttons: [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete') || 'Eliminar', style: 'destructive', onPress: () => deleteRecordingConfirmed(id, uri) },
+      ],
+    });
   }
 
   return {
@@ -384,6 +398,7 @@ export function useAudioRecorder() {
     playSound,
     stopSound,
     deleteRecording,
+    deleteRecordingConfirmed,
     formatDuration,
     loadRecordings,
   };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useCustomAlert } from './CustomAlert';
 import DocumentScanner, { ResponseType } from 'react-native-document-scanner-plugin';
 import { Accelerometer } from 'expo-sensors';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   onSave 
 }) => {
   const { t } = useTranslation();
+  const { showAlert } = useCustomAlert();
   const [step, setStep] = useState<ScannerStep>('guide');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
@@ -61,14 +63,14 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
       }
     } catch (error) {
       console.error(error);
-      Alert.alert(t('common.error'), t('dashboard.documentScannerModal.errorStartScanner'));
+      showAlert({ title: t('common.error'), message: t('dashboard.documentScannerModal.errorStartScanner'), type: 'error' });
       resetAndClose();
     }
   };
 
   const handleSave = async () => {
     if (!capturedImage || !selectedSubjectId) {
-      Alert.alert(t('common.error'), t('dashboard.documentScannerModal.selectSubjectError'));
+      showAlert({ title: t('common.error'), message: t('dashboard.documentScannerModal.selectSubjectError'), type: 'warning' });
       return;
     }
 
@@ -82,10 +84,10 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
       });
       
       if (onSave) onSave(finalImageUri, selectedSubjectId);
-      Alert.alert(t('common.success'), t('dashboard.documentScannerModal.success', { subject: subjects.find(s => s.id === selectedSubjectId)?.name }));
+      showAlert({ title: t('common.success'), message: t('dashboard.documentScannerModal.success', { subject: subjects.find(s => s.id === selectedSubjectId)?.name }), type: 'success' });
       resetAndClose();
     } catch (error) {
-      Alert.alert(t('common.error'), t('dashboard.documentScannerModal.error'));
+      showAlert({ title: t('common.error'), message: t('dashboard.documentScannerModal.error'), type: 'error' });
     } finally {
       setIsProcessing(false);
     }

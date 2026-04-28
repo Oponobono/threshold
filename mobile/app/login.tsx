@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Animated, Easing, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Animated, Easing, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -11,9 +11,9 @@ import { CustomInput } from '../src/components/CustomInput';
 import { CustomButton } from '../src/components/CustomButton';
 import { FeatureCarousel } from '../src/components/FeatureCarousel';
 import { MapuviaFooter } from '../src/components/MapuviaFooter';
-import { trackGuestVisit, loginUser, enrollBiometric, biometricLogin, getUserId } from '../src/services/api';
+import { trackGuestVisit, loginUser, enrollBiometric, biometricLogin, getUserId, reactivateAccount } from '../src/services/api';
 import { enrollBiometricToken, authenticateWithBiometrics, hasBiometricTokenStored, isBiometricAvailable } from '../src/services/biometricService';
-import { Alert } from 'react-native';
+import { alertRef } from '../src/components/CustomAlert';
 import * as SecureStore from 'expo-secure-store';
 
 export default function LoginScreen() {
@@ -60,7 +60,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert(t('common.error'), t('login.errors.missingCredentials'));
+      alertRef.show({ title: t('common.error'), message: t('login.errors.missingCredentials'), type: 'error' });
       return;
     }
 
@@ -85,6 +85,69 @@ export default function LoginScreen() {
     try {
       const loginData = await loginUser(email, password);
       
+      // Verificar si la cuenta está pendiente de eliminación
+      if (loginData.status === 'pending_deletion') {
+        setIsLoading(false);
+        
+        // Mostrar pantalla de reactivación
+        const daysRemaining = loginData.days_remaining;
+        const deletionDate = new Date(loginData.deletion_date);
+        const formattedDate = deletionDate.toLocaleDateString(i18n.language);
+        
+        alertRef.show({
+          title: t('login.accountPendingDeletion'),
+          message: t('login.pendingDeletionMsg', { 
+            days: daysRemaining, 
+            date: formattedDate 
+          }),
+          type: 'confirm',
+          buttons: [
+            {
+              text: t('login.cancelBtn'),
+              style: 'cancel',
+              onPress: () => {
+                // Revertir animación
+                Animated.parallel([
+                  Animated.timing(sloganOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+                  Animated.timing(sloganTranslateY, { toValue: 0, duration: 350, useNativeDriver: true }),
+                ]).start();
+              }
+            },
+            {
+              text: t('login.recoverBtn'),
+              style: 'default',
+              onPress: async () => {
+                try {
+                  await reactivateAccount(loginData.user.id.toString());
+                  
+                  // Guardar sesión
+                  const sessionToken = `dummy-token-${Date.now()}`;
+                  if (Platform.OS === 'web') {
+                    localStorage.setItem('app_session_token', sessionToken);
+                    localStorage.setItem('app_user_email', email);
+                    localStorage.setItem('app_user_id', loginData.user.id.toString());
+                  } else {
+                    await SecureStore.setItemAsync('app_session_token', sessionToken);
+                    await SecureStore.setItemAsync('app_user_email', email);
+                    await SecureStore.setItemAsync('app_user_id', loginData.user.id.toString());
+                  }
+                  
+                  alertRef.show({
+                    title: t('common.success'),
+                    message: t('login.accountRecovered'),
+                    type: 'success'
+                  });
+                  router.replace('/(tabs)');
+                } catch (error: any) {
+                  alertRef.show({ title: t('common.error'), message: error.message, type: 'error' });
+                }
+              }
+            }
+          ]
+        });
+        return;
+      }
+      
       // Guardar o borrar correo según la preferencia
       if (rememberMe) {
         await SecureStore.setItemAsync('remembered_email', email);
@@ -98,10 +161,11 @@ export default function LoginScreen() {
       const userId = loginData?.user?.id?.toString();
 
       if (available && !hasToken && userId) {
-        Alert.alert(
-          'Activar Touch ID',
-          '¿Deseas iniciar sesión con tu huella dactilar la próxima vez?',
-          [
+        alertRef.show({
+          title: 'Activar Touch ID',
+          message: '¿Deseas iniciar sesión con tu huella dactilar la próxima vez?',
+          type: 'confirm',
+          buttons: [
             { text: 'Ahora no', style: 'cancel', onPress: () => router.replace('/(tabs)') },
             {
               text: 'Activar',
@@ -116,19 +180,39 @@ export default function LoginScreen() {
                     // Si falla el backend, revocamos el token local para evitar desincronización
                     const { revokeBiometricToken } = require('../src/services/biometricService');
                     await revokeBiometricToken();
-                    Alert.alert('Touch ID', 'Hubo un error al guardar la configuración en el servidor.');
+                    alertRef.show({ title: 'Touch ID', message: 'Hubo un error al guardar la configuración en el servidor.', type: 'error' });
                   }
                 }
                 router.replace('/(tabs)');
               },
             },
           ]
-        );
+        });
       } else {
         router.replace('/(tabs)');
       }
     } catch (error: any) {
-      Alert.alert(t('login.errors.loginTitle'), error.message);
+      alertRef.show({ title: t('login.errors.loginTitle'), message: error.message, type: 'error' });
+      setIsLoading(false);
+      // Revertir animación si hay error
+      Animated.parallel([
+        Animated.timing(sloganOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(sloganTranslateY, { toValue: 0, duration: 350, useNativeDriver: true }),
+      ]).start();
+    }
+  };
+                  }
+                }
+                router.replace('/(tabs)');
+              },
+            },
+          ]
+        });
+      } else {
+        router.replace('/(tabs)');
+      }
+    } catch (error: any) {
+      alertRef.show({ title: t('login.errors.loginTitle'), message: error.message, type: 'error' });
       setIsLoading(false);
       // Revertir animación si hay error
       Animated.parallel([
@@ -152,10 +236,11 @@ export default function LoginScreen() {
 
   const handleTouchId = async () => {
     if (!biometricReady) {
-      Alert.alert(
-        'Touch ID no configurado',
-        'Inicia sesión con tu correo y contraseña primero para activar esta función.'
-      );
+      alertRef.show({
+        title: 'Touch ID no configurado',
+        message: 'Inicia sesión con tu correo y contraseña primero para activar esta función.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -165,7 +250,7 @@ export default function LoginScreen() {
 
       if (!result.success) {
         if (result.reason !== 'cancelled') {
-          Alert.alert('Touch ID', 'No se pudo verificar tu huella. Intenta de nuevo o usa tu contraseña.');
+          alertRef.show({ title: 'Touch ID', message: 'No se pudo verificar tu huella. Intenta de nuevo o usa tu contraseña.', type: 'error' });
         }
         setIsBiometricLoading(false);
         return;
@@ -175,7 +260,7 @@ export default function LoginScreen() {
       await biometricLogin(result.token);
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo iniciar sesión con Touch ID.');
+      alertRef.show({ title: 'Error', message: error.message || 'No se pudo iniciar sesión con Touch ID.', type: 'error' });
       setIsBiometricLoading(false);
       
       // Si el backend rechaza el token (ej: base de datos desincronizada), revocamos localmente

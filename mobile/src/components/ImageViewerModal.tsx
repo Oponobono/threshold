@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Modal, TouchableOpacity, Image, FlatList, Dimensions, Share, Alert, ActionSheetIOS, Platform } from 'react-native';
+import { View, Modal, TouchableOpacity, Image, FlatList, Dimensions, Share, ActionSheetIOS, Platform } from 'react-native';
+import { useCustomAlert } from './CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { deletePhoto } from '../services/api';
@@ -28,6 +29,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   onPhotoDeleted
 }) => {
   const { t } = useTranslation();
+  const { showAlert } = useCustomAlert();
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
@@ -53,15 +55,16 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
         message: t('subjects.photoShareMessage') || 'Mira esta foto',
       });
     } catch (error: any) {
-      Alert.alert(t('common.error'), error.message);
+      showAlert({ title: t('common.error'), message: error.message, type: 'error' });
     }
   };
 
   const handleDelete = async (photoId: number) => {
-    Alert.alert(
-      t('common.delete') || 'Eliminar',
-      t('subjects.deletePhotoConfirm') || '¿Estás seguro de que quieres eliminar esta foto?',
-      [
+    showAlert({
+      title: t('common.delete') || 'Eliminar',
+      message: t('subjects.deletePhotoConfirm') || '¿Estás seguro de que quieres eliminar esta foto?',
+      type: 'confirm',
+      buttons: [
         { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
         { 
           text: t('common.delete') || 'Eliminar', 
@@ -74,12 +77,12 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
                 onClose(); // Cerrar si no quedan más fotos
               }
             } catch (error) {
-              Alert.alert(t('common.error'), t('subjects.deletePhotoError') || 'Error al eliminar');
+              showAlert({ title: t('common.error'), message: t('subjects.deletePhotoError') || 'Error al eliminar', type: 'error' });
             }
           }
         }
       ]
-    );
+    });
   };
 
   const showOptions = () => {
@@ -102,16 +105,14 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
         }
       );
     } else {
-      Alert.alert(
-        t('common.options') || 'Opciones',
-        '',
-        [
+      showAlert({
+        title: t('common.options') || 'Opciones',
+        buttons: [
           { text: t('common.share') || 'Compartir', onPress: () => handleShare(currentPhoto.local_uri) },
           { text: t('common.delete') || 'Eliminar', onPress: () => currentPhoto.id && handleDelete(currentPhoto.id), style: 'destructive' },
           { text: t('common.cancel') || 'Cancelar', style: 'cancel' }
-        ],
-        { cancelable: true }
-      );
+        ]
+      });
     }
   };
 

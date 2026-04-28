@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Importación diferida para no bloquear el hilo principal en el milisegundo 0
 import '../src/locales/i18n';
 import { useColorScheme } from '@/src/hooks/use-color-scheme';
+import { CustomAlertProvider } from '../src/components/CustomAlert';
 
 // Mantener el Splash Screen visible hasta que decidamos ocultarlo
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -54,17 +55,19 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack initialRouteName="welcome">
-          <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
-          <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
-          <Stack.Screen name="register" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="settings" options={{ headerShown: false }} />
-          <Stack.Screen name="about" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <CustomAlertProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack initialRouteName="welcome">
+            <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="register" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="settings" options={{ headerShown: false }} />
+            <Stack.Screen name="about" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </CustomAlertProvider>
     </SafeAreaProvider>
   );
 }

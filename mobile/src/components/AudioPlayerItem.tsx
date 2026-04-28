@@ -4,9 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { audioRecorderStyles as styles } from '../styles/AudioRecorderModal.styles';
 import { RecordingItem } from '../hooks/useAudioRecorder';
+import { useCustomAlert } from './CustomAlert';
 
 interface AudioPlayerItemProps {
-  item: RecordingItem;
+  item: RecordingItem & { missingFile?: boolean };
   isPlaying: boolean;
   onPlay: (uri: string, id: string) => void;
   onStop: () => void;
@@ -22,14 +23,40 @@ export const AudioPlayerItem: React.FC<AudioPlayerItemProps> = ({
   onDelete,
   onPress,
 }) => {
+  const { showAlert } = useCustomAlert();
+  const isMissing = (item as any).missingFile === true;
+
+  const handleDelete = () => {
+    showAlert({
+      title: 'Eliminar grabación',
+      message: isMissing
+        ? 'Se eliminará solo el registro. El archivo físico ya no existe.'
+        : '¿Estás seguro? Esta acción no se puede deshacer.',
+      type: isMissing ? 'warning' : 'confirm',
+      buttons: [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => onDelete(item.id_string || item.id || 0, item.uri),
+        },
+      ],
+    });
+  };
+
   return (
     <TouchableOpacity 
-      style={styles.recordingItem} 
-      activeOpacity={onPress ? 0.7 : 1}
-      onPress={onPress}
+      style={[styles.recordingItem, isMissing && { opacity: 0.6, borderLeftWidth: 3, borderLeftColor: theme.colors.text.error }]} 
+      activeOpacity={onPress && !isMissing ? 0.7 : 1}
+      onPress={!isMissing ? onPress : undefined}
     >
       <View style={styles.recordingInfo}>
         <Text style={styles.recordingName}>{item.name}</Text>
+        {isMissing && (
+          <Text style={{ fontSize: 11, color: theme.colors.text.error, marginTop: 2 }}>
+            ⚠ Archivo no encontrado — solo registro en BD
+          </Text>
+        )}
         <Text style={styles.recordingDate}>{item.date}</Text>
         {item.subject_name && (
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
@@ -45,23 +72,34 @@ export const AudioPlayerItem: React.FC<AudioPlayerItemProps> = ({
         )}
       </View>
       <View style={styles.recordingActions}>
+        {/* Solo mostrar botón de play si el archivo existe */}
+        {!isMissing && (
+          <TouchableOpacity 
+            onPress={() => isPlaying ? onStop() : onPlay(item.uri, item.id_string || item.id?.toString() || '')}
+            style={styles.actionButton}
+          >
+            <Ionicons 
+              name={isPlaying ? "pause-circle" : "play-circle"} 
+              size={32} 
+              color={theme.colors.primary} 
+            />
+          </TouchableOpacity>
+        )}
+        {/* Botón de borrar siempre visible */}
         <TouchableOpacity 
-          onPress={() => isPlaying ? onStop() : onPlay(item.uri, item.id_string || item.id?.toString() || '')}
+          onPress={handleDelete}
           style={styles.actionButton}
         >
           <Ionicons 
-            name={isPlaying ? "pause-circle" : "play-circle"} 
-            size={32} 
-            color={theme.colors.primary} 
+            name="trash-outline" 
+            size={24} 
+            color={isMissing ? theme.colors.text.error : theme.colors.text.secondary} 
           />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => onDelete(item.id_string || item.id || 0, item.uri)}
-          style={styles.actionButton}
-        >
-          <Ionicons name="trash-outline" size={24} color={theme.colors.text.secondary} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 };
+
+
+

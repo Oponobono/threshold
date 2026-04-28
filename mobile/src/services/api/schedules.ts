@@ -1,0 +1,57 @@
+import { fetchWithFallback, parseJsonSafely } from './client';
+import { getUserId } from './auth';
+
+/**
+ * Obtiene los horarios de hoy
+ */
+export const getTodaySchedules = async (): Promise<any[]> => {
+  const userId = await getUserId();
+  if (!userId) return [];
+  const response = await fetchWithFallback(`/schedules/today/${userId}`);
+  return (await parseJsonSafely(response)) || [];
+};
+
+/**
+ * Crea un nuevo horario (soporta repetición enviando múltiples peticiones si es necesario)
+ */
+export const createSchedule = async (payload: { subject_id: number, day_of_week: number, start_time: string, end_time: string }) => {
+  const response = await fetchWithFallback('/schedules', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await parseJsonSafely(response);
+  if (!response.ok) {
+    throw new Error(data?.error || 'No se pudo crear el horario.');
+  }
+
+  return data;
+};
+
+/**
+ * Elimina un horario
+ */
+export const deleteSchedule = async (id: number) => {
+  return await fetchWithFallback(`/schedules/${id}`, { method: 'DELETE' });
+};
+
+/**
+ * Obtiene horarios por materia
+ */
+export const getSchedulesBySubject = async (subjectId: number): Promise<any[]> => {
+  const response = await fetchWithFallback(`/schedules/subject/${subjectId}`);
+  return (await parseJsonSafely(response)) || [];
+};
+
+/**
+ * Obtiene todos los horarios del usuario
+ */
+export const getAllSchedules = async (): Promise<any[]> => {
+  const userId = await getUserId();
+  if (!userId) return [];
+  const response = await fetchWithFallback(`/schedules/user/${userId}`);
+  return (await parseJsonSafely(response)) || [];
+};

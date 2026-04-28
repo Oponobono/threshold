@@ -11,9 +11,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
   ScrollView,
 } from 'react-native';
+import { useCustomAlert } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +44,7 @@ interface Props {
 
 export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects }) => {
   const { t } = useTranslation();
+  const { showAlert } = useCustomAlert();
   const [screen, setScreen] = useState<Screen>('hub');
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
   const [activeDeck, setActiveDeck] = useState<FlashcardDeck | null>(null);
@@ -96,7 +97,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     try {
       const data = await getFlashcards(deck.id);
       if (!data || data.length === 0) {
-        Alert.alert(t('flashcards.noCards'), t('flashcards.noCardsMsg'));
+        showAlert({ title: t('flashcards.noCards'), message: t('flashcards.noCardsMsg'), type: 'info' });
         return;
       }
       // Prioritise 'new' and 'learning' cards first
@@ -176,7 +177,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
 
   const handleSaveDeck = async () => {
     if (!deckTitle.trim() || !deckSubjectId) {
-      Alert.alert(t('common.error'), t('flashcards.deckFormError'));
+      showAlert({ title: t('common.error'), message: t('flashcards.deckFormError'), type: 'warning' });
       return;
     }
     try {
@@ -188,7 +189,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
       await loadDecks();
       setScreen('hub');
     } catch (e: any) {
-      Alert.alert(t('common.error'), e.message || t('flashcards.deckSaveError'));
+      showAlert({ title: t('common.error'), message: e.message || t('flashcards.deckSaveError'), type: 'error' });
     } finally {
       setIsSavingDeck(false);
     }
@@ -206,7 +207,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
       await loadDecks();
       setScreen('hub');
     } catch (e: any) {
-      Alert.alert(t('common.error'), e.message);
+      showAlert({ title: t('common.error'), message: e.message, type: 'error' });
     } finally {
       setIsSavingCard(false);
     }

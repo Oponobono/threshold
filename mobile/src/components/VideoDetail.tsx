@@ -14,6 +14,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { alertRef } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTranslation } from 'react-i18next';
@@ -367,12 +368,12 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
   // ---------------------------------------------------------------------------
   const startTranscriptionFlow = async () => {
     if (!GROQ_API_KEY) {
-      Alert.alert('Error', 'Falta la API Key de Groq en el archivo .env.local');
+      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
       return;
     }
 
     if (!videoData?.video_id) {
-      Alert.alert('Error', 'No se encontró el ID del video. Por favor intenta recargar.');
+      alertRef.show({ title: 'Error', message: 'No se encontró el ID del video. Por favor intenta recargar.', type: 'error' });
       return;
     }
 
@@ -384,7 +385,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       const text = await transcribeYouTubeWithWhisper(videoData.video_id, GROQ_API_KEY);
       
       if (!text) {
-        Alert.alert(t('common.error') || 'Error', 'No se pudieron obtener los subtítulos del video. Es posible que:\n• El video no tenga subtítulos disponibles\n• El video sea privado o no exista\n• Hay problemas de conectividad');
+        alertRef.show({ title: t('common.error') || 'Error', message: 'No se pudieron obtener los subtítulos del video. Es posible que:\n• El video no tenga subtítulos disponibles\n• El video sea privado o no exista\n• Hay problemas de conectividad', type: 'warning' });
         return;
       }
 
@@ -410,8 +411,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       } else {
         userMessage += errorMsg;
       }
-      
-      Alert.alert(t('common.error') || 'Error', userMessage);
+      alertRef.show({ title: t('common.error') || 'Error', message: userMessage, type: 'error' });
     } finally {
       setIsTranscribing(false);
     }
@@ -422,11 +422,11 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
   // ---------------------------------------------------------------------------
   const startSummaryFlow = async () => {
     if (!GROQ_API_KEY) {
-      Alert.alert('Error', 'Falta la API Key de Groq en el archivo .env.local');
+      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
       return;
     }
     if (!transcription) {
-      Alert.alert(t('common.error') || 'Error', t('dashboard.audioRecorderModal.ai.emptyTranscription') || 'Primero genera la transcripción.');
+      alertRef.show({ title: t('common.error') || 'Error', message: t('dashboard.audioRecorderModal.ai.emptyTranscription') || 'Primero genera la transcripción.', type: 'warning' });
       return;
     }
     setIsSummarizing(true);
@@ -437,7 +437,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       setShowTutorial(false);
       setActiveTab('summary');
     } catch (e) {
-      Alert.alert(t('common.error') || 'Error', e instanceof Error ? e.message : 'Error al generar el resumen.');
+      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : 'Error al generar el resumen.', type: 'error' });
     } finally {
       setIsSummarizing(false);
     }

@@ -114,6 +114,8 @@ const initializePostgresDb = async () => {
       { name: 'major', type: 'TEXT' },
       { name: 'university', type: 'TEXT' },
       { name: 'biometric_token', type: 'TEXT' },
+      { name: 'status', type: "VARCHAR(20) DEFAULT 'active'" },
+      { name: 'deletion_date', type: 'TIMESTAMP' },
     ].filter(column => !existingColumns.has(column.name));
 
     for (let column of missingColumns) {
@@ -122,6 +124,17 @@ const initializePostgresDb = async () => {
     }
 
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username) WHERE username IS NOT NULL`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deleted_users (
+        id SERIAL PRIMARY KEY,
+        original_user_id INTEGER,
+        email TEXT,
+        name TEXT,
+        lastname TEXT,
+        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS app_visitors (
@@ -358,6 +371,8 @@ const initializeSqliteDb = () => {
         { name: 'major', type: 'TEXT' },
         { name: 'university', type: 'TEXT' },
         { name: 'biometric_token', type: 'TEXT' },
+        { name: 'status', type: "VARCHAR(20) DEFAULT 'active'" },
+        { name: 'deletion_date', type: 'DATETIME' },
       ].filter((column) => !existingColumns.has(column.name));
 
       missingColumns.forEach((column) => {
@@ -379,6 +394,17 @@ const initializeSqliteDb = () => {
         }
       );
     });
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS deleted_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        original_user_id INTEGER,
+        email TEXT,
+        name TEXT,
+        lastname TEXT,
+        deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // 2. Tabla de Visitantes / Análisis de Invitados
     db.run(`
