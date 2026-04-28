@@ -678,7 +678,7 @@
     "video": "video",
     "photo": "photo",
     "deck": "deck",
-    "recoveryInfo": "ℹ️ Your name, email and basic data will be kept to allow your re-registration.",
+    "recoveryInfo": "ℹ️ You can recover your account by logging in with your credentials within 14 days.",
     "confirmDeletion": "Final Confirmation",
     "typeToConfirm": "Type your username to confirm",
     "oneWayRoad": "⚠️ This is your last chance to change your mind.",

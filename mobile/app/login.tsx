@@ -201,26 +201,6 @@ export default function LoginScreen() {
       ]).start();
     }
   };
-                  }
-                }
-                router.replace('/(tabs)');
-              },
-            },
-          ]
-        });
-      } else {
-        router.replace('/(tabs)');
-      }
-    } catch (error: any) {
-      alertRef.show({ title: t('login.errors.loginTitle'), message: error.message, type: 'error' });
-      setIsLoading(false);
-      // Revertir animación si hay error
-      Animated.parallel([
-        Animated.timing(sloganOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
-        Animated.timing(sloganTranslateY, { toValue: 0, duration: 350, useNativeDriver: true }),
-      ]).start();
-    }
-  };
 
   const handleGuestToggle = (value: boolean) => {
     const now = Date.now();
