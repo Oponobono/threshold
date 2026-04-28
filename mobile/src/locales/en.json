@@ -55,7 +55,19 @@
     "retake": "Retake",
     "preview": "Preview",
     "grantPermission": "Grant permission",
-    "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "errors": {
+      "enterPassword": "Enter your password",
+      "groqApiKeyMissing": "Groq API Key is missing from .env.local file",
+      "updateFailed": "Update failed",
+      "audioPlayFailed": "Could not play audio.",
+      "microphonePermission": "Microphone permission is required to record audio",
+      "cameraPermission": "Camera permissions are required to continue",
+      "audioProcessFailed": "Error processing audio",
+      "documentProcessFailed": "Error processing document",
+      "selectSubject": "Select a subject first",
+      "fillAllFields": "Please fill in all required fields."
+    }
   },
   "features": {
     "swipeToExplore": "Swipe to explore",
@@ -321,7 +333,7 @@
       "takePhotoLabel": "Take Photo",
       "takePhotoSubtext": "Capture whiteboard or your notes",
       "takePhoto": {
-        "success": "📸 Photo saved successfully",
+        "success": "Photo saved successfully",
         "error": "Could not save the photo"
       },
       "cameraSoonTitle": "Camera Coming Soon",
@@ -329,7 +341,7 @@
       "camera": {
         "permissionError": "Camera permissions are required to continue",
         "captureError": "Could not take the photo",
-        "saveSuccess": "📸 Saved in {{subject}}",
+        "saveSuccess": "Saved to {{subject}}",
         "saveError": "Could not save the photo"
       },
       "grade": {
@@ -711,7 +723,83 @@
     "sendFeedback": "Send Feedback",
     "send": "Send",
     "appVersion": "App version",
-    "version": "v2.4.1 (Build 2026-04)"
+    "version": "v2.4.1 (Build 2026-04)",
+    "errors": {
+      "biometricEnableFailed": "Failed to save biometric",
+      "biometricDisableFailed": "Failed to disable biometric",
+      "profileUpdateFailed": "Failed to update profile",
+      "passwordsDontMatch": "Passwords do not match",
+      "fillAllFields": "Please fill in all required fields",
+      "passwordRequired": "Enter your password",
+      "passwordUpdateFailed": "Failed to update password"
+    }
+  },
+  "modals": {
+    "audioRecorder": {
+      "title": "Voice Recorder",
+      "subtitle": "Record your lectures, ideas, or important reminders.",
+      "startRecording": "Start Recording",
+      "stopRecording": "Stop",
+      "saveRecording": "Save Recording",
+      "discardRecording": "Discard",
+      "recordingInProgress": "Recording...",
+      "recordingPaused": "Paused",
+      "recordingSaved": "Recording saved successfully",
+      "recordingError": "Error processing audio",
+      "permissionError": "Microphone permission is required to record audio",
+      "play": "Play",
+      "pause": "Pause",
+      "delete": "Delete",
+      "noRecordings": "No recordings yet",
+      "recordingsList": "My Recordings",
+      "recordings": "Recordings",
+      "unclassified": "Unclassified",
+      "ai": {
+        "tabTranscription": "Transcription",
+        "tabSummary": "AI Summary",
+        "generateTranscription": "Generate transcription",
+        "generateSummary": "Generate AI summary",
+        "transcriptionHint": "Transcribe the recorded audio using AI. Great for reviewing lectures or searching for key moments.",
+        "summaryHint": "Get a smart summary of the audio. Perfect for quickly reviewing main ideas.",
+        "tutorialTitle": "New? Try transcription & AI summary",
+        "tutorialBody": "Tap the icons to switch between the full transcription and the AI-generated summary. You can copy the text or search for keywords.",
+        "downloadingModel": "Downloading transcription model...",
+        "downloadingModelDesc": "The first time may take a few minutes. Please don't close the app.",
+        "copy": "Copy text",
+        "copied": "Text copied!",
+        "error": "An error occurred while processing the audio. Please try again.",
+        "emptyTranscription": "No transcription yet. Tap to generate.",
+        "emptySummary": "No summary yet. Tap to generate.",
+        "loading": "Processing...",
+        "recording": "Recording"
+      },
+      "fileLabel": "Recording {{date}}",
+      "emptyState": "Press the red button to start recording your first voice note."
+    }
+  },
+  "recordings": {
+    "title": "Recordings",
+    "loadingList": "Loading recordings...",
+    "loading": "Loading recording...",
+    "errors": {
+      "playbackFailed": "Could not play audio.",
+      "groqApiKeyMissing": "Groq API Key is missing from .env.local file",
+      "noVoiceDetected": "Whisper detected no voice in the audio.",
+      "transcriptionFailed": "Error transcribing audio.",
+      "summaryFailed": "Error generating summary."
+    }
+  },
+  "youtube": {
+    "title": "Videos",
+    "loadingList": "Loading videos...",
+    "loading": "Loading video...",
+    "errors": {
+      "groqApiKeyMissing": "Groq API Key is missing from .env.local file",
+      "videoIdNotFound": "Video ID not found. Please try refreshing.",
+      "captionsFetchFailed": "Could not fetch video captions. It's possible that:\n• The video has no captions available\n• The video is private or does not exist\n• There are connectivity issues",
+      "summaryFailed": "Error generating summary.",
+      "videoLoadFailed": "Could not load video. Try opening it directly on YouTube."
+    }
   },
   "flashcards": {
     "title": "Flashcards",

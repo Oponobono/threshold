@@ -318,7 +318,7 @@ export default function RecordingsScreen() {
   };
 
   if (isLoadingVideos && youTubeVideos.length === 0 && recordings.length === 0) {
-    return <PremiumLoading text={t('subjects.loading') || 'CARGANDO'} />;
+    return <PremiumLoading text={t('recordings.loadingList') || 'CARGANDO'} />;
   }
 
   return (

@@ -85,7 +85,7 @@ export default function SettingsScreen() {
         } catch (error: any) {
           await revokeBiometricToken();
           setBiometric(false);
-          alertRef.show({ title: t('common.error'), message: error.message || 'Error al guardar biometría', type: 'error' });
+          alertRef.show({ title: t('common.error'), message: error.message || t('settings.errors.biometricEnableFailed'), type: 'error' });
         }
       } else {
         setBiometric(false);
@@ -108,7 +108,7 @@ export default function SettingsScreen() {
                 alertRef.show({ title: t('common.success'), message: t('settings.biometricDisabled', 'Inicio biométrico desactivado'), type: 'success' });
               } catch (error: any) {
                 setBiometric(true);
-                alertRef.show({ title: t('common.error'), message: error.message || 'Error al desactivar biometría', type: 'error' });
+                alertRef.show({ title: t('common.error'), message: error.message || t('settings.errors.biometricDisableFailed'), type: 'error' });
               }
             } 
           },
@@ -217,7 +217,7 @@ export default function SettingsScreen() {
       const userProfile = await getCurrentUserProfile();
       setProfile(userProfile);
     } catch (error: any) {
-      alertRef.show({ title: t('common.error'), message: error.message || 'Error al actualizar', type: 'error' });
+      alertRef.show({ title: t('common.error'), message: error.message || t('settings.errors.profileUpdateFailed'), type: 'error' });
     }
   };
 
@@ -238,13 +238,13 @@ export default function SettingsScreen() {
       setConfirmPassword('');
       alertRef.show({ title: t('common.success'), message: t('settings.passwordUpdated', 'Contraseña actualizada exitosamente'), type: 'success' });
     } catch (error: any) {
-      alertRef.show({ title: t('common.error'), message: error.message || 'Error al actualizar', type: 'error' });
+      alertRef.show({ title: t('common.error'), message: error.message || t('settings.errors.passwordUpdateFailed'), type: 'error' });
     }
   };
 
   const handleDeletePasswordVerify = async () => {
     if (!deletePassword) {
-      alertRef.show({ title: t('common.error'), message: 'Ingresa tu contraseña', type: 'warning' });
+      alertRef.show({ title: t('common.error'), message: t('common.errors.enterPassword'), type: 'warning' });
       return;
     }
     setIsLoadingDeletion(true);

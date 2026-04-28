@@ -368,12 +368,12 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
   // ---------------------------------------------------------------------------
   const startTranscriptionFlow = async () => {
     if (!GROQ_API_KEY) {
-      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
+      alertRef.show({ title: 'Error', message: t('common.errors.groqApiKeyMissing'), type: 'error' });
       return;
     }
 
     if (!videoData?.video_id) {
-      alertRef.show({ title: 'Error', message: 'No se encontró el ID del video. Por favor intenta recargar.', type: 'error' });
+      alertRef.show({ title: 'Error', message: t('youtube.errors.videoIdNotFound'), type: 'error' });
       return;
     }
 
@@ -385,7 +385,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       const text = await transcribeYouTubeWithWhisper(videoData.video_id, GROQ_API_KEY);
       
       if (!text) {
-        alertRef.show({ title: t('common.error') || 'Error', message: 'No se pudieron obtener los subtítulos del video. Es posible que:\n• El video no tenga subtítulos disponibles\n• El video sea privado o no exista\n• Hay problemas de conectividad', type: 'warning' });
+        alertRef.show({ title: t('common.error') || 'Error', message: t('youtube.errors.captionsFetchFailed'), type: 'warning' });
         return;
       }
 
@@ -422,7 +422,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
   // ---------------------------------------------------------------------------
   const startSummaryFlow = async () => {
     if (!GROQ_API_KEY) {
-      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
+      alertRef.show({ title: 'Error', message: t('common.errors.groqApiKeyMissing'), type: 'error' });
       return;
     }
     if (!transcription) {
@@ -437,7 +437,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       setShowTutorial(false);
       setActiveTab('summary');
     } catch (e) {
-      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : 'Error al generar el resumen.', type: 'error' });
+      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : t('youtube.errors.summaryFailed'), type: 'error' });
     } finally {
       setIsSummarizing(false);
     }
@@ -456,7 +456,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
   // Render
   // ---------------------------------------------------------------------------
   if (isLoading) {
-    return <PremiumLoading text={t('subjects.loading') || 'CARGANDO'} />;
+    return <PremiumLoading text={t('youtube.loading') || 'CARGANDO'} />;
   }
 
   return (
@@ -498,7 +498,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
               }}
               onError={(error: string) => {
                 console.error('YouTube player error:', error);
-                Alert.alert('Error', 'No se pudo cargar el video. Intenta abrirlo directamente en YouTube.');
+                Alert.alert('Error', t('youtube.errors.videoLoadFailed'));
               }}
               webViewProps={{
                 javaScriptEnabled: true,

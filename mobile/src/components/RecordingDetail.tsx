@@ -465,7 +465,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       });
     } catch (e) {
       setIsPlaying(false);
-      alertRef.show({ title: t('common.error') || 'Error', message: 'No se pudo reproducir el audio.', type: 'error' });
+      alertRef.show({ title: t('common.error') || 'Error', message: t('recordings.errors.playbackFailed'), type: 'error' });
     }
   }, [audioUri, t]);
 
@@ -474,7 +474,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   // ---------------------------------------------------------------------------
   const startTranscriptionFlow = async () => {
     if (!GROQ_API_KEY) {
-      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
+      alertRef.show({ title: 'Error', message: t('common.errors.groqApiKeyMissing'), type: 'error' });
       return;
     }
 
@@ -486,7 +486,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       const text = await transcribeWithWhisper(audioUri, GROQ_API_KEY);
       
       if (!text) {
-        alertRef.show({ title: t('common.error') || 'Error', message: 'Whisper no detectó voz en el audio.', type: 'warning' });
+        alertRef.show({ title: t('common.error') || 'Error', message: t('recordings.errors.noVoiceDetected'), type: 'warning' });
         return;
       }
 
@@ -495,7 +495,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       await saveTextToFile(text, 'transcript');
     } catch (e) {
       console.error('ERROR EN TRANSCRIPCIÓN:', e);
-      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : 'Error al transcribir el audio.', type: 'error' });
+      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : t('recordings.errors.transcriptionFailed'), type: 'error' });
     } finally {
       setIsTranscribing(false);
     }
@@ -506,7 +506,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   // ---------------------------------------------------------------------------
   const startSummaryFlow = async () => {
     if (!GROQ_API_KEY) {
-      alertRef.show({ title: 'Error', message: 'Falta la API Key de Groq en el archivo .env.local', type: 'error' });
+      alertRef.show({ title: 'Error', message: t('common.errors.groqApiKeyMissing'), type: 'error' });
       return;
     }
     if (!transcription) {
@@ -522,7 +522,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
       setActiveTab('summary');
       await saveTextToFile(result, 'summary');
     } catch (e) {
-      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : 'Error al generar el resumen.', type: 'error' });
+      alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : t('recordings.errors.summaryFailed'), type: 'error' });
     } finally {
       setIsSummarizing(false);
     }
@@ -541,7 +541,7 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   // Render
   // ---------------------------------------------------------------------------
   if (isLoading) {
-    return <PremiumLoading text={t('subjects.loading') || 'CARGANDO'} />;
+    return <PremiumLoading text={t('recordings.loading') || 'CARGANDO'} />;
   }
 
   return (
