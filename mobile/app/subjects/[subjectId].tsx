@@ -72,7 +72,7 @@ export default function SubjectDetailScreen() {
   const [recentRecordings, setRecentRecordings] = useState<RecordingItem[]>([]);
   const [recentVideos, setRecentVideos] = useState<YouTubeVideo[]>([]);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const { playSound, stopSound, playingId, deleteRecording } = useAudioRecorder();
+  const { playSound, stopSound, playingId, deleteRecordingConfirmed } = useAudioRecorder();
 
   useEffect(() => {
     let mounted = true;
@@ -226,7 +226,7 @@ export default function SubjectDetailScreen() {
             playingId={playingId}
             playSound={playSound}
             stopSound={stopSound}
-            deleteRecording={deleteRecording}
+            deleteRecording={deleteRecordingConfirmed}
           />
 
           {recentVideos.length > 0 && (

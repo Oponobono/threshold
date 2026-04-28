@@ -31,7 +31,7 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
     stopRecording,
     playSound,
     stopSound,
-    deleteRecording,
+    deleteRecordingConfirmed,
     formatDuration,
     loadRecordings,
   } = useAudioRecorder();
@@ -98,7 +98,7 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
         isPlaying={playingId === (item.id_string || item.id?.toString() || '')}
         onPlay={playSound}
         onStop={stopSound}
-        onDelete={deleteRecording}
+        onDelete={deleteRecordingConfirmed}
         onPress={() => {
           onClose();
           router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}?type=recording` as any);

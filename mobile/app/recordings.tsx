@@ -41,7 +41,7 @@ export default function RecordingsScreen() {
     stopRecording,
     playSound,
     stopSound,
-    deleteRecording,
+    deleteRecordingConfirmed,
     formatDuration,
     loadRecordings,
   } = useAudioRecorder();
@@ -169,7 +169,7 @@ export default function RecordingsScreen() {
         isPlaying={playingId === (item.id_string || item.id)}
         onPlay={playSound}
         onStop={stopSound}
-        onDelete={deleteRecording}
+        onDelete={deleteRecordingConfirmed}
         onPress={() => router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}?type=recording` as any)}
       />
     );
