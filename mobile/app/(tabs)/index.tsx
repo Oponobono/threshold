@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, TextInput, FlatList, Platform, Animated, Easing } from 'react-native';
 import { alertRef } from '../../src/components/CustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +16,8 @@ import * as LegacyFS from 'expo-file-system/legacy';
 import { AudioRecorderModal } from '../../src/components/AudioRecorderModal';
 import { StudyTimerCard } from '../../src/components/StudyTimerCard';
 import { StudyTimerModal } from '../../src/components/StudyTimerModal';
-import { DocumentScannerModal } from '../../src/components/DocumentScannerModal';
+// Lazy load DocumentScannerModal to prevent native module load errors
+const DocumentScannerModal = React.lazy(() => import('../../src/components/DocumentScannerModal').then(m => ({ default: m.DocumentScannerModal })));
 import { PhotoCaptureModal } from '../../src/components/PhotoCaptureModal';
 import { FlashcardsModal } from '../../src/components/FlashcardsModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1377,12 +1378,14 @@ export default function HybridDashboardScreen() {
         }}
       />
 
-      <DocumentScannerModal
-        isVisible={isScannerVisible}
-        onClose={() => setIsScannerVisible(false)}
-        subjects={subjects}
-        onSave={() => loadData()}
-      />
+      <React.Suspense fallback={null}>
+        <DocumentScannerModal
+          isVisible={isScannerVisible}
+          onClose={() => setIsScannerVisible(false)}
+          subjects={subjects}
+          onSave={() => loadData()}
+        />
+      </React.Suspense>
 
       <PhotoCaptureModal
         isVisible={isPhotoModalVisible}

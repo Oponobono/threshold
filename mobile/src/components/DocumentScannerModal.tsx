@@ -1,14 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
-import DocumentScanner, { ResponseType } from 'react-native-document-scanner-plugin';
-import { Accelerometer } from 'expo-sensors';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { dashboardStyles as styles } from '../styles/Dashboard.styles';
 import { documentScannerStyles as localStyles } from '../styles/DocumentScannerModal.styles';
 import { Subject, createPhoto } from '../services/api';
+
+// Importes condicionales para plataformas nativas
+let DocumentScanner: any = null;
+let ResponseType: any = null;
+let Accelerometer: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const scanner = require('react-native-document-scanner-plugin');
+    DocumentScanner = scanner.default || scanner;
+    ResponseType = scanner.ResponseType;
+    const sensors = require('expo-sensors');
+    Accelerometer = sensors.Accelerometer;
+  } catch (e) {
+    console.warn('Native modules not available:', e);
+  }
+}
 
 interface DocumentScannerModalProps {
   isVisible: boolean;
@@ -35,9 +50,9 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
   useEffect(() => {
     let subscription: any;
-    if (isVisible && step === 'guide') {
+    if (isVisible && step === 'guide' && Accelerometer) {
       Accelerometer.setUpdateInterval(200);
-      subscription = Accelerometer.addListener(({ x, y, z }) => {
+      subscription = Accelerometer.addListener(({ x, y, z }: any) => {
         const isFlat = Math.abs(x) < 0.2 && Math.abs(y) < 0.2 && Math.abs(z) > 0.8;
         setIsLevel(isFlat);
       });
@@ -48,6 +63,11 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   }, [isVisible, step]);
 
   const launchNativeScanner = async () => {
+    if (!DocumentScanner) {
+      showAlert({ title: t('common.error'), message: 'Document scanning is not available on this platform', type: 'info' });
+      return;
+    }
+
     try {
       const { scannedImages, status } = await DocumentScanner.scanDocument({
         maxNumDocuments: 1,

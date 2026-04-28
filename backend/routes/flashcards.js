@@ -159,12 +159,35 @@ NO incluyas texto adicional ni markdown. Solo el JSON.`
     const groqData = await response.json();
     const groqResponse = groqData.choices[0].message.content.trim();
 
+    // Limpiar respuesta JSON (a veces Groq devuelve markdown formatting)
+    let jsonString = groqResponse;
+    
+    // Eliminar markdown code blocks si existen
+    if (jsonString.startsWith('```json')) {
+      jsonString = jsonString.slice(7); // Eliminar ```json
+    } else if (jsonString.startsWith('```')) {
+      jsonString = jsonString.slice(3); // Eliminar ```
+    }
+    
+    if (jsonString.endsWith('```')) {
+      jsonString = jsonString.slice(0, -3); // Eliminar ``` final
+    }
+    
+    jsonString = jsonString.trim();
+
     // Parsear la respuesta JSON de Groq
     let cardsData;
     try {
-      cardsData = JSON.parse(groqResponse);
+      cardsData = JSON.parse(jsonString);
     } catch (parseError) {
-      return res.status(500).json({ error: 'Respuesta de Groq no es JSON válido', details: groqResponse });
+      console.error('JSON Parse Error:', parseError);
+      console.error('Raw response:', groqResponse);
+      console.error('Cleaned string:', jsonString);
+      return res.status(500).json({ 
+        error: 'Respuesta de Groq no es JSON válido', 
+        details: groqResponse,
+        parseError: parseError.message 
+      });
     }
 
     // Validar estructura

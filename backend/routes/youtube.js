@@ -193,14 +193,27 @@ router.post('/youtube-transcripts', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
 
     if (row) {
-      // Actualizar
-      const updateQuery = `
-        UPDATE youtube_transcripts 
-        SET transcript_uri = COALESCE(?, transcript_uri),
-            summary_uri = COALESCE(?, summary_uri)
-        WHERE video_id = ?
-      `;
-      db.run(updateQuery, [transcript_uri, summary_uri, video_id], function(updateErr) {
+      // Actualizar - actualizar solo los campos proporcionados
+      let updateFields = [];
+      let updateValues = [];
+      
+      if (transcript_uri !== undefined) {
+        updateFields.push('transcript_uri = ?');
+        updateValues.push(transcript_uri);
+      }
+      if (summary_uri !== undefined) {
+        updateFields.push('summary_uri = ?');
+        updateValues.push(summary_uri);
+      }
+      
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: 'No se proporcionaron campos para actualizar' });
+      }
+      
+      updateValues.push(video_id);
+      const updateQuery = `UPDATE youtube_transcripts SET ${updateFields.join(', ')} WHERE video_id = ?`;
+      
+      db.run(updateQuery, updateValues, function(updateErr) {
         if (updateErr) return res.status(500).json({ error: updateErr.message });
         res.json({ success: true, id: row.id, action: 'updated' });
       });

@@ -19,7 +19,13 @@ export const globalStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  shadow: {
+  shadow: Platform.OS === 'web' ? {
+    // Web shadow using boxShadow
+    ...{
+      boxShadow: `0 2px 10px rgba(${parseInt(theme.colors.primary.slice(1, 3), 16)}, ${parseInt(theme.colors.primary.slice(3, 5), 16)}, ${parseInt(theme.colors.primary.slice(5, 7), 16)}, 0.05)`,
+    } as any,
+  } : {
+    // Native shadow
     shadowColor: theme.colors.primary,
     shadowOffset: {
       width: 0,
