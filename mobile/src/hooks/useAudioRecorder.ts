@@ -355,22 +355,46 @@ export function useAudioRecorder() {
   // The calling component is responsible for showing the confirmation prompt.
   async function deleteRecordingConfirmed(id: number | string, uri: string) {
     try {
-      if (typeof id === 'number') {
-        await deleteAudioRecording(id).catch((e) =>
-          console.warn('Could not delete from DB:', e)
-        );
+      // Convert string id to number if needed
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+      
+      // Only delete from DB if it's a numeric ID (already synced)
+      if (!isNaN(numericId) && numericId > 0) {
+        try {
+          await deleteAudioRecording(numericId);
+        } catch (dbErr) {
+          console.error('Error deleting from DB:', dbErr);
+          throw dbErr; // Don't silently ignore
+        }
       }
-      const fileInfo = await FileSystem.getInfoAsync(uri);
-      if (fileInfo.exists) await FileSystem.deleteAsync(uri);
+      
+      // Delete the physical file - wait for completion
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(uri);
+        }
+      } catch (fileErr) {
+        console.warn('Error deleting file:', fileErr);
+        // Continue anyway - file might not exist locally
+      }
 
+      // Update state immediately
       setRecordings((prev) =>
         prev.filter((r) => r.uri !== uri && r.id_string !== String(id))
       );
 
-      // Refresh the list to ensure consistency with backend
-      setTimeout(() => loadRecordings(), 300);
+      // Refresh after a small delay to ensure file deletion is complete
+      setTimeout(() => loadRecordings(), 500);
     } catch (error) {
-      console.error('Error deleting recording', error);
+      console.error('Error in deleteRecordingConfirmed:', error);
+      // Show error to user
+      alertRef.show({
+        title: 'Error al eliminar',
+        message: 'Ocurrió un error al eliminar la grabación. Por favor, intenta de nuevo.',
+        type: 'error',
+        buttons: [{ text: 'OK', style: 'cancel' }]
+      });
     }
   }
 
