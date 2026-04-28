@@ -11,7 +11,7 @@ interface SubjectRecentRecordingsProps {
   playingId: string | null;
   playSound: (uri: string, id: string) => void;
   stopSound: () => void;
-  deleteRecording: (id: string | number, uri: string) => void;
+  deleteRecording: (id: string | number, uri: string) => void; // Note: receives deleteRecordingConfirmed, not deleteRecording
 }
 
 export const SubjectRecentRecordings: React.FC<SubjectRecentRecordingsProps> = ({

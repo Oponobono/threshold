@@ -20,7 +20,9 @@ interface MediaItem extends RecordingItem {
 interface GroupedSection {
   title: string;
   data: MediaItem[];
-  subtype?: 'recordings' | 'videos'; // Para secciones tipo de contenido
+  subtype?: 'recordings' | 'videos';
+  mediaType?: 'recordings' | 'videos';
+  isFirstInType?: boolean;
 }
 
 export default function RecordingsScreen() {
@@ -176,81 +178,71 @@ export default function RecordingsScreen() {
   };
 
   const groupedRecordings = useMemo(() => {
-    const groups: { [key: string]: { recordings: MediaItem[]; videos: MediaItem[] } } = {};
-    const orphanRecordings: MediaItem[] = [];
-    const orphanVideos: MediaItem[] = [];
+    const recordingsBySubject: { [key: string]: MediaItem[] } = {};
+    const videosBySubject: { [key: string]: MediaItem[] } = {};
 
-    // Add audio recordings
+    // Group audio recordings by subject
     recordings.forEach(rec => {
+      const subjectName = rec.subject_name || (t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar');
       const item: MediaItem = { ...rec, type: 'recording' };
-      if (rec.subject_name) {
-        if (!groups[rec.subject_name]) groups[rec.subject_name] = { recordings: [], videos: [] };
-        groups[rec.subject_name].recordings.push(item);
-      } else {
-        orphanRecordings.push(item);
-      }
+      if (!recordingsBySubject[subjectName]) recordingsBySubject[subjectName] = [];
+      recordingsBySubject[subjectName].push(item);
     });
 
-    // Add YouTube videos
+    // Group YouTube videos by subject
     youTubeVideos.forEach(video => {
+      const subjectName = video.subject_name || (t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar');
       const item: MediaItem = {
         ...video,
         id_string: video.id?.toString(),
         type: 'video',
         name: video.title || 'Video de YouTube',
       } as MediaItem;
-      if (video.subject_name) {
-        if (!groups[video.subject_name]) groups[video.subject_name] = { recordings: [], videos: [] };
-        groups[video.subject_name].videos.push(item);
-      } else {
-        orphanVideos.push(item);
-      }
+      if (!videosBySubject[subjectName]) videosBySubject[subjectName] = [];
+      videosBySubject[subjectName].push(item);
     });
 
-    const sections: GroupedSection[] = [];
+    const sections: (GroupedSection & { mediaType: 'recordings' | 'videos'; isFirstInType: boolean })[] = [];
+    let isFirstRecording = true;
+    let isFirstVideo = true;
 
-    // Create sections by subject with sub-sections for recordings/videos
-    Object.keys(groups)
-      .sort()
+    // Add recordings grouped by subject
+    Object.keys(recordingsBySubject)
+      .sort((a, b) => {
+        const unclassified = t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar';
+        if (a === unclassified) return 1;
+        if (b === unclassified) return -1;
+        return a.localeCompare(b);
+      })
       .forEach(subjectName => {
-        const { recordings: recs, videos: vids } = groups[subjectName];
-
-        // Add recordings sub-section if any
-        if (recs.length > 0) {
-          sections.push({
-            title: `${subjectName} • ${t('dashboard.audioRecorderModal.recordingsList') || 'Audios'}`,
-            data: recs,
-            subtype: 'recordings'
-          });
-        }
-
-        // Add videos sub-section if any
-        if (vids.length > 0) {
-          sections.push({
-            title: `${subjectName} • Videos`,
-            data: vids,
-            subtype: 'videos'
-          });
-        }
+        sections.push({
+          title: subjectName,
+          data: recordingsBySubject[subjectName],
+          subtype: 'recordings',
+          mediaType: 'recordings',
+          isFirstInType: isFirstRecording
+        });
+        isFirstRecording = false;
       });
 
-    // Add orphan recordings
-    if (orphanRecordings.length > 0) {
-      sections.push({
-        title: `${t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar'} • ${t('dashboard.audioRecorderModal.recordings') || 'Audios'}`,
-        data: orphanRecordings,
-        subtype: 'recordings'
+    // Add videos grouped by subject
+    Object.keys(videosBySubject)
+      .sort((a, b) => {
+        const unclassified = t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar';
+        if (a === unclassified) return 1;
+        if (b === unclassified) return -1;
+        return a.localeCompare(b);
+      })
+      .forEach(subjectName => {
+        sections.push({
+          title: subjectName,
+          data: videosBySubject[subjectName],
+          subtype: 'videos',
+          mediaType: 'videos',
+          isFirstInType: isFirstVideo
+        });
+        isFirstVideo = false;
       });
-    }
-
-    // Add orphan videos
-    if (orphanVideos.length > 0) {
-      sections.push({
-        title: `${t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar'} • Videos`,
-        data: orphanVideos,
-        subtype: 'videos'
-      });
-    }
 
     return sections;
   }, [recordings, youTubeVideos, t]);
@@ -350,17 +342,33 @@ export default function RecordingsScreen() {
         sections={groupedRecordings}
         keyExtractor={(item, index) => item.id_string || item.id?.toString() || `${index}`}
         renderItem={renderRecordingItem}
-        renderSectionHeader={({ section: { title, subtype } }: { section: GroupedSection }) => {
-          const isVideo = subtype === 'videos';
+        renderSectionHeader={({ section }: { section: GroupedSection }) => {
+          const isVideo = section.subtype === 'videos';
+          const mediaTypeLabel = isVideo ? 'Videos' : (t('dashboard.audioRecorderModal.recordingsList') || 'Grabaciones');
+          
           return (
-            <View style={{ backgroundColor: theme.colors.background, paddingVertical: 10, paddingHorizontal: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {isVideo ? (
-                  <MaterialCommunityIcons name="youtube" size={18} color={theme.colors.text.error} />
-                ) : (
-                  <Ionicons name="mic" size={18} color={theme.colors.primary} />
-                )}
-                <Text style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }}>{title}</Text>
+            <View style={{ backgroundColor: theme.colors.background }}>
+              {/* Main type header (Grabaciones/Videos) - only shown for first of each type */}
+              {section.isFirstInType && (
+                <View style={{ paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {isVideo ? (
+                      <MaterialCommunityIcons name="youtube" size={20} color={theme.colors.text.error} />
+                    ) : (
+                      <Ionicons name="mic" size={20} color={theme.colors.primary} />
+                    )}
+                    <Text style={{ color: theme.colors.text.primary, fontWeight: '700', fontSize: 18 }}>
+                      {mediaTypeLabel}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              
+              {/* Subject category header */}
+              <View style={{ paddingVertical: 10, paddingHorizontal: 16, backgroundColor: `${theme.colors.border}20` }}>
+                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600', fontSize: 13 }}>
+                  {section.title}
+                </Text>
               </View>
             </View>
           );
