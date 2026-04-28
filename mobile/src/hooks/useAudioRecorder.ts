@@ -366,6 +366,9 @@ export function useAudioRecorder() {
       setRecordings((prev) =>
         prev.filter((r) => r.uri !== uri && r.id_string !== String(id))
       );
+
+      // Refresh the list to ensure consistency with backend
+      setTimeout(() => loadRecordings(), 300);
     } catch (error) {
       console.error('Error deleting recording', error);
     }
