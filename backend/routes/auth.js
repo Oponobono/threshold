@@ -69,13 +69,26 @@ router.get('/users/:userId', (req, res) => {
 // Actualizar perfil de usuario
 router.put('/users/:userId', (req, res) => {
   const { userId } = req.params;
-  const { name, lastname, username, university, share_pin, display_name } = req.body;
-  const query = `
-    UPDATE users 
-    SET name = ?, lastname = ?, username = ?, university = ?, share_pin = ?, display_name = ?
-    WHERE id = ?
-  `;
-  db.run(query, [name, lastname, username, university, share_pin, display_name, userId], function(err) {
+  const updates = [];
+  const values = [];
+
+  const fields = ['name', 'lastname', 'username', 'university', 'share_pin', 'display_name'];
+  
+  fields.forEach(field => {
+    if (req.body[field] !== undefined) {
+      updates.push(`${field} = ?`);
+      values.push(req.body[field]);
+    }
+  });
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No se enviaron campos para actualizar.' });
+  }
+
+  values.push(userId);
+  const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+
+  db.run(query, values, function(err) {
     if (err) return res.status(500).json({ error: 'Error interno del servidor.' });
     if (this.changes === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
     res.json({ message: 'Perfil actualizado exitosamente' });

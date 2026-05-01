@@ -54,9 +54,9 @@ const initializeSqliteDb = (db) => {
 
           const defaultPasswordHash = bcrypt.hashSync('1234', 10);
           db.run(
-            `INSERT INTO users (email, password_hash, name, lastname, username, grading_scale, approval_threshold)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            ['user', defaultPasswordHash, 'Default', 'User', 'user', '0-5.0', 3.0],
+            `INSERT INTO users (email, password_hash, name, lastname, username, grading_scale, approval_threshold, share_pin)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            ['user', defaultPasswordHash, 'Default', 'User', 'user', '0-5.0', 3.0, 'ABC123'],
             (seedErr) => {
               if (seedErr) {
                 console.error('Error creando usuario por defecto:', seedErr.message);

@@ -37,11 +37,16 @@ const initializePostgresDb = async (pool) => {
     if (existingUser.length === 0) {
       const defaultPasswordHash = bcrypt.hashSync('1234', 10);
       await pool.query(
-        `INSERT INTO users (email, password_hash, name, lastname, username, grading_scale, approval_threshold)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        ['user', defaultPasswordHash, 'Default', 'User', 'user', '0-5.0', 3.0]
+        `INSERT INTO users (email, password_hash, name, lastname, username, grading_scale, approval_threshold, share_pin)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        ['user', defaultPasswordHash, 'Default', 'User', 'user', '0-5.0', 3.0, 'ABC123']
       );
-      console.log('✓ Usuario por defecto creado: user / 1234');
+      console.log('✓ Usuario por defecto creado: user / 1234 (PIN: ABC123)');
+    } else {
+      // Asegurarse de que el usuario existente tenga el PIN asignado
+      await pool.query(
+        `UPDATE users SET share_pin = 'ABC123' WHERE email = 'user' AND (share_pin IS NULL OR share_pin = '')`
+      );
     }
 
     console.log('✅ Base de datos PostgreSQL inicializada correctamente.');

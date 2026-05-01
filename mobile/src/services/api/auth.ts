@@ -243,6 +243,7 @@ export const updateUserProfile = async (payload: {
   lastname?: string;
   username?: string;
   university?: string;
+  share_pin?: string;
 }) => {
   const userId = await getUserId();
   if (!userId) throw new Error('No hay sesión activa.');

@@ -200,6 +200,7 @@ export default function SettingsScreen() {
   const [editLastname, setEditLastname] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editUniversity, setEditUniversity] = useState('');
+  const [editPin, setEditPin] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -209,20 +210,29 @@ export default function SettingsScreen() {
     setEditLastname(profile?.lastname || '');
     setEditUsername(profile?.username || '');
     setEditUniversity(profile?.university || '');
+    setEditPin(profile?.share_pin || '');
     setIsEditProfileVisible(true);
   };
 
   const handleSaveProfile = async () => {
+    // Validar PIN si se va a asignar por primera vez
+    if (!profile?.share_pin && editPin.trim()) {
+      const pinClean = editPin.trim().toUpperCase();
+      if (pinClean.length < 4) {
+        alertRef.show({ title: t('common.error'), message: 'El PIN debe tener al menos 4 caracteres.', type: 'warning' });
+        return;
+      }
+    }
     try {
       await updateUserProfile({
         name: editName,
         lastname: editLastname,
         username: editUsername,
         university: editUniversity,
+        ...(!profile?.share_pin && editPin.trim() ? { share_pin: editPin.trim().toUpperCase() } : {}),
       });
       setIsEditProfileVisible(false);
       alertRef.show({ title: t('common.success'), message: t('settings.profileUpdated', 'Perfil actualizado exitosamente'), type: 'success' });
-      // Reload profile
       const userProfile = await getCurrentUserProfile();
       setProfile(userProfile);
     } catch (error: any) {
@@ -739,6 +749,34 @@ export default function SettingsScreen() {
               
               <Text style={styles.modalLabel}>{t('register.university', 'Universidad')}</Text>
               <TextInput style={styles.modalInput} value={editUniversity} onChangeText={setEditUniversity} />
+
+              {/* PIN de usuario: solo asignable una vez */}
+              <Text style={styles.modalLabel}>PIN de Compartir</Text>
+              {profile?.share_pin ? (
+                <View style={[styles.modalInput, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: theme.colors.inputBackground }]}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', letterSpacing: 4, color: theme.colors.primary }}>
+                    {profile.share_pin}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="lock-closed" size={14} color={theme.colors.text.secondary} />
+                    <Text style={{ fontSize: 11, color: theme.colors.text.secondary }}>Fijo</Text>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editPin}
+                    onChangeText={setEditPin}
+                    placeholder="Ej: MIPIN1 (mín. 4 caracteres)"
+                    autoCapitalize="characters"
+                    maxLength={8}
+                  />
+                  <Text style={{ fontSize: 11, color: theme.colors.text.secondary, marginTop: -8, marginBottom: 4 }}>
+                    ⚠️ Una vez guardado, el PIN no puede modificarse.
+                  </Text>
+                </>
+              )}
             </View>
             <View style={styles.modalFooter}>
               <TouchableOpacity style={styles.modalBtnSecondary} onPress={() => setIsEditProfileVisible(false)}>

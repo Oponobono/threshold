@@ -6,7 +6,6 @@ import {
   FlatList,
   Modal,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -31,6 +30,7 @@ import {
   updateFlashcardStatus,
   createCardLog,
   getUserId,
+  shareDeck,
 } from '../services/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -56,6 +56,26 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
   const [isFlipped, setIsFlipped] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
+  // Share deck modal state
+  const [shareDeckTarget, setShareDeckTarget] = useState<FlashcardDeck | null>(null);
+  const [sharePin, setSharePin] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleShareDeck = async () => {
+    if (!shareDeckTarget || !sharePin.trim()) return;
+    setIsSharing(true);
+    try {
+      const result = await shareDeck(shareDeckTarget.id, sharePin.trim());
+      showAlert({ title: '¡Compartido!', message: result.message, type: 'success' });
+      setShareDeckTarget(null);
+      setSharePin('');
+    } catch (error: any) {
+      showAlert({ title: 'Error', message: error.message, type: 'error' });
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   // New deck form
   const [deckTitle, setDeckTitle] = useState('');
@@ -322,10 +342,8 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
                 <TouchableOpacity
                   style={[s.addCardBtn, { marginRight: 2 }]}
                   onPress={() => {
-                    Share.share({
-                      title: `Mazo de flashcards: ${item.title}`,
-                      message: `📚 Te comparto el mazo "${item.title}" de Threshold (${item.subject_name}).\n\nDescarga la app y únete con mi PIN de grupo para verlo automáticamente. 🎓`,
-                    });
+                    setShareDeckTarget(item);
+                    setSharePin('');
                   }}
                 >
                   <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
@@ -578,6 +596,58 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
           {screen === 'study'   && renderStudy()}
           {screen === 'newDeck' && renderNewDeck()}
           {screen === 'newCard' && renderNewCard()}
+        </Pressable>
+      </Pressable>
+    </Modal>
+
+    {/* ─── SHARE DECK MODAL ─── */}
+    <Modal visible={!!shareDeckTarget} transparent animationType="fade">
+      <Pressable
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
+        onPress={() => setShareDeckTarget(null)}
+      >
+        <Pressable
+          style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '85%', gap: 12 }}
+          onPress={() => null}
+        >
+          <Text style={{ fontSize: 17, fontWeight: '700', color: theme.colors.text.primary }}>Compartir mazo</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.text.secondary }}>
+            Ingresa el PIN del usuario con quien deseas compartir {shareDeckTarget && `"${shareDeckTarget.title}"`}.
+          </Text>
+          <TextInput
+            style={{
+              borderWidth: 1.5,
+              borderColor: theme.colors.border,
+              borderRadius: 10,
+              padding: 12,
+              fontSize: 20,
+              fontWeight: '700',
+              letterSpacing: 4,
+              textAlign: 'center',
+              color: theme.colors.text.primary,
+            }}
+            placeholder="Ej: ABC123"
+            placeholderTextColor={theme.colors.text.placeholder}
+            value={sharePin}
+            onChangeText={setSharePin}
+            autoCapitalize="characters"
+            maxLength={8}
+          />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+            <TouchableOpacity
+              style={{ flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' }}
+              onPress={() => setShareDeckTarget(null)}
+            >
+              <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: theme.colors.primary, alignItems: 'center' }, (!sharePin.trim() || isSharing) && { opacity: 0.5 }]}
+              onPress={handleShareDeck}
+              disabled={!sharePin.trim() || isSharing}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700' }}>{isSharing ? 'Compartiendo...' : 'Compartir'}</Text>
+            </TouchableOpacity>
+          </View>
         </Pressable>
       </Pressable>
     </Modal>

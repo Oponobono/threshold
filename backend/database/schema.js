@@ -509,6 +509,31 @@ const tableSchema = {
       )
     `
   }
+  shared_decks: {
+    sqlite: `
+      CREATE TABLE IF NOT EXISTS shared_decks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        deck_id INTEGER NOT NULL,
+        shared_by_user_id INTEGER NOT NULL,
+        shared_to_user_id INTEGER NOT NULL,
+        shared_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE CASCADE,
+        FOREIGN KEY (shared_by_user_id) REFERENCES users(id),
+        FOREIGN KEY (shared_to_user_id) REFERENCES users(id),
+        UNIQUE(deck_id, shared_to_user_id)
+      )
+    `,
+    postgres: `
+      CREATE TABLE IF NOT EXISTS shared_decks (
+        id SERIAL PRIMARY KEY,
+        deck_id INTEGER NOT NULL REFERENCES flashcard_decks(id) ON DELETE CASCADE,
+        shared_by_user_id INTEGER NOT NULL REFERENCES users(id),
+        shared_to_user_id INTEGER NOT NULL REFERENCES users(id),
+        shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(deck_id, shared_to_user_id)
+      )
+    `
+  }
 };
 
 module.exports = tableSchema;

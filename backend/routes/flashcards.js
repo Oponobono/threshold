@@ -23,9 +23,13 @@ router.get('/flashcard-decks', (req, res) => {
          JOIN group_memberships gm ON gm.group_pin_id = u2.share_pin
          WHERE gm.user_id = ?
        )
+       OR fd.id IN (
+         SELECT sd.deck_id FROM shared_decks sd
+         WHERE sd.shared_to_user_id = ?
+       )
     ORDER BY fd.created_at DESC
   `;
-  db.all(query, [userId, userId], (err, rows) => {
+  db.all(query, [userId, userId, userId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -100,7 +104,40 @@ router.delete('/flashcard-decks/:deckId', (req, res) => {
   });
 });
 
-// Generar tarjetas automáticamente con Groq
+// Compartir un mazo con otro usuario via PIN
+router.post('/flashcard-decks/:deckId/share', (req, res) => {
+  const { deckId } = req.params;
+  const { user_id, recipient_pin } = req.body;
+
+  if (!user_id || !recipient_pin) {
+    return res.status(400).json({ error: 'Faltan campos requeridos (user_id, recipient_pin).' });
+  }
+
+  db.get(`SELECT id, username, name FROM users WHERE share_pin = ?`, [recipient_pin.trim().toUpperCase()], (err, recipient) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!recipient) return res.status(404).json({ error: 'No se encontró ningún usuario con ese PIN.' });
+    if (recipient.id === Number(user_id)) return res.status(400).json({ error: 'No puedes compartir un mazo contigo mismo.' });
+
+    db.get(`SELECT id, title FROM flashcard_decks WHERE id = ? AND user_id = ?`, [deckId, user_id], (err2, deck) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      if (!deck) return res.status(403).json({ error: 'No tienes permiso para compartir este mazo.' });
+
+      db.run(
+        `INSERT OR IGNORE INTO shared_decks (deck_id, shared_by_user_id, shared_to_user_id) VALUES (?, ?, ?)`,
+        [deckId, user_id, recipient.id],
+        function(insertErr) {
+          if (insertErr) return res.status(500).json({ error: insertErr.message });
+          res.status(201).json({
+            message: `Mazo "${deck.title}" compartido exitosamente con @${recipient.username || recipient.name}.`,
+            recipient_name: recipient.name || recipient.username,
+          });
+        }
+      );
+    });
+  });
+});
+
+
 router.post('/flashcard-decks/generate-from-text', async (req, res) => {
   const { text, count, title, subject_id, user_id } = req.body;
   

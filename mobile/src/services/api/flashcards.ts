@@ -80,3 +80,15 @@ export const generateFlashcardsFromImage = async (payload: {
   if (!response.ok) throw new Error(data?.error || 'Error generating flashcards from image');
   return data;
 };
+
+export const shareDeck = async (deckId: number, recipientPin: string): Promise<{ message: string; recipient_name: string }> => {
+  const userId = await getUserId();
+  const response = await fetchWithFallback(`/flashcard-decks/${deckId}/share`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, recipient_pin: recipientPin.trim().toUpperCase() }),
+  });
+  const data = await parseJsonSafely(response);
+  if (!response.ok) throw new Error(data?.error || 'Error al compartir el mazo');
+  return data;
+};
