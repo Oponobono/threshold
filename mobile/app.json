@@ -27,7 +27,7 @@
         "expo-splash-screen",
         {
           "image": "./src/images/logo_threshold.png",
-          "imageWidth": 200,
+          "imageWidth": 400,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
