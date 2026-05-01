@@ -628,7 +628,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
         >
           <Text style={{ fontSize: 17, fontWeight: '700', color: theme.colors.text.primary }}>Compartir mazo</Text>
           <Text style={{ fontSize: 13, color: theme.colors.text.secondary }}>
-            Ingresa el PIN del usuario con quien deseas compartir {shareDeckTarget && `"${shareDeckTarget.title}"`}.
+            Ingresa el PIN del usuario con quien deseas compartir {shareDeckTarget?.title ? `"${shareDeckTarget.title}"` : ''}.
           </Text>
           <TextInput
             style={{
