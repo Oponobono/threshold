@@ -53,7 +53,7 @@ const tableSchema = {
       { name: 'university', type: 'TEXT' },
       { name: 'biometric_token', type: 'TEXT' },
       { name: 'status', type: "VARCHAR(20) DEFAULT 'active'" },
-      { name: 'deletion_date', type: 'DATETIME' },
+      { name: 'deletion_date', type: 'TIMESTAMP' },
       { name: 'share_pin', type: 'VARCHAR(8)' },
       { name: 'display_name', type: 'TEXT' }
     ]
@@ -374,7 +374,7 @@ const tableSchema = {
       )
     `,
     columns: [
-      { name: 'is_public', type: 'BOOLEAN DEFAULT 0' },
+      { name: 'is_public', type: 'BOOLEAN DEFAULT false' },
       { name: 'total_reviews', type: 'INTEGER DEFAULT 0' }
     ]
   },
@@ -412,7 +412,7 @@ const tableSchema = {
       { name: 'view_count', type: 'INTEGER DEFAULT 0' },
       { name: 'success_count', type: 'INTEGER DEFAULT 0' },
       { name: 'failure_count', type: 'INTEGER DEFAULT 0' },
-      { name: 'last_review_timestamp', type: 'DATETIME' }
+      { name: 'last_review_timestamp', type: 'TIMESTAMP' }
     ]
   },
   schedules: {
