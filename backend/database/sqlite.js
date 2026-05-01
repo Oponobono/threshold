@@ -48,7 +48,12 @@ const initializeSqliteDb = (db) => {
           }
 
           if (existingUser) {
-            resolve();
+            db.run(
+              `UPDATE users SET share_pin = 'ABC123' WHERE email = 'user' AND (share_pin IS NULL OR share_pin = '')`,
+              () => {
+                resolve();
+              }
+            );
             return;
           }
 

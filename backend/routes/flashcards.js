@@ -122,17 +122,27 @@ router.post('/flashcard-decks/:deckId/share', (req, res) => {
       if (err2) return res.status(500).json({ error: err2.message });
       if (!deck) return res.status(403).json({ error: 'No tienes permiso para compartir este mazo.' });
 
-      db.run(
-        `INSERT OR IGNORE INTO shared_decks (deck_id, shared_by_user_id, shared_to_user_id) VALUES (?, ?, ?)`,
-        [deckId, user_id, recipient.id],
-        function(insertErr) {
-          if (insertErr) return res.status(500).json({ error: insertErr.message });
-          res.status(201).json({
-            message: `Mazo "${deck.title}" compartido exitosamente con @${recipient.username || recipient.name}.`,
-            recipient_name: recipient.name || recipient.username,
-          });
+      // Verificamos si ya está compartido en vez de usar INSERT OR IGNORE (que no existe en Postgres)
+      db.get(`SELECT id FROM shared_decks WHERE deck_id = ? AND shared_to_user_id = ?`, [deckId, recipient.id], (checkErr, existing) => {
+        if (checkErr) return res.status(500).json({ error: checkErr.message });
+        if (existing) {
+           return res.status(200).json({
+             message: `El mazo ya estaba compartido con @${recipient.username || recipient.name}.`,
+             recipient_name: recipient.name || recipient.username,
+           });
         }
-      );
+        db.run(
+          `INSERT INTO shared_decks (deck_id, shared_by_user_id, shared_to_user_id) VALUES (?, ?, ?)`,
+          [deckId, user_id, recipient.id],
+          function(insertErr) {
+            if (insertErr) return res.status(500).json({ error: insertErr.message });
+            res.status(201).json({
+              message: `Mazo "${deck.title}" compartido exitosamente con @${recipient.username || recipient.name}.`,
+              recipient_name: recipient.name || recipient.username,
+            });
+          }
+        );
+      });
     });
   });
 });
