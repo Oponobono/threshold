@@ -8,3 +8,5 @@ export * from './api/flashcards';
 export * from './api/photos';
 export * from './api/audio';
 export * from './api/youtube';
+export * from './api/documents';
+export * from './api/learning';

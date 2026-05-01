@@ -17,7 +17,9 @@ const tableSchema = {
         status VARCHAR(20) DEFAULT 'active',
         deletion_date DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_login DATETIME DEFAULT CURRENT_TIMESTAMP
+        last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
+        share_pin VARCHAR(8) UNIQUE,
+        display_name TEXT
       )
     `,
     postgres: `
@@ -36,7 +38,9 @@ const tableSchema = {
         status VARCHAR(20) DEFAULT 'active',
         deletion_date TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        share_pin VARCHAR(8) UNIQUE,
+        display_name TEXT
       )
     `,
     columns: [
@@ -50,6 +54,8 @@ const tableSchema = {
       { name: 'biometric_token', type: 'TEXT' },
       { name: 'status', type: "VARCHAR(20) DEFAULT 'active'" },
       { name: 'deletion_date', type: 'DATETIME' },
+      { name: 'share_pin', type: 'VARCHAR(8)' },
+      { name: 'display_name', type: 'TEXT' }
     ]
   },
   deleted_users: {
@@ -215,6 +221,30 @@ const tableSchema = {
       )
     `
   },
+  scanned_documents: {
+    sqlite: `
+      CREATE TABLE IF NOT EXISTS scanned_documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        subject_id INTEGER,
+        name TEXT,
+        local_uri TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL
+      )
+    `,
+    postgres: `
+      CREATE TABLE IF NOT EXISTS scanned_documents (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+        name TEXT,
+        local_uri TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+  },
   audio_recordings: {
     sqlite: `
       CREATE TABLE IF NOT EXISTS audio_recordings (
@@ -324,6 +354,8 @@ const tableSchema = {
         subject_id INTEGER,
         title TEXT NOT NULL,
         description TEXT,
+        is_public BOOLEAN DEFAULT 0,
+        total_reviews INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
@@ -336,9 +368,15 @@ const tableSchema = {
         subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
         title TEXT NOT NULL,
         description TEXT,
+        is_public BOOLEAN DEFAULT false,
+        total_reviews INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `
+    `,
+    columns: [
+      { name: 'is_public', type: 'BOOLEAN DEFAULT 0' },
+      { name: 'total_reviews', type: 'INTEGER DEFAULT 0' }
+    ]
   },
   flashcards: {
     sqlite: `
@@ -348,6 +386,10 @@ const tableSchema = {
         front TEXT NOT NULL,
         back TEXT NOT NULL,
         status TEXT DEFAULT 'new',
+        view_count INTEGER DEFAULT 0,
+        success_count INTEGER DEFAULT 0,
+        failure_count INTEGER DEFAULT 0,
+        last_review_timestamp DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE CASCADE
       )
@@ -359,9 +401,19 @@ const tableSchema = {
         front TEXT NOT NULL,
         back TEXT NOT NULL,
         status TEXT DEFAULT 'new',
+        view_count INTEGER DEFAULT 0,
+        success_count INTEGER DEFAULT 0,
+        failure_count INTEGER DEFAULT 0,
+        last_review_timestamp TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `
+    `,
+    columns: [
+      { name: 'view_count', type: 'INTEGER DEFAULT 0' },
+      { name: 'success_count', type: 'INTEGER DEFAULT 0' },
+      { name: 'failure_count', type: 'INTEGER DEFAULT 0' },
+      { name: 'last_review_timestamp', type: 'DATETIME' }
+    ]
   },
   schedules: {
     sqlite: `
@@ -381,6 +433,79 @@ const tableSchema = {
         day_of_week INTEGER NOT NULL,
         start_time TEXT NOT NULL,
         end_time TEXT NOT NULL
+      )
+    `
+  },
+  study_sessions: {
+    sqlite: `
+      CREATE TABLE IF NOT EXISTS study_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        subject_id INTEGER,
+        session_type VARCHAR(20) NOT NULL,
+        config_value INTEGER,
+        duration_seconds INTEGER NOT NULL,
+        performance_rating INTEGER,
+        start_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (subject_id) REFERENCES subjects(id)
+      )
+    `,
+    postgres: `
+      CREATE TABLE IF NOT EXISTS study_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        subject_id INTEGER REFERENCES subjects(id),
+        session_type VARCHAR(20) NOT NULL,
+        config_value INTEGER,
+        duration_seconds INTEGER NOT NULL,
+        performance_rating INTEGER,
+        start_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+  },
+  group_memberships: {
+    sqlite: `
+      CREATE TABLE IF NOT EXISTS group_memberships (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        group_pin_id TEXT NOT NULL,
+        role VARCHAR(20) DEFAULT 'member',
+        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `,
+    postgres: `
+      CREATE TABLE IF NOT EXISTS group_memberships (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        group_pin_id TEXT NOT NULL,
+        role VARCHAR(20) DEFAULT 'member',
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+  },
+  card_logs: {
+    sqlite: `
+      CREATE TABLE IF NOT EXISTS card_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        card_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        result VARCHAR(20),
+        response_time_ms INTEGER,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (card_id) REFERENCES flashcards(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `,
+    postgres: `
+      CREATE TABLE IF NOT EXISTS card_logs (
+        id SERIAL PRIMARY KEY,
+        card_id INTEGER NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        result VARCHAR(20),
+        response_time_ms INTEGER,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
   }

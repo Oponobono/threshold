@@ -49,18 +49,13 @@ export default function AboutScreen() {
 
           <Animated.View style={{ transform: [{ scale: heroScale }], opacity: heroOpacity, alignItems: 'center' }}>
             <Image
-              source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
-              style={styles.heroIsotipo}
+              source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
+              style={styles.heroLogoLabs}
               resizeMode="contain"
             />
           </Animated.View>
 
           <Text style={styles.heroEyebrow}>un producto de</Text>
-          <Image
-            source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
-            style={styles.heroLogoLabs}
-            resizeMode="contain"
-          />
 
           <LinearGradient
             colors={['transparent', '#F9F9F7']}
@@ -159,12 +154,7 @@ export default function AboutScreen() {
           <Text style={styles.sectionEyebrow}>La casa matriz</Text>
           <View style={styles.mapuviaHeader}>
             <Image
-              source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
-              style={styles.mapuviaIsotipo}
-              resizeMode="contain"
-            />
-            <Image
-              source={require('../src/images/logos_mapuvia/logotipo_mapuvia.png')}
+              source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
               style={styles.mapuviaLogo}
               resizeMode="contain"
             />
@@ -176,11 +166,6 @@ export default function AboutScreen() {
           </Text>
 
           <View style={styles.footer}>
-            <Image
-              source={require('../src/images/logos_mapuvia/isotipo_mapuvia.png')}
-              style={styles.footerIsotipo}
-              resizeMode="contain"
-            />
             <Image
               source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
               style={styles.footerLogoLabs}

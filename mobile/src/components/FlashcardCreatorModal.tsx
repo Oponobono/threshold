@@ -19,8 +19,9 @@ interface FlashcardCreatorModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: (deckId: number) => void;
-  content: string;
-  contentType: 'recording' | 'video';
+  content?: string;
+  imageBase64?: string;
+  contentType: 'recording' | 'video' | 'image' | 'document';
   title: string;
   subjectId: number;
   userId: number;
@@ -38,6 +39,7 @@ export const FlashcardCreatorModal: React.FC<FlashcardCreatorModalProps> = ({
   onClose,
   onSuccess,
   content,
+  imageBase64,
   contentType,
   title,
   subjectId,
@@ -59,8 +61,8 @@ export const FlashcardCreatorModal: React.FC<FlashcardCreatorModalProps> = ({
 
     const count = parseInt(cardCount);
 
-    // Validar longitud mínima del contenido
-    if (content.length < 50) {
+    // Validar longitud mínima del contenido si es texto
+    if (content && content.length < 50) {
       Alert.alert(t('flashcards.generate.tooShort', { count, recommended: 5 }), '', [
         {
           text: t('flashcards.generate.cancel'),
@@ -81,6 +83,7 @@ export const FlashcardCreatorModal: React.FC<FlashcardCreatorModalProps> = ({
   const startGeneration = async (count: number) => {
     const result = await generate({
       text: content,
+      imageBase64: imageBase64,
       count,
       title,
       subjectId,
@@ -88,7 +91,7 @@ export const FlashcardCreatorModal: React.FC<FlashcardCreatorModalProps> = ({
     });
 
     if (result.success && result.deck) {
-      const cards = (result.deck.cards || []).map((card, index) => ({
+      const cards = (result.deck.cards || []).map((card: any, index: number) => ({
         id: card.id || index,
         question: card.front || card.question || '',
         answer: card.back || card.answer || '',
@@ -216,7 +219,7 @@ export const FlashcardCreatorModal: React.FC<FlashcardCreatorModalProps> = ({
               <CustomButton
                 title={t('flashcards.generate.cancel')}
                 onPress={handleClose}
-                variant="secondary"
+                variant="outline"
               />
             </View>
           )}
@@ -231,7 +234,7 @@ export const FlashcardCreatorModal: React.FC<FlashcardCreatorModalProps> = ({
           )}
         </ScrollView>
 
-        {loading && <PremiumLoader message={t('flashcards.generate.generating')} />}
+        {loading && <PremiumLoader visible={loading} text={t('flashcards.generate.generating')} />}
       </View>
     </Modal>
   );

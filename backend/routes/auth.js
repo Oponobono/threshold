@@ -4,11 +4,36 @@ const { db } = require('../db');
 
 const router = express.Router();
 
+// Helper para generar PIN alfanumérico seguro (sin O/0, I/1)
+const generateSharePin = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let pin = '';
+  for (let i = 0; i < 6; i++) {
+    pin += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pin;
+};
+
+// Helper para obtener un PIN único
+const getUniqueSharePin = () => {
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      const pin = generateSharePin();
+      db.get('SELECT id FROM users WHERE share_pin = ?', [pin], (err, user) => {
+        if (err) return reject(err);
+        if (user) return attempt(); // Colisión, intentar de nuevo
+        resolve(pin);
+      });
+    };
+    attempt();
+  });
+};
+
 // Obtener perfil de usuario por id
 router.get('/users/:userId', (req, res) => {
   const { userId } = req.params;
   const query = `
-    SELECT id, email, name, lastname, username, grading_scale, approval_threshold, major, university, created_at, last_login
+    SELECT id, email, name, lastname, username, grading_scale, approval_threshold, major, university, created_at, last_login, share_pin, display_name
     FROM users
     WHERE id = ?
   `;
@@ -22,20 +47,35 @@ router.get('/users/:userId', (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
 
-    res.json(user);
+    // Auto-generar share_pin para usuarios antiguos que no lo tienen
+    if (!user.share_pin) {
+      getUniqueSharePin().then(pin => {
+        db.run('UPDATE users SET share_pin = ? WHERE id = ?', [pin, userId], (updateErr) => {
+          if (!updateErr) {
+            user.share_pin = pin;
+          }
+          res.json(user);
+        });
+      }).catch(err => {
+        // En caso de error, simplemente devolver el usuario sin PIN
+        res.json(user);
+      });
+    } else {
+      res.json(user);
+    }
   });
 });
 
 // Actualizar perfil de usuario
 router.put('/users/:userId', (req, res) => {
   const { userId } = req.params;
-  const { name, lastname, username, university } = req.body;
+  const { name, lastname, username, university, share_pin, display_name } = req.body;
   const query = `
     UPDATE users 
-    SET name = ?, lastname = ?, username = ?, university = ?
+    SET name = ?, lastname = ?, username = ?, university = ?, share_pin = ?, display_name = ?
     WHERE id = ?
   `;
-  db.run(query, [name, lastname, username, university, userId], function(err) {
+  db.run(query, [name, lastname, username, university, share_pin, display_name, userId], function(err) {
     if (err) return res.status(500).json({ error: 'Error interno del servidor.' });
     if (this.changes === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
     res.json({ message: 'Perfil actualizado exitosamente' });
@@ -178,9 +218,12 @@ router.post('/register', async (req, res) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // 2. Guardar en SQLite
-    const query = `INSERT INTO users (email, password_hash, name, lastname, username, grading_scale, approval_threshold, major, university) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    db.run(query, [email, passwordHash, name, lastname, username, grading_scale, approval_threshold, major, university], function (err) {
+    // 2. Generar PIN de colaboración único
+    const sharePin = await getUniqueSharePin();
+
+    // 3. Guardar en SQLite
+    const query = `INSERT INTO users (email, password_hash, name, lastname, username, grading_scale, approval_threshold, major, university, share_pin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    db.run(query, [email, passwordHash, name, lastname, username, grading_scale, approval_threshold, major, university, sharePin], function (err) {
       if (err) {
         // Verificar si el error es porque el correo ya existe
         if (err.message.includes('UNIQUE constraint failed')) {

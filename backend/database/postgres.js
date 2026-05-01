@@ -16,6 +16,11 @@ const initializePostgresDb = async (pool) => {
       ON users(username) WHERE username IS NOT NULL
     `);
 
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_share_pin_unique 
+      ON users(share_pin) WHERE share_pin IS NOT NULL
+    `);
+
     // Migrar columnas faltantes
     for (const [tableName, schema] of Object.entries(tableSchema)) {
       if (schema.columns) {

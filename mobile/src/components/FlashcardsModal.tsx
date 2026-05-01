@@ -28,6 +28,8 @@ import {
   getFlashcards,
   createFlashcard,
   updateFlashcardStatus,
+  createCardLog,
+  getUserId,
 } from '../services/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
   const [cardIndex, setCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // New deck form
   const [deckTitle, setDeckTitle] = useState('');
@@ -67,6 +70,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
   // Feedback State
   const [selectedFeedback, setSelectedFeedback] = useState<'learning' | 'review' | null>(null);
   const [answerRevealed, setAnswerRevealed] = useState(false);
+  const [cardStartTime, setCardStartTime] = useState<number>(0);
 
   // Flip and Reaction animations
   const flipAnim = useRef(new Animated.Value(0)).current;
@@ -88,6 +92,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
       loadDecks();
       setScreen('hub');
       setAnswerRevealed(false);
+      getUserId().then(id => setCurrentUserId(id ? Number(id) : null));
     }
   }, [isVisible]);
 
@@ -114,6 +119,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
       flipAnim.setValue(0);
       reactionAnim.setValue(0);
       setAnswerRevealed(false);
+      setCardStartTime(Date.now());
       setScreen('study');
     } catch (e) {
       console.warn('Error loading cards:', e);
@@ -153,8 +159,15 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     setSelectedFeedback(status);
 
     const card = cards[cardIndex];
+    const responseTime = Date.now() - cardStartTime;
+
     try {
       await updateFlashcardStatus(card.id, status);
+      await createCardLog({
+        card_id: card.id,
+        result: status,
+        response_time_ms: responseTime,
+      });
     } catch (_) {}
 
     // Esperar 1.2 segundos para procesar visualmente el botón
@@ -168,6 +181,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
         reactionAnim.setValue(0);
         setAnswerRevealed(false);
         setCardIndex(next);
+        setCardStartTime(Date.now());
       }
       setSelectedFeedback(null);
     }, 1200);
@@ -250,39 +264,58 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
           keyExtractor={(d) => d.id.toString()}
           style={{ maxHeight: 280 }}
           contentContainerStyle={{ paddingBottom: 8 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={s.deckCard} activeOpacity={0.75} onPress={() => openStudySession(item)}>
-              <View style={[s.deckBadge, { backgroundColor: (item as any).subject_color || '#DDE7FF' }]}>
-                <MaterialCommunityIcons
-                  name={((item as any).subject_icon as any) || 'cards-outline'}
-                  size={20}
-                  color={theme.colors.text.primary}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.deckTitle}>{item.title}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={s.deckMeta} numberOfLines={1}>
-                    {item.subject_name}
-                  </Text>
+          renderItem={({ item }) => {
+            const isShared = item.user_id != null && item.user_id !== currentUserId;
+            return (
+              <TouchableOpacity style={s.deckCard} activeOpacity={0.75} onPress={() => openStudySession(item)}>
+                <View style={[s.deckBadge, { backgroundColor: (item as any).subject_color || '#DDE7FF' }]}>
+                  <MaterialCommunityIcons
+                    name={((item as any).subject_icon as any) || 'cards-outline'}
+                    size={20}
+                    color={theme.colors.text.primary}
+                  />
                 </View>
-                {/* Visual Breakdown */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 12 }}>
-                  <Text style={{ fontSize: 11, color: theme.colors.text.secondary }}>
-                    {Number(item.card_count ?? 0)} {t('flashcards.cards')}
-                  </Text>
-                  {(Number(item.card_count ?? 0) > 0) && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '600' }}>
-                        ✓ {Number(item.review_count ?? 0)}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: '#FF9800', fontWeight: '600' }}>
-                        💪 {Number(item.learning_count ?? 0) + Number(item.new_count ?? 0)}
-                      </Text>
-                    </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Text style={s.deckTitle}>{item.title}</Text>
+                    {isShared && (
+                      <View style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 3,
+                        backgroundColor: '#E8F5E9', borderRadius: 10,
+                        paddingHorizontal: 7, paddingVertical: 2,
+                      }}>
+                        <Ionicons name="people" size={10} color="#388E3C" />
+                        <Text style={{ fontSize: 10, color: '#388E3C', fontWeight: '700' }}>Compartido</Text>
+                      </View>
+                    )}
+                  </View>
+                  {isShared && (
+                    <Text style={{ fontSize: 11, color: '#388E3C', marginTop: 1, fontStyle: 'italic' }}>
+                      por @{item.owner_username || item.owner_name || 'compañero'}
+                    </Text>
                   )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={s.deckMeta} numberOfLines={1}>
+                      {item.subject_name}
+                    </Text>
+                  </View>
+                  {/* Visual Breakdown */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 12 }}>
+                    <Text style={{ fontSize: 11, color: theme.colors.text.secondary }}>
+                      {Number(item.card_count ?? 0)} {t('flashcards.cards')}
+                    </Text>
+                    {(Number(item.card_count ?? 0) > 0) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '600' }}>
+                          ✓ {Number(item.review_count ?? 0)}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: '#FF9800', fontWeight: '600' }}>
+                          💪 {Number(item.learning_count ?? 0) + Number(item.new_count ?? 0)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
               <TouchableOpacity
                 style={s.addCardBtn}
                 onPress={() => {
@@ -294,7 +327,8 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
               </TouchableOpacity>
               <Ionicons name="chevron-forward" size={18} color={theme.colors.text.placeholder} />
             </TouchableOpacity>
-          )}
+            );
+          }}
         />
       )}
     </View>

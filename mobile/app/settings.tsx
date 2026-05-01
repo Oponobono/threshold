@@ -7,9 +7,10 @@ import { useRouter } from 'expo-router';
 import { globalStyles } from '../src/styles/globalStyles';
 import { theme } from '../src/styles/theme';
 import { settingsStyles as styles } from '../src/styles/Settings.styles';
-import { getCurrentUserProfile, signOut, type UserProfile, updateUserProfile, updateUserPassword, disableAccount, removeBiometricToken, enrollBiometric, requestAccountDeletion, getDeletionDataCount } from '../src/services/api';
+import { getCurrentUserProfile, signOut, type UserProfile, updateUserProfile, updateUserPassword, disableAccount, removeBiometricToken, enrollBiometric, requestAccountDeletion, getDeletionDataCount, joinGroup, getUserGroups, leaveGroup, type GroupMembership } from '../src/services/api';
 import { enrollBiometricToken, revokeBiometricToken, hasBiometricTokenStored } from '../src/services/biometricService';
 import { alertRef } from '../src/components/CustomAlert';
+import * as Clipboard from 'expo-clipboard';
 
 // ─── Types ─────────────────────────────────────────────────────
 type ScaleKey = 'af' | 'pct' | 'scale4' | 'custom';
@@ -146,6 +147,11 @@ export default function SettingsScreen() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletionDataCount, setDeletionDataCount] = useState<any>(null);
   const [isLoadingDeletion, setIsLoadingDeletion] = useState(false);
+  
+  // Collaboration / Groups
+  const [pinToJoin, setPinToJoin] = useState('');
+  const [isJoiningGroup, setIsJoiningGroup] = useState(false);
+  const [userGroups, setUserGroups] = useState<GroupMembership[]>([]);
 
   const TERMS = t('settings.termOptions', { returnObjects: true }) as string[];
   const [activeTermIndex, setActiveTermIndex] = useState(0);
@@ -180,6 +186,9 @@ export default function SettingsScreen() {
       if (userProfile?.grading_scale) {
         setActiveScale(scaleMap[userProfile.grading_scale] || 'custom');
       }
+
+      const groups = await getUserGroups();
+      setUserGroups(groups || []);
     };
 
     loadProfile();
@@ -309,6 +318,49 @@ export default function SettingsScreen() {
     setDeletionDataCount(null);
   };
 
+  const handleJoinGroup = async () => {
+    if (!pinToJoin.trim()) {
+      alertRef.show({ title: t('common.error'), message: 'Ingresa un PIN', type: 'warning' });
+      return;
+    }
+    
+    setIsJoiningGroup(true);
+    try {
+      await joinGroup(pinToJoin.trim().toUpperCase());
+      setPinToJoin('');
+      const groups = await getUserGroups();
+      setUserGroups(groups || []);
+      alertRef.show({ title: t('common.success'), message: 'Te has unido al grupo correctamente', type: 'success' });
+    } catch (error: any) {
+      alertRef.show({ title: t('common.error'), message: error.message, type: 'error' });
+    } finally {
+      setIsJoiningGroup(false);
+    }
+  };
+
+  const handleLeaveGroup = async (group_pin_id: string) => {
+    const onConfirm = async () => {
+      try {
+        await leaveGroup(group_pin_id);
+        const groups = await getUserGroups();
+        setUserGroups(groups || []);
+        alertRef.show({ title: t('common.success'), message: 'Has salido del grupo correctamente', type: 'success' });
+      } catch (error: any) {
+        alertRef.show({ title: t('common.error'), message: error.message, type: 'error' });
+      }
+    };
+
+    alertRef.show({
+      title: 'Salir del grupo',
+      message: `¿Estás seguro que deseas abandonar el grupo ${group_pin_id}?`,
+      type: 'confirm',
+      buttons: [
+        { text: t('settings.cancel'), style: 'cancel' },
+        { text: 'Salir', style: 'destructive', onPress: onConfirm },
+      ]
+    });
+  };
+
   const fullName = useMemo(() => {
     const first = profile?.name?.trim() || '';
     const last = profile?.lastname?.trim() || '';
@@ -349,6 +401,21 @@ export default function SettingsScreen() {
             <Text style={styles.profileName}>{profileName}</Text>
             <Text style={styles.profileEmail}>{profileEmail}</Text>
             {!!profile?.university && <Text style={styles.profileEmail}>{profile.university}</Text>}
+            {!!profile?.share_pin && (
+              <TouchableOpacity 
+                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(profile.share_pin!);
+                  alertRef.show({ title: t('common.success'), message: 'PIN copiado al portapapeles', type: 'success' });
+                }}
+              >
+                <MaterialCommunityIcons name="link-variant" size={14} color={theme.colors.primary} />
+                <Text style={[styles.profileEmail, { color: theme.colors.primary, marginLeft: 4, fontWeight: '600' }]}>
+                  PIN: {profile.share_pin}
+                </Text>
+                <Ionicons name="copy-outline" size={12} color={theme.colors.primary} style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+            )}
           </View>
           <View style={{ gap: 6, alignItems: 'flex-end' }}>
             <TouchableOpacity style={styles.editBtn} onPress={handleOpenEditProfile}>
@@ -544,6 +611,54 @@ export default function SettingsScreen() {
           <TouchableOpacity style={[styles.darkPill, { alignSelf: 'flex-end', marginTop: 8 }]}>
             <Text style={styles.darkPillText}>{t('settings.addLms')}</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* ─────────────────────────────────────────── */}
+        {/* ── COLLABORATION ── */}
+        {/* ─────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Colaboración" desc="Conecta con tus compañeros y comparte mazos" icon="people-outline" />
+          
+          <Text style={styles.subSectionTitle}>Unirse a un grupo</Text>
+          <View style={[styles.settingRow, { alignItems: 'center' }]}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <TextInput 
+                style={[styles.modalInput, { marginBottom: 0, paddingVertical: 8 }]}
+                placeholder="Ingresa el PIN (ej: A1B2C3)"
+                value={pinToJoin}
+                onChangeText={setPinToJoin}
+                autoCapitalize="characters"
+                maxLength={6}
+              />
+            </View>
+            <TouchableOpacity 
+              style={[styles.darkPill, isJoiningGroup && { opacity: 0.6 }]}
+              onPress={handleJoinGroup}
+              disabled={isJoiningGroup}
+            >
+              <Text style={styles.darkPillText}>{isJoiningGroup ? 'Uniendo...' : 'Unirse'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {userGroups.length > 0 && (
+            <>
+              <Text style={[styles.subSectionTitle, { marginTop: 16 }]}>Mis grupos ({userGroups.length})</Text>
+              {userGroups.map((group, i) => (
+                <View key={i} style={styles.lmsRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.settingTitle}>Grupo PIN: {group.group_pin_id}</Text>
+                    <Text style={styles.settingDesc}>Rol: {group.role} • Unido el {new Date(group.joined_at!).toLocaleDateString()}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.outlinePill}
+                    onPress={() => handleLeaveGroup(group.group_pin_id)}
+                  >
+                    <Text style={styles.outlinePillText}>Salir</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
+          )}
         </View>
 
         {/* ─────────────────────────────────────────── */}

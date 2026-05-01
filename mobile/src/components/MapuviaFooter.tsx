@@ -6,11 +6,6 @@ export const MapuviaFooter = () => {
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../images/logos_mapuvia/isotipo_mapuvia.png')} 
-        style={styles.isotipo} 
-        resizeMode="contain" 
-      />
-      <Image 
         source={require('../images/logos_mapuvia/logotipo_mapuvia_labs.png')} 
         style={styles.logotipo} 
         resizeMode="contain" 

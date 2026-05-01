@@ -63,3 +63,20 @@ export const generateFlashcardsFromText = async (payload: {
   if (!response.ok) throw new Error(data?.error || 'Error generating flashcards');
   return data;
 };
+
+export const generateFlashcardsFromImage = async (payload: {
+  image_base64: string;
+  count: number;
+  title: string;
+  subject_id: number;
+  user_id: number;
+}) => {
+  const response = await fetchWithFallback('/flashcard-decks/generate-from-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJsonSafely(response);
+  if (!response.ok) throw new Error(data?.error || 'Error generating flashcards from image');
+  return data;
+};

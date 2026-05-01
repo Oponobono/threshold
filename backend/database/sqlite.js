@@ -20,9 +20,14 @@ const initializeSqliteDb = (db) => {
       db.run(
         `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username) WHERE username IS NOT NULL`,
         (err) => {
-          if (err) {
-            console.error('Error creando índice único:', err.message);
-          }
+          if (err) console.error('Error creando índice único (username):', err.message);
+        }
+      );
+
+      db.run(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_share_pin_unique ON users(share_pin) WHERE share_pin IS NOT NULL`,
+        (err) => {
+          if (err) console.error('Error creando índice único (share_pin):', err.message);
         }
       );
 

@@ -12,6 +12,8 @@ const galleryRoutes = require('./routes/gallery');
 const flashcardsRoutes = require('./routes/flashcards');
 const audioRoutes = require('./routes/audio');
 const youtubeRoutes = require('./routes/youtube');
+const scannedDocumentsRoutes = require('./routes/scanned_documents');
+const learningRoutes = require('./routes/learning');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -44,6 +46,8 @@ app.use('/api', galleryRoutes);
 app.use('/api', flashcardsRoutes);
 app.use('/api', audioRoutes);
 app.use('/api', youtubeRoutes);
+app.use('/api', scannedDocumentsRoutes);
+app.use('/api', learningRoutes);
 
 
 

@@ -4,7 +4,7 @@
     "slug": "threshold",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/images/android/play_store_512.png",
+    "icon": "./src/images/ThresholdIcons/android/playstore/appicononline.png",
     "scheme": "threshold",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,25 +13,20 @@
     },
     "android": {
       "package": "com.oponobono.threshold",
-      "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./src/images/android/res/mipmap-xxxhdpi/threshold_foreground.png",
-        "backgroundImage": "./src/images/android/res/mipmap-xxxhdpi/threshold_background.png",
-        "monochromeImage": "./src/images/android/res/mipmap-xxxhdpi/threshold_monochrome.png"
-      },
+      "icon": "./src/images/ThresholdIcons/android/playstore/appicononline.png",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./src/images/ThresholdIcons/web/favicon-32x32.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./src/images/logo_threshold.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",

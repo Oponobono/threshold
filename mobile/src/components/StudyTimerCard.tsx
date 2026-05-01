@@ -15,7 +15,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface StudyTimerCardProps {
   onOpenConfig: () => void;
-  onFinish: (duration: number, subjectId: number | null) => void;
+  onFinish: (duration: number, subjectId: number | null, mode: 'pomodoro' | 'threshold') => void;
   refreshTrigger?: number;
 }
 
@@ -179,7 +179,7 @@ export const StudyTimerCard: React.FC<StudyTimerCardProps> = ({ onOpenConfig, on
     setIsActive(false);
     setIsPaused(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onFinish(mode === 'pomodoro' ? totalSeconds - remainingSeconds : remainingSeconds, subjectId);
+    onFinish(mode === 'pomodoro' ? totalSeconds - remainingSeconds : remainingSeconds, subjectId, mode);
     
     // Reset timer display to start state for each mode
     if (mode === 'pomodoro') {

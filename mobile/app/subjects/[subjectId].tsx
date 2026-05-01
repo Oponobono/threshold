@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { globalStyles } from '../../src/styles/globalStyles';
 import { theme } from '../../src/styles/theme';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   getAssessments,
   getSubjectById,
@@ -20,10 +21,12 @@ import {
   getSchedulesBySubject,
   getAudioRecordings,
   getYouTubeVideos,
+  getScannedDocumentsBySubject,
   type Assessment,
   type Subject,
   type UserProfile,
   type YouTubeVideo,
+  type ScannedDocument,
 } from '../../src/services/api';
 import { useAudioRecorder, RecordingItem } from '../../src/hooks/useAudioRecorder';
 import { SubjectHeroCard } from '../../src/components/SubjectHeroCard';
@@ -32,6 +35,8 @@ import { DocumentScannerModal } from '../../src/components/DocumentScannerModal'
 import { PhotoCaptureModal } from '../../src/components/PhotoCaptureModal';
 import { ImageViewerModal } from '../../src/components/ImageViewerModal';
 import { SubjectGalleryGrid } from '../../src/components/SubjectGalleryGrid';
+import { SubjectDocumentsList } from '../../src/components/SubjectDocumentsList';
+import { FlashcardCreatorModal } from '../../src/components/FlashcardCreatorModal';
 import { SubjectStats } from '../../src/components/SubjectStats';
 import { SubjectThreshold } from '../../src/components/SubjectThreshold';
 import { SubjectInsights } from '../../src/components/SubjectInsights';
@@ -60,6 +65,7 @@ export default function SubjectDetailScreen() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [subjectSchedules, setSubjectSchedules] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [scannedDocuments, setScannedDocuments] = useState<ScannedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isScannerVisible, setIsScannerVisible] = useState(false);
@@ -73,6 +79,9 @@ export default function SubjectDetailScreen() {
   const [recentVideos, setRecentVideos] = useState<YouTubeVideo[]>([]);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const { playSound, stopSound, playingId, deleteRecordingConfirmed } = useAudioRecorder();
+  
+  const [isFlashcardModalVisible, setIsFlashcardModalVisible] = useState(false);
+  const [flashcardBase64, setFlashcardBase64] = useState<string | undefined>();
 
   useEffect(() => {
     let mounted = true;
@@ -82,11 +91,12 @@ export default function SubjectDetailScreen() {
 
       setIsLoading(true);
       try {
-        const [profileRes, subjectRes, photosRes, assessmentsRes, schedulesRes, recordingsRes, videosRes] =
+        const [profileRes, subjectRes, photosRes, docsRes, assessmentsRes, schedulesRes, recordingsRes, videosRes] =
           await Promise.allSettled([
             getCurrentUserProfile(),
             getSubjectById(subjectId),
             getPhotosBySubject(subjectId),
+            getScannedDocumentsBySubject(subjectId),
             getAssessments(subjectId),
             getSchedulesBySubject(subjectId),
             getAudioRecordings(),
@@ -98,6 +108,7 @@ export default function SubjectDetailScreen() {
         if (profileRes.status === 'fulfilled') setProfile(profileRes.value);
         if (subjectRes.status === 'fulfilled') setSelectedSubject(subjectRes.value as DetailSubject);
         if (photosRes.status === 'fulfilled') setPhotos(photosRes.value || []);
+        if (docsRes.status === 'fulfilled') setScannedDocuments(docsRes.value || []);
         if (assessmentsRes.status === 'fulfilled') setAssessments((assessmentsRes.value || []) as Assessment[]);
         if (schedulesRes.status === 'fulfilled') setSubjectSchedules(schedulesRes.value || []);
         if (recordingsRes.status === 'fulfilled') {
@@ -141,6 +152,13 @@ export default function SubjectDetailScreen() {
     finalNeededText,
     recentAssessments,
   } = useSubjectGrades(assessments, selectedSubject, profile);
+
+  const imagePhotos = useMemo(() => photos.filter(p => !p.local_uri?.endsWith('.pdf')), [photos]);
+  // Combine old pdfs saved as photos + new scanned_documents
+  const pdfDocuments = useMemo(() => {
+    const oldPdfs = photos.filter(p => p.local_uri?.endsWith('.pdf'));
+    return [...scannedDocuments, ...oldPdfs];
+  }, [photos, scannedDocuments]);
 
   const subjectSubtitle = selectedSubject?.professor || profile?.major || t('subjects.defaultSubtitle');
   const subjectScheduleLabel = subjectSchedules[0]
@@ -210,8 +228,48 @@ export default function SubjectDetailScreen() {
 
           <SubjectInsights recentAssessments={recentAssessments} />
 
+          <SubjectDocumentsList 
+            documents={pdfDocuments} 
+            onGenerateFlashcards={async (uris) => {
+              if (uris.length === 0) return;
+              // Leemos la primera imagen para las flashcards (como MVP)
+              // Idealmente las combinariamos o enviariamos todas, pero por ahora tomaremos la primera para este prototipo.
+              try {
+                const base64Data = await FileSystem.readAsStringAsync(uris[0], {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                setFlashcardBase64(base64Data);
+                setIsFlashcardModalVisible(true);
+              } catch (e) {
+                console.error('Error leyendo base64 para flashcards:', e);
+              }
+            }}
+            onExportPdf={async (uris) => {
+              if (uris.length === 0) return;
+              try {
+                // Crear un HTML con todas las imagenes seleccionadas
+                const imagesHtml = uris.map(uri => `<img src="${uri}" style="width: 100%; page-break-after: always; margin-bottom: 20px;" />`).join('\n');
+                const html = `
+                  <html>
+                    <body style="margin: 0; padding: 0;">
+                      ${imagesHtml}
+                    </body>
+                  </html>
+                `;
+                const Print = require('expo-print');
+                const { uri: pdfUri } = await Print.printToFileAsync({ html });
+                const Sharing = require('expo-sharing');
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(pdfUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+                }
+              } catch (e) {
+                console.error('Error exportando PDF:', e);
+              }
+            }}
+          />
+
           <SubjectGalleryGrid
-            photos={photos}
+            photos={imagePhotos}
             subjectName={selectedSubject?.name ? selectedSubject.name : undefined}
             onOpenScanner={handleOpenScanner}
             onTakePhoto={handleTakePhoto}
@@ -279,10 +337,17 @@ export default function SubjectDetailScreen() {
         isVisible={isScannerVisible}
         onClose={() => setIsScannerVisible(false)}
         subjects={selectedSubject ? [selectedSubject as Subject] : []}
-        onSave={async () => {
+        onSave={async (uri, id, base64) => {
           if (subjectId) {
-            const updated = await getPhotosBySubject(subjectId);
-            setPhotos(updated || []);
+            const updatedPhotos = await getPhotosBySubject(subjectId);
+            const updatedDocs = await getScannedDocumentsBySubject(subjectId);
+            setPhotos(updatedPhotos || []);
+            setScannedDocuments(updatedDocs || []);
+            
+            if (base64) {
+              setFlashcardBase64(base64);
+              setIsFlashcardModalVisible(true);
+            }
           }
         }}
       />
@@ -294,21 +359,38 @@ export default function SubjectDetailScreen() {
         initialSubjectId={subjectId || undefined}
         onSave={async () => {
           if (subjectId) {
-            const updated = await getPhotosBySubject(subjectId);
-            setPhotos(updated || []);
+            const updatedPhotos = await getPhotosBySubject(subjectId);
+            const updatedDocs = await getScannedDocumentsBySubject(subjectId);
+            setPhotos(updatedPhotos || []);
+            setScannedDocuments(updatedDocs || []);
           }
         }}
       />
 
       <ImageViewerModal
         isVisible={isViewerVisible}
-        photos={photos}
+        photos={imagePhotos}
         initialIndex={initialViewerIndex}
         onClose={() => setIsViewerVisible(false)}
         onPhotoDeleted={(id) => {
           setPhotos(prev => prev.filter(p => p.id !== id));
         }}
       />
+
+      {subjectId && profile?.id && (
+        <FlashcardCreatorModal
+          visible={isFlashcardModalVisible}
+          onClose={() => setIsFlashcardModalVisible(false)}
+          onSuccess={() => {
+            setIsFlashcardModalVisible(false);
+          }}
+          imageBase64={flashcardBase64}
+          contentType="document"
+          title={selectedSubject?.name || 'Documento'}
+          subjectId={subjectId}
+          userId={profile.id}
+        />
+      )}
     </>
   );
 }

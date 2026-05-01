@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { globalStyles } from '../../src/styles/globalStyles';
 import { theme } from '../../src/styles/theme';
 import { dashboardStyles as styles } from '../../src/styles/Dashboard.styles';
-import { createSubject, getCurrentUserProfile, getSubjects, createAssessment, getAssessments, getPredictedSubject, getTodaySchedules, createSchedule, deleteSchedule, getAllSchedules, createPhoto, type Subject, type UserProfile, type Assessment } from '../../src/services/api';
+import { createSubject, getCurrentUserProfile, getSubjects, createAssessment, getAssessments, getPredictedSubject, getTodaySchedules, createSchedule, deleteSchedule, getAllSchedules, createPhoto, createStudySession, type Subject, type UserProfile, type Assessment } from '../../src/services/api';
 
 import * as MediaLibrary from 'expo-media-library';
 import * as LegacyFS from 'expo-file-system/legacy';
@@ -114,6 +114,11 @@ export default function HybridDashboardScreen() {
   const [isFlashcardsVisible, setIsFlashcardsVisible] = useState(false);
   const [timerRefreshTrigger, setTimerRefreshTrigger] = useState(0);
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
+  
+  // Timer Session State
+  const [lastSessionDuration, setLastSessionDuration] = useState<number>(0);
+  const [lastSessionSubjectId, setLastSessionSubjectId] = useState<number | null>(null);
+  const [lastSessionMode, setLastSessionMode] = useState<'pomodoro' | 'threshold'>('pomodoro');
 
   const loadData = async () => {
     const [userProfile, userSubjects, schedulesToday, schedulesAll] = await Promise.all([
@@ -770,7 +775,10 @@ export default function HybridDashboardScreen() {
                 setTimerViewState('config');
                 setIsTimerModalVisible(true);
               }}
-              onFinish={() => {
+              onFinish={(duration, subjectId, mode) => {
+                setLastSessionDuration(duration);
+                setLastSessionSubjectId(subjectId);
+                setLastSessionMode(mode);
                 setTimerViewState('feedback');
                 setIsTimerModalVisible(true);
               }}
@@ -1373,8 +1381,28 @@ export default function HybridDashboardScreen() {
             setIsTimerModalVisible(false);
           });
         }}
-        onSaveFeedback={(feedback) => {
-          showToast(`Progreso guardado: ${feedback}`);
+        onSaveFeedback={async (feedback) => {
+          try {
+            // Mapping string feedback to number rating (MVP)
+            const ratingMap: Record<string, number> = {
+              [t('dashboard.studyTimerModal.advanceOptions.great')]: 5,
+              [t('dashboard.studyTimerModal.advanceOptions.good')]: 4,
+              [t('dashboard.studyTimerModal.advanceOptions.ok')]: 3,
+              [t('dashboard.studyTimerModal.advanceOptions.bad')]: 2,
+              [t('dashboard.studyTimerModal.advanceOptions.terrible')]: 1,
+            };
+            const rating = ratingMap[feedback] || 3;
+
+            await createStudySession({
+              subject_id: lastSessionSubjectId,
+              session_type: lastSessionMode === 'pomodoro' ? 'Pomodoro' : 'Threshold',
+              duration_seconds: lastSessionDuration,
+              performance_rating: rating,
+            });
+            showToast(t('common.success') + ': Progreso guardado');
+          } catch (e) {
+            showToast('Error al guardar sesión de estudio');
+          }
         }}
       />
 

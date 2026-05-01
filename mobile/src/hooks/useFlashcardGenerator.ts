@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { generateFlashcardsFromText } from '../services/api/flashcards';
+import { generateFlashcardsFromText, generateFlashcardsFromImage } from '../services/api/flashcards';
 import { useTranslation } from 'react-i18next';
 
 interface GenerateCardsParams {
-  text: string;
+  text?: string;
+  imageBase64?: string;
   count: number;
   title: string;
   subjectId: number;
@@ -39,20 +40,39 @@ export const useFlashcardGenerator = () => {
 
     try {
       // Validar entrada
-      if (!params.text || params.text.trim().length < 50) {
+      if (!params.text && !params.imageBase64) {
+        const errorMsg = 'Se requiere texto o imagen base64';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      if (params.text && params.text.trim().length < 50) {
         const errorMsg = t('flashcards.generate.tooShort', { count: params.count, recommended: 5 });
         setError(errorMsg);
         return { success: false, error: errorMsg };
       }
 
-      // Llamar a la API
-      const result = await generateFlashcardsFromText({
-        text: params.text,
-        count: params.count,
-        title: params.title,
-        subject_id: params.subjectId,
-        user_id: params.userId,
-      });
+      let result;
+
+      if (params.imageBase64) {
+        // Llamar a la API de imagen
+        result = await generateFlashcardsFromImage({
+          image_base64: params.imageBase64,
+          count: params.count,
+          title: params.title,
+          subject_id: params.subjectId,
+          user_id: params.userId,
+        });
+      } else if (params.text) {
+        // Llamar a la API de texto
+        result = await generateFlashcardsFromText({
+          text: params.text,
+          count: params.count,
+          title: params.title,
+          subject_id: params.subjectId,
+          user_id: params.userId,
+        });
+      }
 
       setGeneratedDeck(result);
       return { success: true, deck: result };

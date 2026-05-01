@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { dashboardStyles as styles } from '../styles/Dashboard.styles';
 import { documentScannerStyles as localStyles } from '../styles/DocumentScannerModal.styles';
-import { Subject, createPhoto } from '../services/api';
+import { Subject, createPhoto, createScannedDocument } from '../services/api';
+import { AdvancedImageEnhancer, AdvancedImageEnhancerRef } from './AdvancedImageEnhancer';
+import * as Print from 'expo-print';
 
 // Importes condicionales para plataformas nativas
 let DocumentScanner: any = null;
@@ -29,7 +31,7 @@ interface DocumentScannerModalProps {
   isVisible: boolean;
   onClose: () => void;
   subjects: Subject[];
-  onSave?: (uri: string, subjectId: number) => void;
+  onSave?: (uri: string, subjectId: number, base64?: string) => void;
 }
 
 type ScannerStep = 'guide' | 'saving';
@@ -47,6 +49,9 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLevel, setIsLevel] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'image' | 'pdf'>('image');
+  const [activeFilter, setActiveFilter] = useState('original');
+  const enhancerRef = useRef<AdvancedImageEnhancerRef>(null);
 
   useEffect(() => {
     let subscription: any;
@@ -98,16 +103,93 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
     try {
       setIsProcessing(true);
-      await createPhoto({
-        subject_id: selectedSubjectId,
-        local_uri: finalImageUri,
-      });
       
-      if (onSave) onSave(finalImageUri, selectedSubjectId);
+      let finalImageUri = capturedImage;
+      if (enhancerRef.current) {
+        const processedUri = await enhancerRef.current.exportProcessedImage();
+        if (processedUri) {
+          finalImageUri = processedUri;
+        }
+      }
+      
+      if (exportFormat === 'pdf') {
+        const html = `
+          <html>
+            <body style="margin: 0; padding: 0;">
+              <img src="${finalImageUri}" style="width: 100%;" />
+            </body>
+          </html>
+        `;
+        const { uri: pdfUri } = await Print.printToFileAsync({ html });
+        console.log("PDF generado en:", pdfUri);
+        
+        await createScannedDocument({
+          subject_id: selectedSubjectId,
+          local_uri: pdfUri,
+          name: `Documento Escaneado ${new Date().toLocaleDateString()}`
+        });
+        
+        finalImageUri = pdfUri;
+      } else {
+        await createPhoto({
+          subject_id: selectedSubjectId,
+          local_uri: finalImageUri,
+        });
+      }
+      
+      if (onSave) onSave(exportFormat === 'pdf' ? finalImageUri /* should be pdfUri eventually */ : finalImageUri, selectedSubjectId);
       showAlert({ title: t('common.success'), message: t('dashboard.documentScannerModal.success', { subject: subjects.find(s => s.id === selectedSubjectId)?.name }), type: 'success' });
       resetAndClose();
     } catch (error) {
       showAlert({ title: t('common.error'), message: t('dashboard.documentScannerModal.error'), type: 'error' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGenerateFlashcards = async () => {
+    if (!selectedSubjectId || !capturedImage) return;
+    try {
+      setIsProcessing(true);
+      const base64Data = await enhancerRef.current?.exportBase64();
+      let finalImageUri = capturedImage;
+
+      if (exportFormat === 'pdf') {
+        const processedUri = await enhancerRef.current?.exportProcessedImage();
+        if (processedUri) {
+          finalImageUri = processedUri;
+        }
+        const html = `
+          <html>
+            <body style="margin: 0; padding: 0;">
+              <img src="${finalImageUri}" style="width: 100%;" />
+            </body>
+          </html>
+        `;
+        const { uri: pdfUri } = await Print.printToFileAsync({ html });
+        await createScannedDocument({
+          subject_id: selectedSubjectId,
+          local_uri: pdfUri,
+          name: `Documento Escaneado ${new Date().toLocaleDateString()}`
+        });
+        finalImageUri = pdfUri;
+      } else {
+        const processedUri = await enhancerRef.current?.exportProcessedImage();
+        if (processedUri) {
+          finalImageUri = processedUri;
+        }
+        await createPhoto({
+          subject_id: selectedSubjectId,
+          local_uri: finalImageUri,
+        });
+      }
+      
+      if (onSave) {
+        onSave(exportFormat === 'pdf' ? finalImageUri : finalImageUri, selectedSubjectId, base64Data || undefined);
+      }
+      resetAndClose();
+    } catch (error) {
+      showAlert({ title: t('common.error'), message: 'Error generando tarjetas', type: 'error' });
     } finally {
       setIsProcessing(false);
     }
@@ -167,9 +249,33 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
         {step === 'saving' && capturedImage && (
           <View style={localStyles.savingContainer}>
-             <View style={localStyles.previewCard}>
-               <Image source={{ uri: capturedImage }} style={localStyles.previewImage} resizeMode="contain" />
-               <View style={localStyles.scanEffect} />
+             <AdvancedImageEnhancer 
+               ref={enhancerRef}
+               imageUri={capturedImage} 
+               onFilterChange={setActiveFilter} 
+             />
+
+             {/* Formato de Exportación */}
+             <View style={localStyles.modeSelector}>
+               <Text style={localStyles.modeLabel}>Formato de Exportación</Text>
+               <View style={localStyles.modeBadges}>
+                 <TouchableOpacity 
+                   style={[localStyles.modeBadge, exportFormat === 'image' && localStyles.modeBadgeActive]}
+                   onPress={() => setExportFormat('image')}
+                 >
+                   <Text style={[localStyles.modeBadgeText, exportFormat === 'image' && localStyles.modeBadgeTextActive]}>
+                     <Ionicons name="image-outline" size={14} /> Foto de Galería
+                   </Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   style={[localStyles.modeBadge, exportFormat === 'pdf' && localStyles.modeBadgeActive]}
+                   onPress={() => setExportFormat('pdf')}
+                 >
+                   <Text style={[localStyles.modeBadgeText, exportFormat === 'pdf' && localStyles.modeBadgeTextActive]}>
+                     <Ionicons name="document-text-outline" size={14} /> Documento PDF
+                   </Text>
+                 </TouchableOpacity>
+               </View>
              </View>
 
              <Text style={localStyles.stepTitle}>{t('dashboard.documentScannerModal.save')}</Text>
@@ -193,6 +299,13 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
              <View style={localStyles.saveActions}>
                <TouchableOpacity onPress={resetAndClose} style={localStyles.secondaryBtn}>
                  <Text style={localStyles.secondaryBtnText}>{t('common.cancel')}</Text>
+               </TouchableOpacity>
+               <TouchableOpacity 
+                 onPress={handleGenerateFlashcards} 
+                 disabled={isSaveDisabled}
+                 style={[localStyles.secondaryBtn, isSaveDisabled && localStyles.primaryBtnDisabled, { backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary, marginHorizontal: 8 }]}
+               >
+                 {isProcessing ? <ActivityIndicator color={theme.colors.primary} /> : <Text style={[localStyles.secondaryBtnText, { color: theme.colors.primary, fontSize: 13, fontWeight: 'bold' }]}>Crear Tarjetas</Text>}
                </TouchableOpacity>
                <TouchableOpacity 
                  onPress={handleSave} 

@@ -10,6 +10,8 @@ export type UserProfile = {
   university?: string | null;
   created_at?: string | null;
   last_login?: string | null;
+  share_pin?: string | null;
+  display_name?: string | null;
 };
 
 export type Subject = {
@@ -60,6 +62,7 @@ export type Schedule = {
 
 export interface FlashcardDeck {
   id: number;
+  user_id?: number;
   subject_id: number;
   title: string;
   description: string;
@@ -71,6 +74,8 @@ export interface FlashcardDeck {
   subject_name?: string;
   subject_color?: string;
   subject_icon?: string;
+  owner_username?: string;
+  owner_name?: string;
 }
 
 export interface Flashcard {
