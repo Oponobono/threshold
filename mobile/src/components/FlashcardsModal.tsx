@@ -6,6 +6,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -266,6 +267,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
           contentContainerStyle={{ paddingBottom: 8 }}
           renderItem={({ item }) => {
             const isShared = item.user_id != null && item.user_id !== currentUserId;
+            const isOwner = item.user_id === currentUserId;
             return (
               <TouchableOpacity style={s.deckCard} activeOpacity={0.75} onPress={() => openStudySession(item)}>
                 <View style={[s.deckBadge, { backgroundColor: (item as any).subject_color || '#DDE7FF' }]}>
@@ -316,6 +318,19 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
                     )}
                   </View>
                 </View>
+              {isOwner && (
+                <TouchableOpacity
+                  style={[s.addCardBtn, { marginRight: 2 }]}
+                  onPress={() => {
+                    Share.share({
+                      title: `Mazo de flashcards: ${item.title}`,
+                      message: `📚 Te comparto el mazo "${item.title}" de Threshold (${item.subject_name}).\n\nDescarga la app y únete con mi PIN de grupo para verlo automáticamente. 🎓`,
+                    });
+                  }}
+                >
+                  <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={s.addCardBtn}
                 onPress={() => {

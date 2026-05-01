@@ -1,5 +1,5 @@
 import React, { useState, forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { Canvas, Image, useImage, ColorMatrix, useCanvasRef } from '@shopify/react-native-skia';
@@ -70,6 +70,14 @@ export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, Advanc
   const [activeFilter, setActiveFilter] = useState('original');
   const skImage = useImage(imageUri);
   const canvasRef = useCanvasRef();
+  const [canvasSize, setCanvasSize] = useState({ width: 300, height: 400 });
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setCanvasSize({ width, height });
+    }
+  };
 
   const handleFilterSelect = (id: string) => {
     setActiveFilter(id);
@@ -117,7 +125,7 @@ export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, Advanc
 
   return (
     <View style={styles.container}>
-      <View style={styles.previewContainer}>
+      <View style={styles.previewContainer} onLayout={handleLayout}>
         {!skImage ? (
           <ActivityIndicator size="large" color="white" style={styles.loader} />
         ) : (
@@ -127,8 +135,8 @@ export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, Advanc
               fit="contain"
               x={0}
               y={0}
-              width={styles.canvas.width as any || 300} // Necesitaríamos medidas dinámicas idealmente, pero skia fit="contain" maneja esto
-              height={styles.canvas.height as any || 400}
+              width={canvasSize.width}
+              height={canvasSize.height}
             >
               {selectedFilter?.matrix && (
                 <ColorMatrix matrix={selectedFilter.matrix} />
@@ -178,7 +186,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, marginBottom: 16 },
   previewContainer: { flex: 1, backgroundColor: '#000', borderRadius: 16, overflow: 'hidden', marginBottom: 16, justifyContent: 'center' },
   loader: { flex: 1 },
-  canvas: { flex: 1, width: '100%', height: '100%' }, // Skia Canvas
+  canvas: { flex: 1 },
   activeFilterBadge: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   activeFilterText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   filtersContainer: { height: 100 },
