@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -56,6 +57,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
   const [isFlipped, setIsFlipped] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Share deck modal state
   const [shareDeckTarget, setShareDeckTarget] = useState<FlashcardDeck | null>(null);
@@ -106,6 +108,12 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     } catch (e) {
       console.warn('Error loading decks:', e);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadDecks();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -285,6 +293,14 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
           keyExtractor={(d) => d.id.toString()}
           style={{ maxHeight: 280 }}
           contentContainerStyle={{ paddingBottom: 8 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
           renderItem={({ item }) => {
             const isShared = item.user_id != null && item.user_id !== currentUserId;
             const isOwner = item.user_id === currentUserId;
