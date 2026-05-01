@@ -508,7 +508,7 @@ const tableSchema = {
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-  }
+  },
   shared_decks: {
     sqlite: `
       CREATE TABLE IF NOT EXISTS shared_decks (
