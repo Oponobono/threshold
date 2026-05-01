@@ -10,7 +10,14 @@ const initializePostgresDb = async (pool) => {
       console.log(`✓ Tabla creada/verificada: ${tableName}`);
     }
 
-    // Crear índices únicos
+    // Migrar columnas faltantes (ANTES de crear índices que dependen de ellas)
+    for (const [tableName, schema] of Object.entries(tableSchema)) {
+      if (schema.columns) {
+        await migrateColumnsPostgres(pool, tableName, schema.columns);
+      }
+    }
+
+    // Crear índices únicos (DESPUÉS de asegurarse que las columnas existen)
     await pool.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique 
       ON users(username) WHERE username IS NOT NULL
@@ -20,13 +27,6 @@ const initializePostgresDb = async (pool) => {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_share_pin_unique 
       ON users(share_pin) WHERE share_pin IS NOT NULL
     `);
-
-    // Migrar columnas faltantes
-    for (const [tableName, schema] of Object.entries(tableSchema)) {
-      if (schema.columns) {
-        await migrateColumnsPostgres(pool, tableName, schema.columns);
-      }
-    }
 
     // Crear usuario por defecto
     const { rows: existingUser } = await pool.query(
