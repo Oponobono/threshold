@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Modal, TouchableOpacity, Image, FlatList, Dimensions, Share, ActionSheetIOS, Platform } from 'react-native';
+import { View, Modal, TouchableOpacity, Image, FlatList, Dimensions, Share, ActionSheetIOS, Platform, ActivityIndicator } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { deletePhoto } from '../services/api';
+import { deletePhoto, extractTextFromImage } from '../services/api';
+import * as FileSystem from 'expo-file-system';
 import { styles } from '../styles/ImageViewerModal.styles';
 
 const { width, height } = Dimensions.get('window');
@@ -32,6 +33,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   const { showAlert } = useCustomAlert();
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (isVisible && photos.length > 0) {
@@ -56,6 +58,32 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
       });
     } catch (error: any) {
       showAlert({ title: t('common.error'), message: error.message, type: 'error' });
+    }
+  };
+
+  const handleOCR = async () => {
+    const currentPhoto = photos[currentIndex];
+    if (!currentPhoto) return;
+    try {
+      setIsProcessing(true);
+      const base64Data = await FileSystem.readAsStringAsync(currentPhoto.local_uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const text = await extractTextFromImage(base64Data);
+      
+      if (!text || text.trim() === '') {
+        showAlert({ title: 'Aviso', message: 'No se detectó texto en la imagen.', type: 'info' });
+        return;
+      }
+
+      await Share.share({
+        title: 'Texto extraído de Threshold',
+        message: text,
+      });
+    } catch (error: any) {
+      showAlert({ title: 'Error OCR', message: error.message, type: 'error' });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -135,9 +163,14 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
           <TouchableOpacity onPress={onClose} style={styles.iconButton}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={showOptions} style={styles.iconButton}>
-            <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity onPress={handleOCR} style={styles.iconButton} disabled={isProcessing}>
+              {isProcessing ? <ActivityIndicator color="#C5A059" /> : <Ionicons name="text" size={24} color="#C5A059" />}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={showOptions} style={styles.iconButton}>
+              <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
         
         <FlatList

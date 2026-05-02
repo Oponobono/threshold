@@ -62,3 +62,20 @@ export const deleteScannedDocument = async (documentId: number | string): Promis
     throw new Error(error.message || 'Error de red al intentar eliminar el documento escaneado');
   }
 };
+
+export const extractTextFromImage = async (base64Image: string): Promise<string> => {
+  try {
+    const response = await fetchWithFallback('/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base64Image }),
+    });
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Error al procesar el OCR de la imagen');
+    }
+    return data.text || '';
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al invocar el servicio de OCR');
+  }
+};

@@ -57,4 +57,57 @@ router.delete('/scanned_documents/:documentId', (req, res) => {
   });
 });
 
+// Extraer texto OCR de una imagen base64 usando Groq Vision
+router.post('/ocr', async (req, res) => {
+  const { base64Image } = req.body;
+  if (!base64Image) {
+    return res.status(400).json({ error: 'Falta base64Image en el body' });
+  }
+
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey) {
+    return res.status(500).json({ error: 'Groq API Key no está configurada' });
+  }
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.2-90b-vision-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Extrae con la mayor precisión posible TODO el texto de esta imagen. Responde ÚNICAMENTE con el texto extraído, sin preámbulos, explicaciones ni formato markdown de bloque de código.' },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                },
+              },
+            ],
+          },
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('Error Groq OCR:', data);
+      return res.status(response.status).json({ error: data.error?.message || 'Error al procesar la imagen con Groq Vision' });
+    }
+
+    const extractedText = data.choices[0]?.message?.content || '';
+    res.json({ text: extractedText });
+  } catch (error) {
+    console.error('Excepción OCR:', error);
+    res.status(500).json({ error: 'Error interno al comunicarse con el servicio OCR' });
+  }
+});
+
 module.exports = router;

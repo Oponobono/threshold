@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator, Platform, Share } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { dashboardStyles as styles } from '../styles/Dashboard.styles';
 import { documentScannerStyles as localStyles } from '../styles/DocumentScannerModal.styles';
-import { Subject, createPhoto, createScannedDocument } from '../services/api';
+import { Subject, createPhoto, createScannedDocument, extractTextFromImage } from '../services/api';
 import { AdvancedImageEnhancer, AdvancedImageEnhancerRef } from './AdvancedImageEnhancer';
 import * as Print from 'expo-print';
 
@@ -195,6 +195,30 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     }
   };
 
+  const handleOCR = async () => {
+    if (!capturedImage) return;
+    try {
+      setIsProcessing(true);
+      const base64Data = await enhancerRef.current?.exportBase64();
+      if (!base64Data) throw new Error('No se pudo procesar la imagen para OCR.');
+      const text = await extractTextFromImage(base64Data);
+      
+      if (!text || text.trim() === '') {
+        showAlert({ title: 'Aviso', message: 'No se detectó texto en la imagen.', type: 'info' });
+        return;
+      }
+
+      await Share.share({
+        title: 'Texto extraído de Threshold',
+        message: text,
+      });
+    } catch (error: any) {
+      showAlert({ title: 'Error OCR', message: error.message, type: 'error' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const resetAndClose = () => {
     setStep('guide');
     setCapturedImage(null);
@@ -276,6 +300,20 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
                    </Text>
                  </TouchableOpacity>
                </View>
+             </View>
+
+             <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
+               <TouchableOpacity 
+                 style={[localStyles.modeBadge, { backgroundColor: '#C5A059' + '20', borderColor: '#C5A059', borderWidth: 1 }]}
+                 onPress={handleOCR}
+                 disabled={isProcessing}
+               >
+                 {isProcessing ? <ActivityIndicator size="small" color="#C5A059" /> : (
+                   <Text style={[localStyles.modeBadgeText, { color: '#C5A059', fontWeight: 'bold' }]}>
+                     <Ionicons name="text" size={14} /> Detectar y Compartir Texto (OCR)
+                   </Text>
+                 )}
+               </TouchableOpacity>
              </View>
 
              <Text style={localStyles.stepTitle}>{t('dashboard.documentScannerModal.save')}</Text>
