@@ -29,6 +29,7 @@ import {
   getFlashcards,
   createFlashcard,
   updateFlashcardStatus,
+  createCardLog,
   getUserId,
   shareDeck,
   deleteFlashcardDeck,
