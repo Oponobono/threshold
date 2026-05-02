@@ -67,7 +67,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
     try {
       setIsProcessing(true);
       const base64Data = await FileSystem.readAsStringAsync(currentPhoto.local_uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
       const text = await extractTextFromImage(base64Data);
       
