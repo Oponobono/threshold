@@ -72,9 +72,16 @@ export const extractTextFromImage = async (base64Image: string): Promise<string>
     });
     const data = await parseJsonSafely(response);
     if (!response.ok) {
-      throw new Error(data?.error || 'Error al procesar el OCR de la imagen');
+      // El error puede ser string u objeto { message, type, code }
+      const errField = data?.error;
+      const errMsg =
+        typeof errField === 'string'
+          ? errField
+          : errField?.message ?? JSON.stringify(errField) ?? 'Error al procesar el OCR';
+      console.error('[OCR] Backend error:', errMsg, '| Status:', response.status);
+      throw new Error(errMsg);
     }
-    return data.text || '';
+    return data?.text || '';
   } catch (error: any) {
     throw new Error(error.message || 'Error de red al invocar el servicio de OCR');
   }
