@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator, Platform, Share } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ActivityIndicator, Platform, Share } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
-import { dashboardStyles as styles } from '../styles/Dashboard.styles';
 import { documentScannerStyles as localStyles } from '../styles/DocumentScannerModal.styles';
 import { Subject, createPhoto, createScannedDocument, extractTextFromImage } from '../services/api';
 import { AdvancedImageEnhancer, AdvancedImageEnhancerRef } from './AdvancedImageEnhancer';
@@ -204,11 +203,25 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     try {
       setIsProcessing(true);
       const base64Data = await enhancerRef.current?.exportBase64();
-      if (!base64Data) throw new Error('No se pudo procesar la imagen para OCR.');
+      if (!base64Data) throw new Error('No se pudo exportar la imagen desde el canvas.');
+      
+      // Diagnóstico: tamaño estimado en MB
+      const estimatedMB = ((base64Data.length * 3) / 4 / 1024 / 1024).toFixed(2);
+      console.log(`[OCR] Tamaño imagen base64: ~${estimatedMB} MB`);
+      
+      if ((base64Data.length * 3) / 4 > 3.5 * 1024 * 1024) {
+        showAlert({ 
+          title: 'Imagen muy grande', 
+          message: `La imagen pesa ~${estimatedMB}MB. Aplica el filtro "B/N OCR" para reducir el tamaño e intenta de nuevo.`, 
+          type: 'warning' 
+        });
+        return;
+      }
+
       const text = await extractTextFromImage(base64Data);
       
       if (!text || text.trim() === '') {
-        showAlert({ title: 'Aviso', message: 'No se detectó texto en la imagen.', type: 'info' });
+        showAlert({ title: 'Sin texto', message: 'No se detectó texto en la imagen.', type: 'info' });
         return;
       }
 
@@ -217,11 +230,13 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
         message: text,
       });
     } catch (error: any) {
+      console.error('[OCR] Error:', error.message);
       showAlert({ title: 'Error OCR', message: error.message, type: 'error' });
     } finally {
       setIsProcessing(false);
     }
   };
+
 
   const resetAndClose = () => {
     setStep('guide');
@@ -277,86 +292,121 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
         {step === 'saving' && capturedImage && (
           <View style={localStyles.savingContainer}>
-             <AdvancedImageEnhancer 
-               ref={enhancerRef}
-               imageUri={capturedImage} 
-               onFilterChange={setActiveFilter} 
-             />
 
-             {/* Formato de Exportación */}
-             <View style={localStyles.modeSelector}>
-               <Text style={localStyles.modeLabel}>Formato de Exportación</Text>
-               <View style={localStyles.modeBadges}>
-                 <TouchableOpacity 
-                   style={[localStyles.modeBadge, exportFormat === 'image' && localStyles.modeBadgeActive]}
-                   onPress={() => setExportFormat('image')}
-                 >
-                   <Text style={[localStyles.modeBadgeText, exportFormat === 'image' && localStyles.modeBadgeTextActive]}>
-                     <Ionicons name="image-outline" size={14} /> Foto de Galería
-                   </Text>
-                 </TouchableOpacity>
-                 <TouchableOpacity 
-                   style={[localStyles.modeBadge, exportFormat === 'pdf' && localStyles.modeBadgeActive]}
-                   onPress={() => setExportFormat('pdf')}
-                 >
-                   <Text style={[localStyles.modeBadgeText, exportFormat === 'pdf' && localStyles.modeBadgeTextActive]}>
-                     <Ionicons name="document-text-outline" size={14} /> Documento PDF
-                   </Text>
-                 </TouchableOpacity>
-               </View>
-             </View>
+            {/* Header con botón volver */}
+            <View style={localStyles.savingHeader}>
+              <TouchableOpacity onPress={resetAndClose} style={localStyles.backBtn}>
+                <Ionicons name="arrow-back" size={22} color={theme.colors.text.primary} />
+              </TouchableOpacity>
+              <Text style={localStyles.savingHeaderTitle}>Editar Escaneo</Text>
+              {/* OCR: ícono en el header para acceso rápido */}
+              <TouchableOpacity
+                style={[localStyles.ocrIconBtn, isProcessing && { opacity: 0.5 }]}
+                onPress={handleOCR}
+                disabled={isProcessing}
+              >
+                {isProcessing
+                  ? <ActivityIndicator size="small" color="#C5A059" />
+                  : <Ionicons name="text" size={20} color="#C5A059" />
+                }
+              </TouchableOpacity>
+            </View>
 
-             <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
-               <TouchableOpacity 
-                 style={[localStyles.modeBadge, { backgroundColor: '#C5A059' + '20', borderColor: '#C5A059', borderWidth: 1 }]}
-                 onPress={handleOCR}
-                 disabled={isProcessing}
-               >
-                 {isProcessing ? <ActivityIndicator size="small" color="#C5A059" /> : (
-                   <Text style={[localStyles.modeBadgeText, { color: '#C5A059', fontWeight: 'bold' }]}>
-                     <Ionicons name="text" size={14} /> Detectar y Compartir Texto (OCR)
-                   </Text>
-                 )}
-               </TouchableOpacity>
-             </View>
+            {/* Imagen + filtros */}
+            <AdvancedImageEnhancer
+              ref={enhancerRef}
+              imageUri={capturedImage}
+              onFilterChange={setActiveFilter}
+            />
 
-             <Text style={localStyles.stepTitle}>{t('dashboard.documentScannerModal.save')}</Text>
-             
+            {/* Formato de exportación */}
+            <View style={localStyles.sectionBlock}>
+              <Text style={localStyles.sectionLabel}>Formato de exportación</Text>
+              <View style={localStyles.modeBadges}>
+                <TouchableOpacity
+                  style={[localStyles.modeBadge, exportFormat === 'image' && localStyles.modeBadgeActive]}
+                  onPress={() => setExportFormat('image')}
+                >
+                  <Ionicons
+                    name="image-outline"
+                    size={14}
+                    color={exportFormat === 'image' ? theme.colors.primary : theme.colors.text.secondary}
+                  />
+                  <Text style={[localStyles.modeBadgeText, exportFormat === 'image' && localStyles.modeBadgeTextActive]}>
+                    {' '}Foto de Galería
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[localStyles.modeBadge, exportFormat === 'pdf' && localStyles.modeBadgeActive]}
+                  onPress={() => setExportFormat('pdf')}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={14}
+                    color={exportFormat === 'pdf' ? theme.colors.primary : theme.colors.text.secondary}
+                  />
+                  <Text style={[localStyles.modeBadgeText, exportFormat === 'pdf' && localStyles.modeBadgeTextActive]}>
+                    {' '}Documento PDF
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-             <View style={localStyles.subjectGrid}>
-               {subjects.map(s => (
-                 <TouchableOpacity 
-                   key={s.id} 
-                   style={[localStyles.subjectItem, selectedSubjectId === s.id && { backgroundColor: s.color ? s.color + '40' : undefined, borderColor: s.color || undefined }]}
-                   onPress={() => setSelectedSubjectId(s.id)}
-                 >
-                   <View style={[styles.subjectBadge, localStyles.subjectBadgeOverride, { backgroundColor: s.color || '#CCC' }]}>
-                     <MaterialCommunityIcons name={(s.icon as any) || 'book-outline'} size={18} color={theme.colors.text.primary} />
-                   </View>
-                   <Text style={localStyles.subjectName} numberOfLines={1}>{s.name}</Text>
-                 </TouchableOpacity>
-               ))}
-             </View>
+            {/* Selección de materia */}
+            <View style={localStyles.sectionBlock}>
+              <Text style={localStyles.sectionLabel}>{t('dashboard.documentScannerModal.save')}</Text>
+              <View style={localStyles.subjectGrid}>
+                {subjects.map(s => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[
+                      localStyles.subjectItem,
+                      selectedSubjectId === s.id && {
+                        backgroundColor: s.color ? s.color + '30' : theme.colors.primary + '20',
+                        borderColor: s.color || theme.colors.primary,
+                        borderWidth: 2,
+                      },
+                    ]}
+                    onPress={() => setSelectedSubjectId(s.id)}
+                  >
+                    <View style={[localStyles.subjectBadgeOverride, { backgroundColor: s.color || '#CCC' }]}>
+                      <MaterialCommunityIcons name={(s.icon as any) || 'book-outline'} size={16} color="white" />
+                    </View>
+                    <Text style={localStyles.subjectName} numberOfLines={1}>{s.name}</Text>
+                    {selectedSubjectId === s.id && (
+                      <Ionicons name="checkmark-circle" size={16} color={s.color || theme.colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-             <View style={localStyles.saveActions}>
-               <TouchableOpacity onPress={resetAndClose} style={localStyles.secondaryBtn}>
-                 <Text style={localStyles.secondaryBtnText}>{t('common.cancel')}</Text>
-               </TouchableOpacity>
-               <TouchableOpacity 
-                 onPress={handleGenerateFlashcards} 
-                 disabled={isSaveDisabled}
-                 style={[localStyles.secondaryBtn, isSaveDisabled && localStyles.primaryBtnDisabled, { backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary, marginHorizontal: 8 }]}
-               >
-                 {isProcessing ? <ActivityIndicator color={theme.colors.primary} /> : <Text style={[localStyles.secondaryBtnText, { color: theme.colors.primary, fontSize: 13, fontWeight: 'bold' }]}>Crear Tarjetas</Text>}
-               </TouchableOpacity>
-               <TouchableOpacity 
-                 onPress={handleSave} 
-                 disabled={isSaveDisabled}
-                 style={[localStyles.primaryBtn, isSaveDisabled && localStyles.primaryBtnDisabled]}
-               >
-                 {isProcessing ? <ActivityIndicator color="white" /> : <Text style={localStyles.primaryBtnText}>{t('common.save')}</Text>}
-               </TouchableOpacity>
-             </View>
+            {/* Barra de acciones */}
+            <View style={localStyles.saveActions}>
+              <TouchableOpacity
+                onPress={handleGenerateFlashcards}
+                disabled={isSaveDisabled}
+                style={[localStyles.actionBtn, localStyles.actionBtnFlashcard, isSaveDisabled && localStyles.primaryBtnDisabled]}
+              >
+                <Ionicons name="layers-outline" size={18} color={theme.colors.primary} />
+                <Text style={[localStyles.actionBtnText, { color: theme.colors.primary }]}>Tarjetas</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={isSaveDisabled}
+                style={[localStyles.actionBtn, localStyles.actionBtnSave, isSaveDisabled && localStyles.primaryBtnDisabled]}
+              >
+                {isProcessing
+                  ? <ActivityIndicator color="white" size="small" />
+                  : <>
+                      <Ionicons name="cloud-upload-outline" size={18} color="white" />
+                      <Text style={[localStyles.actionBtnText, { color: 'white' }]}>Guardar</Text>
+                    </>
+                }
+              </TouchableOpacity>
+            </View>
+
           </View>
         )}
 

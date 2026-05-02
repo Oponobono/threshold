@@ -64,6 +64,12 @@ router.post('/ocr', async (req, res) => {
     return res.status(400).json({ error: 'Falta base64Image en el body' });
   }
 
+  // Groq límite: 4MB por request
+  const estimatedBytes = (base64Image.length * 3) / 4;
+  if (estimatedBytes > 3.5 * 1024 * 1024) {
+    return res.status(413).json({ error: 'La imagen es demasiado grande para OCR (máx 4MB). Prueba con el filtro B/N para reducir el tamaño.' });
+  }
+
   const groqApiKey = process.env.GROQ_API_KEY;
   if (!groqApiKey) {
     return res.status(500).json({ error: 'Groq API Key no está configurada' });
@@ -77,7 +83,7 @@ router.post('/ocr', async (req, res) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.2-90b-vision-preview',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         messages: [
           {
             role: 'user',
@@ -93,20 +99,22 @@ router.post('/ocr', async (req, res) => {
           },
         ],
         temperature: 0.1,
+        max_tokens: 4096,
       }),
     });
 
     const data = await response.json();
     if (!response.ok) {
-      console.error('Error Groq OCR:', data);
-      return res.status(response.status).json({ error: data.error?.message || 'Error al procesar la imagen con Groq Vision' });
+      const groqMsg = data?.error?.message || JSON.stringify(data?.error) || 'Error desconocido de Groq';
+      console.error(`[OCR] Groq error ${response.status}:`, groqMsg);
+      return res.status(response.status).json({ error: groqMsg });
     }
 
-    const extractedText = data.choices[0]?.message?.content || '';
+    const extractedText = data.choices?.[0]?.message?.content || '';
     res.json({ text: extractedText });
   } catch (error) {
-    console.error('Excepción OCR:', error);
-    res.status(500).json({ error: 'Error interno al comunicarse con el servicio OCR' });
+    console.error('[OCR] Excepción:', error.message);
+    res.status(500).json({ error: `Error interno al comunicarse con Groq: ${error.message}` });
   }
 });
 
