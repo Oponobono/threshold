@@ -29,9 +29,10 @@ import {
   getFlashcards,
   createFlashcard,
   updateFlashcardStatus,
-  createCardLog,
   getUserId,
   shareDeck,
+  deleteFlashcardDeck,
+  deleteFlashcard,
 } from '../services/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -256,6 +257,59 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     }
   };
 
+  const handleDeleteDeck = (deck: FlashcardDeck) => {
+    showAlert({
+      title: 'Eliminar Mazo',
+      message: `¿Estás seguro de que deseas eliminar el mazo "${deck.title}"? Esta acción no se puede deshacer.`,
+      type: 'confirm',
+      buttons: [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Eliminar', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteFlashcardDeck(deck.id);
+              await loadDecks();
+            } catch (e: any) {
+              showAlert({ title: t('common.error'), message: e.message || 'Error al eliminar el mazo', type: 'error' });
+            }
+          }
+        }
+      ]
+    });
+  };
+
+  const handleDeleteCard = (cardId: number) => {
+    showAlert({
+      title: 'Eliminar Tarjeta',
+      message: '¿Estás seguro de que deseas eliminar esta tarjeta?',
+      type: 'confirm',
+      buttons: [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Eliminar', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteFlashcard(cardId);
+              // Remover la tarjeta de la vista actual
+              const updatedCards = cards.filter(c => c.id !== cardId);
+              setCards(updatedCards);
+              if (updatedCards.length === 0) {
+                setSessionDone(true);
+              } else if (cardIndex >= updatedCards.length) {
+                setCardIndex(updatedCards.length - 1);
+              }
+            } catch (e: any) {
+              showAlert({ title: t('common.error'), message: e.message || 'Error al eliminar la tarjeta', type: 'error' });
+            }
+          }
+        }
+      ]
+    });
+  };
+
   // ── Animations ─────────────────────────────────────────────────────────────
   // Perspectiva para dar profundidad real al giro 3D
   const frontRotate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
@@ -355,15 +409,23 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
                   </View>
                 </View>
               {isOwner && (
-                <TouchableOpacity
-                  style={[s.addCardBtn, { marginRight: 2 }]}
-                  onPress={() => {
-                    setShareDeckTarget(item);
-                    setSharePin('');
-                  }}
-                >
-                  <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity
+                    style={[s.addCardBtn, { marginRight: 2, backgroundColor: '#FFF5F5' }]}
+                    onPress={() => handleDeleteDeck(item)}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#D32F2F" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.addCardBtn, { marginRight: 2 }]}
+                    onPress={() => {
+                      setShareDeckTarget(item);
+                      setSharePin('');
+                    }}
+                  >
+                    <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                </View>
               )}
               <TouchableOpacity
                 style={s.addCardBtn}
@@ -407,7 +469,14 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
             <Ionicons name="arrow-back" size={22} color={theme.colors.text.primary} />
           </TouchableOpacity>
           <Text style={s.studyDeckTitle} numberOfLines={1}>{activeDeck?.title}</Text>
-          <Text style={s.studyCounter}>{cardIndex + 1}/{cards.length}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Text style={s.studyCounter}>{cardIndex + 1}/{cards.length}</Text>
+            {activeDeck?.user_id === currentUserId && (
+              <TouchableOpacity onPress={() => card.id && handleDeleteCard(card.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="trash-outline" size={20} color="#D32F2F" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Progress bar */}

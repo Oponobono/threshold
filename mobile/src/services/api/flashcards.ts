@@ -92,3 +92,21 @@ export const shareDeck = async (deckId: number, recipientPin: string): Promise<{
   if (!response.ok) throw new Error(data?.error || 'Error al compartir el mazo');
   return data;
 };
+
+export const deleteFlashcardDeck = async (deckId: number) => {
+  const response = await fetchWithFallback(`/flashcard-decks/${deckId}`, {
+    method: 'DELETE',
+  });
+  const data = await parseJsonSafely(response);
+  if (!response.ok) throw new Error(data?.error || 'Error al eliminar el mazo');
+  return data;
+};
+
+export const deleteFlashcard = async (cardId: number) => {
+  const response = await fetchWithFallback(`/flashcards/${cardId}`, {
+    method: 'DELETE',
+  });
+  const data = await parseJsonSafely(response);
+  if (!response.ok) throw new Error(data?.error || 'Error al eliminar la tarjeta');
+  return data;
+};
