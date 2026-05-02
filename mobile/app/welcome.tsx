@@ -57,7 +57,7 @@ export default function WelcomeScreen() {
           <View style={styles.titleRow}>
             <Image 
               source={require('../src/images/logo_threshold.png')} 
-              style={[styles.logoIcon, { width: 52, height: 52 }]}
+              style={[styles.logoIcon, { width: 78, height: 78 }]}
               resizeMode="contain"
             />
             <Text style={styles.appName}>hreshold</Text>
