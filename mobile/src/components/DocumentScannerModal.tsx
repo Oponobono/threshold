@@ -105,18 +105,21 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
       setIsProcessing(true);
       
       let finalImageUri = capturedImage;
+      let base64Img = '';
       if (enhancerRef.current) {
         const processedUri = await enhancerRef.current.exportProcessedImage();
         if (processedUri) {
           finalImageUri = processedUri;
         }
+        base64Img = await enhancerRef.current.exportBase64() || '';
       }
       
       if (exportFormat === 'pdf') {
+        const imgSrc = base64Img ? `data:image/jpeg;base64,${base64Img}` : finalImageUri;
         const html = `
           <html>
             <body style="margin: 0; padding: 0;">
-              <img src="${finalImageUri}" style="width: 100%;" />
+              <img src="${imgSrc}" style="width: 100%;" />
             </body>
           </html>
         `;
@@ -159,10 +162,11 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
         if (processedUri) {
           finalImageUri = processedUri;
         }
+        const imgSrc = base64Data ? `data:image/jpeg;base64,${base64Data}` : finalImageUri;
         const html = `
           <html>
             <body style="margin: 0; padding: 0;">
-              <img src="${finalImageUri}" style="width: 100%;" />
+              <img src="${imgSrc}" style="width: 100%;" />
             </body>
           </html>
         `;
