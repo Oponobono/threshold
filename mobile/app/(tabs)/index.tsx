@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, TextInput, FlatList, Platform, Animated, Easing } from 'react-native';
 import { alertRef } from '../../src/components/CustomAlert';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThresholdDatePicker } from '../../src/components/ThresholdDatePicker';
 import { useTranslation } from 'react-i18next';
@@ -58,6 +58,7 @@ const SUBJECT_CARD_GAP = 12;
 export default function HybridDashboardScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isSubjectModalVisible, setIsSubjectModalVisible] = useState(false);
@@ -105,6 +106,7 @@ export default function HybridDashboardScreen() {
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
   const [scheduleDraftKeys, setScheduleDraftKeys] = useState<Set<string>>(new Set());
   const [allSchedules, setAllSchedules] = useState<any[]>([]);
+  const scheduleSheetAnim = useRef(new Animated.Value(500)).current;
 
   // States
   const [isAudioModalVisible, setIsAudioModalVisible] = useState(false);
@@ -139,8 +141,21 @@ export default function HybridDashboardScreen() {
         const allAssessments = await Promise.all(
           userSubjects.map((s: Subject) => getAssessments(s.id))
         );
-        const incomplete = allAssessments.flat().filter((a: Assessment) => !a.is_completed && a.date);
-        const sorted = incomplete.sort((a: any, b: any) => {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        const upcoming = allAssessments.flat().filter((a: Assessment) => {
+          if (a.is_completed || !a.date) return false;
+          try {
+            const [d, m, y] = a.date.split('-').map(Number);
+            const taskDate = new Date(y, m - 1, d);
+            return taskDate.getTime() >= today.getTime();
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        const sorted = upcoming.sort((a: any, b: any) => {
           try {
             const [da, ma, ya] = a.date.split('-').map(Number);
             const [db, mb, yb] = b.date.split('-').map(Number);
@@ -322,13 +337,19 @@ export default function HybridDashboardScreen() {
   ]);
 
   const handleCloseSchedulePlanner = () => {
-    setIsScheduleModalVisible(false);
-    setSelectedSubjectId(null);
-    setScheduleDraftKeys(new Set());
+    Animated.timing(scheduleSheetAnim, {
+      toValue: 500,
+      duration: 280,
+      easing: Easing.in(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      setIsScheduleModalVisible(false);
+      setSelectedSubjectId(null);
+      setScheduleDraftKeys(new Set());
+    });
   };
 
   const handleOpenSchedulePlanner = () => {
-    // Start clean every time to avoid carrying selection from a previous subject.
     setSelectedSubjectId(null);
     setScheduleDraftKeys(new Set());
     setIsScheduleModalVisible(true);
@@ -611,7 +632,7 @@ export default function HybridDashboardScreen() {
 
   return (
     <>
-      <SafeAreaView style={globalStyles.safeArea}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={globalStyles.safeArea}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         {/* 1. HEADER */}
@@ -754,8 +775,8 @@ export default function HybridDashboardScreen() {
               return (
                 <MetricCard 
                   title={t('dashboard.nextAssignment')} 
-                  value={nextAssessment ? nextAssessment.name : t('dashboard.nextAssignmentMock')} 
-                  subtext={nextAssessment ? nextAssessment.date : t('dashboard.tomorrow')} 
+                  value={nextAssessment ? nextAssessment.name : "Nada pendiente"} 
+                  subtext={nextAssessment ? nextAssessment.date : "Tómate un descanso"} 
                   icon="document-text-outline" 
                   color={mood.color}
                   showMood={mood.show}
@@ -1163,43 +1184,63 @@ export default function HybridDashboardScreen() {
       {/* GESTIONAR HORARIO MODAL (GRILLA SEMANAL) */}
       <Modal
         visible={isScheduleModalVisible}
-        animationType="slide"
+        animationType="none"
         transparent
         onRequestClose={handleCloseSchedulePlanner}
+        onShow={() => {
+          scheduleSheetAnim.setValue(500);
+          Animated.spring(scheduleSheetAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 0,
+            speed: 14,
+          }).start();
+        }}
       >
         <Pressable style={styles.sheetBackdrop} onPress={handleCloseSchedulePlanner}>
-          <View style={[styles.sheetContent, { paddingBottom: 20 }]}>
+          <Animated.View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom + 8, 20), transform: [{ translateY: scheduleSheetAnim }] }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>{t('dashboard.weeklySchedule')}</Text>
-            
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <TouchableOpacity 
-                style={[styles.dropdownSelector, { flex: 1, marginRight: 12 }]} 
-                onPress={() => setIsSubjectSelectorVisible(true)}
+
+            {/* Title row with X close button */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={styles.sheetTitle}>{t('dashboard.weeklySchedule')}</Text>
+              <TouchableOpacity
+                onPress={handleCloseSchedulePlanner}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.inputBackground, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, paddingRight: 8 }}>
-                  {selectedSubjectId ? (
-                    <View style={[styles.dot, { backgroundColor: subjects.find(s => s.id === selectedSubjectId)?.color || theme.colors.primary, marginRight: 8 }]} />
-                  ) : null}
-                  <Text style={[styles.dropdownSelectorText, !selectedSubjectId && styles.dropdownPlaceholder, { flexShrink: 1 }]} numberOfLines={1}>
-                    {selectedSubjectId 
-                      ? subjects.find(s => s.id === selectedSubjectId)?.name 
-                      : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-down" size={16} color={theme.colors.text.placeholder} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.sheetCancelBtn} onPress={handleCloseSchedulePlanner}>
-                <Text style={styles.sheetCancelText}>{t('common.close')}</Text>
+                <Ionicons name="close" size={18} color={theme.colors.text.secondary} />
               </TouchableOpacity>
             </View>
 
+            {/* Full-width subject dropdown */}
+            <TouchableOpacity 
+              style={[styles.dropdownSelector, { marginBottom: 12 }]} 
+              onPress={() => setIsSubjectSelectorVisible(true)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {selectedSubjectId ? (
+                  <View style={[styles.dot, { backgroundColor: subjects.find(s => s.id === selectedSubjectId)?.color || theme.colors.primary, marginRight: 8 }]} />
+                ) : null}
+                <Text style={[styles.dropdownSelectorText, !selectedSubjectId && styles.dropdownPlaceholder, { flex: 1 }]} numberOfLines={1}>
+                  {selectedSubjectId 
+                    ? subjects.find(s => s.id === selectedSubjectId)?.name 
+                    : t('dashboard.quickAddMenu.grade.subjectPlaceholder')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={16} color={theme.colors.text.placeholder} />
+            </TouchableOpacity>
+
             {!selectedSubjectId ? (
               <Text style={styles.scheduleHintText}>{t('dashboard.schedulePlanner.selectSubjectHint')}</Text>
-            ) : null}
-            {selectedSubjectId && scheduleHasChanges ? (
-              <Text style={styles.scheduleHintText}>{t('dashboard.schedulePlanner.unsavedHint')}</Text>
-            ) : null}
+            ) : scheduleDraftKeys.size === 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, backgroundColor: theme.colors.inputBackground, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start', borderWidth: 1, borderColor: theme.colors.border }}>
+                <Ionicons name="calendar-outline" size={13} color={theme.colors.text.secondary} />
+                <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: '500' }}>Sin horario asignado — toca la grilla para añadir</Text>
+              </View>
+            ) : (
+              <View style={{ height: styles.scheduleHintText.fontSize ? styles.scheduleHintText.fontSize * 1.5 : 20 }} />
+            )}
 
             <View style={[styles.gridContainer, { height: 400, flexShrink: 1 }]}>
               {/* Header: Days */}
@@ -1223,10 +1264,19 @@ export default function HybridDashboardScreen() {
                     </View>
                     {[1, 2, 3, 4, 5, 6, 7].map((day) => {
                       const startTime = `${hour.toString().padStart(2, '0')}:00`;
-                      const slotData = selectedSubjectId
-                        ? scheduleDraftKeys.has(buildScheduleKey(day, startTime))
-                        : false;
-                      
+                      const key = buildScheduleKey(day, startTime);
+
+                      const isActive = selectedSubjectId
+                        ? scheduleDraftKeys.has(key)
+                        : allSchedules.some(s => buildScheduleKey(s.day_of_week, s.start_time) === key);
+
+                      const matchingEntry = !selectedSubjectId
+                        ? allSchedules.find(s => buildScheduleKey(s.day_of_week, s.start_time) === key)
+                        : null;
+                      const slotColor = selectedSubjectId
+                        ? (selectedScheduleSubject?.color || theme.colors.primary)
+                        : (subjects.find(s => s.id === matchingEntry?.subject_id)?.color || theme.colors.primary);
+
                       return (
                         <TouchableOpacity 
                           key={`${day}-${hour}`} 
@@ -1239,8 +1289,8 @@ export default function HybridDashboardScreen() {
                             handleToggleScheduleSlot(day, hour);
                           }}
                         >
-                          {slotData ? (
-                            <View style={[styles.slotIndicator, { backgroundColor: selectedScheduleSubject?.color || theme.colors.primary }]} />
+                          {isActive ? (
+                            <View style={[styles.slotIndicator, { backgroundColor: slotColor }]} />
                           ) : null}
                         </TouchableOpacity>
                       );
@@ -1269,7 +1319,7 @@ export default function HybridDashboardScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </Pressable>
       </Modal>
 

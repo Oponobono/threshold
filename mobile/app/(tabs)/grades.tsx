@@ -83,7 +83,7 @@ export default function GradesScreen() {
   ];
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={globalStyles.safeArea}>
       <View style={styles.header}>
         <View style={globalStyles.row}>
           <Ionicons name="school" size={20} color={theme.colors.primary} style={{ marginRight: 6 }} />

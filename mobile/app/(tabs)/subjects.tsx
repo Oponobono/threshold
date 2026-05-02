@@ -92,7 +92,7 @@ export default function SubjectsScreen() {
   );
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={globalStyles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
         <View style={globalStyles.row}>

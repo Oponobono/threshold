@@ -1,5 +1,5 @@
-import React, { useState, forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, LayoutChangeEvent } from 'react-native';
+import React, { useState, forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, LayoutChangeEvent, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { Canvas, Image, useImage, ColorMatrix, useCanvasRef } from '@shopify/react-native-skia';
@@ -68,9 +68,22 @@ export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, Advanc
   onFilterChange,
 }, ref) => {
   const [activeFilter, setActiveFilter] = useState('original');
+  const [renderKey, setRenderKey] = useState(0);
   const skImage = useImage(imageUri);
   const canvasRef = useCanvasRef();
   const [canvasSize, setCanvasSize] = useState({ width: 300, height: 400 });
+
+  // Forzar re-render cuando la app vuelve al primer plano (para evitar canvas negro tras compartir)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        setRenderKey(prev => prev + 1);
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -129,7 +142,7 @@ export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, Advanc
         {!skImage ? (
           <ActivityIndicator size="large" color="white" style={styles.loader} />
         ) : (
-          <Canvas style={styles.canvas} ref={canvasRef}>
+          <Canvas key={renderKey} style={styles.canvas} ref={canvasRef}>
             <Image
               image={skImage}
               fit="contain"

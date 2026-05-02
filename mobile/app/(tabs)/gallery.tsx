@@ -51,7 +51,7 @@ export default function GalleryScreen() {
   };
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={globalStyles.safeArea}>
       {/* ── HEADER ── */}
       <View style={styles.header}>
         <View style={globalStyles.row}>

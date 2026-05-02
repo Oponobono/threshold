@@ -148,7 +148,7 @@ export default function CalendarScreen() {
     .toLocaleString(i18n.language === 'en' ? 'en-US' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={globalStyles.safeArea}>
       {/* ── HEADER ─────────────────────────────────────────────── */}
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>{t('dashboard.tabs.calendar')}</Text>

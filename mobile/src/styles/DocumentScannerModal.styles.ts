@@ -187,8 +187,10 @@ export const documentScannerStyles = StyleSheet.create({
     gap: 8,
   },
   modeBadge: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -218,21 +220,20 @@ export const documentScannerStyles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 8,
   },
-  subjectGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  subjectScrollContainer: {
+    paddingVertical: 4,
     gap: 8,
   },
   subjectItem: {
-    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 14,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    minWidth: 110,
   },
   subjectName: {
     fontSize: 12,

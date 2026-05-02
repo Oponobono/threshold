@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, ActivityIndicator, Platform, Share } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ActivityIndicator, Platform, Share, ScrollView } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -75,7 +75,8 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     try {
       const { scannedImages, status } = await DocumentScanner.scanDocument({
         maxNumDocuments: 1,
-        croppedImageQuality: 90,
+        croppedImageQuality: 100, // Mejor calidad para evitar artefactos en OCR
+        letCropping: true, // Habilita la pantalla nativa de recorte para corregir perspectiva/ondulaciones
         responseType: ResponseType.ImageFilePath
       });
 
@@ -149,54 +150,6 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     }
   };
 
-  const handleGenerateFlashcards = async () => {
-    if (!selectedSubjectId || !capturedImage) return;
-    try {
-      setIsProcessing(true);
-      const base64Data = await enhancerRef.current?.exportBase64();
-      let finalImageUri = capturedImage;
-
-      if (exportFormat === 'pdf') {
-        const processedUri = await enhancerRef.current?.exportProcessedImage();
-        if (processedUri) {
-          finalImageUri = processedUri;
-        }
-        const imgSrc = base64Data ? `data:image/jpeg;base64,${base64Data}` : finalImageUri;
-        const html = `
-          <html>
-            <body style="margin: 0; padding: 0;">
-              <img src="${imgSrc}" style="width: 100%;" />
-            </body>
-          </html>
-        `;
-        const { uri: pdfUri } = await Print.printToFileAsync({ html });
-        await createScannedDocument({
-          subject_id: selectedSubjectId,
-          local_uri: pdfUri,
-          name: `Documento Escaneado ${new Date().toLocaleDateString()}`
-        });
-        finalImageUri = pdfUri;
-      } else {
-        const processedUri = await enhancerRef.current?.exportProcessedImage();
-        if (processedUri) {
-          finalImageUri = processedUri;
-        }
-        await createPhoto({
-          subject_id: selectedSubjectId,
-          local_uri: finalImageUri,
-        });
-      }
-      
-      if (onSave) {
-        onSave(exportFormat === 'pdf' ? finalImageUri : finalImageUri, selectedSubjectId, base64Data || undefined);
-      }
-      resetAndClose();
-    } catch (error) {
-      showAlert({ title: t('common.error'), message: 'Error generando tarjetas', type: 'error' });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const handleOCR = async () => {
     if (!capturedImage) return;
@@ -247,10 +200,16 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     onClose();
   };
 
+  const handleDiscard = () => {
+    // No borramos la imagen inmediatamente para que la vista actual no desaparezca de golpe.
+    // Simplemente lanzamos el escáner encima.
+    launchNativeScanner();
+  };
+
   const isSaveDisabled = !selectedSubjectId || isProcessing;
 
   return (
-    <Modal visible={isVisible} animationType="slide" transparent={false} onRequestClose={resetAndClose}>
+    <Modal visible={isVisible} animationType="slide" transparent={false} onRequestClose={step === 'saving' ? handleDiscard : resetAndClose}>
       <View style={localStyles.container}>
         
         {step === 'guide' && (
@@ -307,7 +266,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
               >
                 {isProcessing
                   ? <ActivityIndicator size="small" color="#C5A059" />
-                  : <Ionicons name="text" size={20} color="#C5A059" />
+                  : <MaterialCommunityIcons name="text-recognition" size={22} color="#C5A059" />
                 }
               </TouchableOpacity>
             </View>
@@ -355,7 +314,11 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
             {/* Selección de materia */}
             <View style={localStyles.sectionBlock}>
               <Text style={localStyles.sectionLabel}>{t('dashboard.documentScannerModal.save')}</Text>
-              <View style={localStyles.subjectGrid}>
+              <ScrollView 
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={localStyles.subjectScrollContainer}
+              >
                 {subjects.map(s => (
                   <TouchableOpacity
                     key={s.id}
@@ -374,22 +337,21 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
                     </View>
                     <Text style={localStyles.subjectName} numberOfLines={1}>{s.name}</Text>
                     {selectedSubjectId === s.id && (
-                      <Ionicons name="checkmark-circle" size={16} color={s.color || theme.colors.primary} />
+                      <Ionicons name="checkmark-circle" size={16} color={s.color || theme.colors.primary} style={{ marginLeft: 6 }} />
                     )}
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
             </View>
 
             {/* Barra de acciones */}
             <View style={localStyles.saveActions}>
               <TouchableOpacity
-                onPress={handleGenerateFlashcards}
-                disabled={isSaveDisabled}
-                style={[localStyles.actionBtn, localStyles.actionBtnFlashcard, isSaveDisabled && localStyles.primaryBtnDisabled]}
+                onPress={handleDiscard}
+                style={[localStyles.actionBtn, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, borderWidth: 1 }]}
               >
-                <Ionicons name="layers-outline" size={18} color={theme.colors.primary} />
-                <Text style={[localStyles.actionBtnText, { color: theme.colors.primary }]}>Tarjetas</Text>
+                <Ionicons name="camera-reverse-outline" size={18} color={theme.colors.text.primary} />
+                <Text style={[localStyles.actionBtnText, { color: theme.colors.text.primary }]}>Retomar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
