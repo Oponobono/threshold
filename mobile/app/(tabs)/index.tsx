@@ -1236,7 +1236,7 @@ export default function HybridDashboardScreen() {
             ) : scheduleDraftKeys.size === 0 ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, backgroundColor: theme.colors.inputBackground, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start', borderWidth: 1, borderColor: theme.colors.border }}>
                 <Ionicons name="calendar-outline" size={13} color={theme.colors.text.secondary} />
-                <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: '500' }}>Sin horario asignado — toca la grilla para añadir</Text>
+                <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: '500' }}>{t('dashboard.noScheduleAssigned')}</Text>
               </View>
             ) : (
               <View style={{ height: styles.scheduleHintText.fontSize ? styles.scheduleHintText.fontSize * 1.5 : 20 }} />

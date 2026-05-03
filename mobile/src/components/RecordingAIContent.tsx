@@ -154,7 +154,7 @@ export const RecordingAIContent: React.FC<RecordingAIContentProps> = ({
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="text-recognition" size={24} color="white" />
-            <Text style={localStyles.actionButtonText}>Iniciar transcripción</Text>
+            <Text style={localStyles.actionButtonText}>{t('recordings.startTranscription', 'Iniciar transcripción')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -210,7 +210,7 @@ export const RecordingAIContent: React.FC<RecordingAIContentProps> = ({
           activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="lightbulb-on-outline" size={24} color="white" />
-          <Text style={localStyles.actionButtonText}>Iniciar resumen</Text>
+          <Text style={localStyles.actionButtonText}>{t('recordings.startSummary', 'Iniciar resumen')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -222,7 +222,7 @@ export const RecordingAIContent: React.FC<RecordingAIContentProps> = ({
       <View style={localStyles.headerBar}>
         <View style={localStyles.headerTitleContainer}>
           <Text style={localStyles.headerTitle}>
-            {activeTab === 'transcription' ? 'Transcripción' : 'Resumen IA'}
+            {activeTab === 'transcription' ? t('dashboard.audioRecorderModal.tabs.transcription', 'Transcripción') : t('dashboard.audioRecorderModal.tabs.summary', 'Resumen IA')}
           </Text>
         </View>
 

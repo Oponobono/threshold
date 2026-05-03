@@ -28,6 +28,12 @@ const initializePostgresDb = async (pool) => {
       ON users(share_pin) WHERE share_pin IS NOT NULL
     `);
 
+    // Índices de rendimiento
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_decks_user_created 
+      ON flashcard_decks(user_id, created_at)
+    `);
+
     // Crear usuario por defecto
     const { rows: existingUser } = await pool.query(
       `SELECT id FROM users WHERE email = $1`,

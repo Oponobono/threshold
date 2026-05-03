@@ -31,6 +31,7 @@ interface DocumentScannerModalProps {
   onClose: () => void;
   subjects: Subject[];
   onSave?: (uri: string, subjectId: number, base64?: string) => void;
+  onOCR?: (base64: string) => Promise<string>;
 }
 
 type ScannerStep = 'guide' | 'saving';
@@ -39,7 +40,8 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   isVisible, 
   onClose, 
   subjects,
-  onSave 
+  onSave,
+  onOCR
 }) => {
   const { t } = useTranslation();
   const { showAlert } = useCustomAlert();
@@ -257,7 +259,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
               <TouchableOpacity onPress={resetAndClose} style={localStyles.backBtn}>
                 <Ionicons name="arrow-back" size={22} color={theme.colors.text.primary} />
               </TouchableOpacity>
-              <Text style={localStyles.savingHeaderTitle}>Editar Escaneo</Text>
+              <Text style={localStyles.savingHeaderTitle}>{t('modals.editScan')}</Text>
               {/* OCR: ícono en el header para acceso rápido */}
               <TouchableOpacity
                 style={[localStyles.ocrIconBtn, isProcessing && { opacity: 0.5 }]}
@@ -280,7 +282,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
             {/* Formato de exportación */}
             <View style={localStyles.sectionBlock}>
-              <Text style={localStyles.sectionLabel}>Formato de exportación</Text>
+              <Text style={localStyles.sectionLabel}>{t('modals.exportFormat')}</Text>
               <View style={localStyles.modeBadges}>
                 <TouchableOpacity
                   style={[localStyles.modeBadge, exportFormat === 'image' && localStyles.modeBadgeActive]}
@@ -351,7 +353,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
                 style={[localStyles.actionBtn, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border, borderWidth: 1 }]}
               >
                 <Ionicons name="camera-reverse-outline" size={18} color={theme.colors.text.primary} />
-                <Text style={[localStyles.actionBtnText, { color: theme.colors.text.primary }]}>Retomar</Text>
+                <Text style={[localStyles.actionBtnText, { color: theme.colors.text.primary }]}>{t('modals.retake')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -363,7 +365,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
                   ? <ActivityIndicator color="white" size="small" />
                   : <>
                       <Ionicons name="cloud-upload-outline" size={18} color="white" />
-                      <Text style={[localStyles.actionBtnText, { color: 'white' }]}>Guardar</Text>
+                      <Text style={[localStyles.actionBtnText, { color: 'white' }]}>{t('modals.save')}</Text>
                     </>
                 }
               </TouchableOpacity>

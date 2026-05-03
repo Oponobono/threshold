@@ -7,10 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { DragonflyIcon } from '../src/components/DragonflyIcon';
 import { theme } from '../src/styles/theme';
 
 export default function AboutScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -55,7 +57,7 @@ export default function AboutScreen() {
             />
           </Animated.View>
 
-          <Text style={styles.heroEyebrow}>un producto de</Text>
+          <Text style={styles.heroEyebrow}>{t('about.productOf', 'un producto de')}</Text>
 
           <LinearGradient
             colors={['transparent', '#F9F9F7']}
@@ -71,7 +73,7 @@ export default function AboutScreen() {
           colors={['#F9F9F7', '#F4F4F1', '#EFEFEA']}
           style={styles.section}
         >
-          <Text style={styles.sectionEyebrow}>La aplicación</Text>
+          <Text style={styles.sectionEyebrow}>{t('about.theApp', 'La aplicación')}</Text>
           <Text style={styles.sectionTitle}>Threshold</Text>
           <Text style={styles.sectionBody}>
             Diseñada íntegramente por MAPUVIA Labs,{' '}
@@ -83,17 +85,17 @@ export default function AboutScreen() {
           <View style={styles.specRow}>
             <View style={styles.specItem}>
               <Text style={styles.specValue}>2026</Text>
-              <Text style={styles.specLabel}>Lanzamiento</Text>
+              <Text style={styles.specLabel}>{t('about.launch', 'Lanzamiento')}</Text>
             </View>
             <View style={styles.specDivider} />
             <View style={styles.specItem}>
               <Text style={styles.specValue}>v1.0</Text>
-              <Text style={styles.specLabel}>Versión</Text>
+              <Text style={styles.specLabel}>{t('about.version', 'Versión')}</Text>
             </View>
             <View style={styles.specDivider} />
             <View style={styles.specItem}>
-              <Text style={styles.specValue}>I+D</Text>
-              <Text style={styles.specLabel}>Origen</Text>
+              <Text style={styles.specValue}>{t('about.rd', 'I+D')}</Text>
+              <Text style={styles.specLabel}>{t('about.origin', 'Origen')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -105,17 +107,17 @@ export default function AboutScreen() {
           colors={['#EFEFEA', '#EAEADF', '#E2E2D6']}
           style={styles.section}
         >
-          <Text style={styles.sectionEyebrow}>El símbolo</Text>
+          <Text style={styles.sectionEyebrow}>{t('about.theSymbol', 'El símbolo')}</Text>
 
           <View style={styles.dragonflyStage}>
             <View style={styles.glowGold} />
             <DragonflyIcon size={110} color="#C5A059" />
           </View>
 
-          <Text style={styles.sectionTitleLg}>La Libélula</Text>
+          <Text style={styles.sectionTitleLg}>{t('about.theDragonfly', 'La Libélula')}</Text>
           <Text style={styles.sectionBody}>
             Elegida por MAPUVIA Labs como emblema de Threshold, la{' '}
-            <Text style={styles.accentGold}>libélula</Text>{' '}
+            <Text style={styles.accentGold}>{t('about.dragonflyLower', 'libélula')}</Text>{' '}
             representa agilidad, precisión y visión panorámica de 360°.
             Así como este insecto percibe su entorno completo de un solo vistazo,
             Threshold le otorga al estudiante una perspectiva integral de su progreso académico,
@@ -130,7 +132,7 @@ export default function AboutScreen() {
           colors={['#E2E2D6', '#DFE4E8', '#D7DEE4']}
           style={styles.section}
         >
-          <Text style={styles.sectionEyebrow}>La filial</Text>
+          <Text style={styles.sectionEyebrow}>{t('about.theSubsidiary', 'La filial')}</Text>
           <Image
             source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}
             style={styles.inlineLogo}
@@ -140,7 +142,7 @@ export default function AboutScreen() {
             MAPUVIA Labs es la división de investigación y desarrollo (I+D) de MAPUVIA, enfocada
             exclusivamente en la creación de software científico y académico. Opera como una incubadora 
             especializada en transformar la educación y la investigación en{' '}
-            <Text style={styles.accentDark}>tecnología tangible</Text>.
+            <Text style={styles.accentDark}>{t('about.tangibleTech', 'tecnología tangible')}</Text>.
           </Text>
         </LinearGradient>
 
@@ -151,7 +153,7 @@ export default function AboutScreen() {
           colors={['#D7DEE4', '#E8ECEF', '#F4F6F8']}
           style={[styles.section, styles.lastSection]}
         >
-          <Text style={styles.sectionEyebrow}>La casa matriz</Text>
+          <Text style={styles.sectionEyebrow}>{t('about.headquarters', 'La casa matriz')}</Text>
           <View style={styles.mapuviaHeader}>
             <Image
               source={require('../src/images/logos_mapuvia/logotipo_mapuvia_labs.png')}

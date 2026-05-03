@@ -71,7 +71,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
     setIsSharing(true);
     try {
       const result = await shareDeck(shareDeckTarget.id, sharePin.trim());
-      showAlert({ title: '¡Compartido!', message: result.message, type: 'success' });
+      showAlert({ title: t('common.success', '¡Éxito!'), message: result.message, type: 'success' });
       setShareDeckTarget(null);
       setSharePin('');
     } catch (error: any) {
@@ -260,8 +260,8 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
 
   const handleDeleteDeck = (deck: FlashcardDeck) => {
     showAlert({
-      title: 'Eliminar Mazo',
-      message: `¿Estás seguro de que deseas eliminar el mazo "${deck.title}"? Esta acción no se puede deshacer.`,
+      title: t('modals.deleteDeck', 'Eliminar Mazo'),
+      message: t('modals.deleteDeckConfirm', { title: deck.title, defaultValue: `¿Estás seguro de que deseas eliminar el mazo "${deck.title}"? Esta acción no se puede deshacer.` }),
       type: 'confirm',
       buttons: [
         { text: 'Cancelar', style: 'cancel' },
@@ -283,8 +283,8 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
 
   const handleDeleteCard = (cardId: number) => {
     showAlert({
-      title: 'Eliminar Tarjeta',
-      message: '¿Estás seguro de que deseas eliminar esta tarjeta?',
+      title: t('modals.deleteCard', 'Eliminar Tarjeta'),
+      message: t('modals.deleteCardConfirm', '¿Estás seguro de que deseas eliminar esta tarjeta?'),
       type: 'confirm',
       buttons: [
         { text: 'Cancelar', style: 'cancel' },
@@ -378,7 +378,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
                         paddingHorizontal: 7, paddingVertical: 2,
                       }}>
                         <Ionicons name="people" size={10} color="#388E3C" />
-                        <Text style={{ fontSize: 10, color: '#388E3C', fontWeight: '700' }}>Compartido</Text>
+                        <Text style={{ fontSize: 10, color: '#388E3C', fontWeight: '700' }}>{t('modals.shared', 'Compartido')}</Text>
                       </View>
                     )}
                   </View>
@@ -697,9 +697,9 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
             style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '85%', gap: 12 }}
             onPress={() => null}
           >
-            <Text style={{ fontSize: 17, fontWeight: '700', color: theme.colors.text.primary }}>Compartir mazo</Text>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: theme.colors.text.primary }}>{t('modals.shareDeck', 'Compartir mazo')}</Text>
             <Text style={{ fontSize: 13, color: theme.colors.text.secondary }}>
-              Ingresa el PIN del usuario con quien deseas compartir {shareDeckTarget?.title ? `"${shareDeckTarget?.title}"` : ''}.
+              {t('modals.shareDeckDesc', { title: shareDeckTarget?.title || '', defaultValue: `Ingresa el PIN del usuario con quien deseas compartir ${shareDeckTarget?.title ? `"${shareDeckTarget?.title}"` : ''}.` })}
             </Text>
             <TextInput
               style={{
@@ -713,7 +713,7 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
                 textAlign: 'center',
                 color: theme.colors.text.primary,
               }}
-              placeholder="Ej: ABC123"
+              placeholder={t('modals.pinPlaceholder', 'Ej: ABC123')}
               placeholderTextColor={theme.colors.text.placeholder}
               value={sharePin}
               onChangeText={setSharePin}
@@ -725,14 +725,14 @@ export const FlashcardsModal: React.FC<Props> = ({ isVisible, onClose, subjects 
                 style={{ flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' }}
                 onPress={() => setShareDeckTarget(null)}
               >
-                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>Cancelar</Text>
+                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>{t('modals.cancel', 'Cancelar')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: theme.colors.primary, alignItems: 'center' }, (!sharePin.trim() || isSharing) && { opacity: 0.5 }]}
                 onPress={handleShareDeck}
                 disabled={!sharePin.trim() || isSharing}
               >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>{isSharing ? 'Compartiendo...' : 'Compartir'}</Text>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{isSharing ? t('modals.sharing', 'Compartiendo...') : t('modals.share', 'Compartir')}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>

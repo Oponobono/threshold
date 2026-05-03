@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, SectionList, Animated, Easing, SafeAreaView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, SectionList, Animated, Easing, StatusBar, TextInput, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +9,6 @@ import { recordingsStyles as styles } from '../src/styles/RecordingsScreen.style
 import { useAudioRecorder, RecordingItem } from '../src/hooks/useAudioRecorder';
 import { AudioPlayerItem } from '../src/components/AudioPlayerItem';
 import { PremiumLoading } from '../src/components/PremiumLoading';
-import { globalStyles } from '../src/styles/globalStyles';
 import { getYouTubeVideos, createYouTubeVideo, YouTubeVideo, deleteYouTubeVideo } from '../src/services/api';
 
 interface MediaItem extends RecordingItem {
@@ -28,6 +28,7 @@ interface GroupedSection {
 export default function RecordingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Audio recordings state
@@ -322,8 +323,12 @@ export default function RecordingsScreen() {
   }
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, styles.container]}>
+    <View style={[styles.container, { flex: 1 }]}>
       <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.card} translucent={false} />
+
+      {/* Status bar safe area */}
+      <View style={{ height: insets.top, backgroundColor: theme.colors.card }} />
 
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -386,13 +391,13 @@ export default function RecordingsScreen() {
       {showYoutubeModal && (
         <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
           <View style={{ backgroundColor: theme.colors.card, width: '85%', borderRadius: 16, padding: 24 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: theme.colors.text.primary }}>Añadir Video de YouTube</Text>
-            <Text style={{ color: theme.colors.text.secondary, marginBottom: 12 }}>Pega el enlace del video para transcribirlo.</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: theme.colors.text.primary }}>{t('recordings.addYoutubeVideo')}</Text>
+            <Text style={{ color: theme.colors.text.secondary, marginBottom: 12 }}>{t('recordings.youtubeLinkPrompt')}</Text>
             <View style={{ borderWidth: 1, borderColor: theme.colors.border, borderRadius: 8, paddingHorizontal: 12, marginBottom: 20 }}>
               <TextInput
                 value={youtubeUrl}
                 onChangeText={setYoutubeUrl}
-                placeholder="https://www.youtube.com/watch?v=..."
+                placeholder={t('recordings.youtubePlaceholder')}
                 placeholderTextColor={theme.colors.text.placeholder}
                 style={{ height: 44, color: theme.colors.text.primary }}
                 autoCapitalize="none"
@@ -409,7 +414,7 @@ export default function RecordingsScreen() {
                 disabled={isAddingYouTubeVideo}
                 style={{ padding: 10, opacity: isAddingYouTubeVideo ? 0.5 : 1 }}
               >
-                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>Cancelar</Text>
+                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>{t('recordings.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleAddYoutube}
@@ -436,7 +441,7 @@ export default function RecordingsScreen() {
 
       {/* ── BOTONES DE GRABACIÓN TIPO WHATSAPP ─────────────────────────────── */}
       {!isRecording ? (
-        <View style={styles.idleRecorderContainer}>
+        <View style={[styles.idleRecorderContainer, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
           <TouchableOpacity 
             onPress={startRecording}
             style={styles.startRecordingBtn}
@@ -448,8 +453,11 @@ export default function RecordingsScreen() {
         </View>
       ) : (
         <Animated.View style={[
-          styles.activeRecorderContainer, 
-          { borderColor: isPaused ? theme.colors.border : theme.colors.primary }
+          styles.activeRecorderContainer,
+          {
+            bottom: Math.max(insets.bottom, 16) + 8,
+            borderColor: isPaused ? theme.colors.border : theme.colors.primary,
+          }
         ]}>
           {/* Izquierda: Timer y Ondas (WhatsApp Style) */}
           <View style={styles.recordingInfo}>
@@ -491,6 +499,6 @@ export default function RecordingsScreen() {
           </View>
         </Animated.View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

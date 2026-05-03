@@ -1,24 +1,32 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
+import { subjectDetailStyles as sectionStyles } from '../styles/SubjectDetail.styles';
+import { useCustomAlert } from './CustomAlert';
+import { deleteScannedDocument } from '../services/api';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 interface SubjectDocumentsListProps {
   documents: any[];
   onGenerateFlashcards?: (uris: string[]) => void;
   onExportPdf?: (uris: string[]) => void;
+  onDocumentDeleted?: (id: number | string) => void;
 }
 
 export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({ 
   documents,
   onGenerateFlashcards,
-  onExportPdf
+  onExportPdf,
+  onDocumentDeleted 
 }) => {
+  const { t } = useTranslation();
+  const { showAlert } = useCustomAlert();
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number | string>>(new Set());
 
   if (documents.length === 0) return null;
 
@@ -80,17 +88,43 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
     setSelectedIds(new Set());
   };
 
+  const handleDelete = (docId: number | string) => {
+    showAlert({
+      title: 'Eliminar documento',
+      message: '¿Estás seguro de que quieres eliminar este documento?',
+      type: 'confirm',
+      buttons: [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteScannedDocument(docId);
+              onDocumentDeleted?.(docId);
+            } catch (e) {
+              showAlert({ title: 'Error', message: 'No se pudo eliminar el documento.', type: 'error' });
+            }
+          }
+        }
+      ]
+    });
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Documentos Escaneados</Text>
+    <View style={sectionStyles.sectionBlock}>
+      <View style={sectionStyles.sectionHeaderRow}>
+        <View>
+          <Text style={sectionStyles.sectionTitle}>{t('subjects.scannedDocuments')}</Text>
+          <Text style={sectionStyles.sectionHint}>{t('subjects.scannedDocumentsHint')}</Text>
+        </View>
         {selectionMode ? (
           <TouchableOpacity onPress={() => { setSelectionMode(false); setSelectedIds(new Set()); }}>
-            <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Cancelar</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.cancel')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={() => setSelectionMode(true)}>
-            <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Seleccionar</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.select')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -129,7 +163,17 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
                   {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Reciente'}
                 </Text>
               </View>
-              {!selectionMode && <Ionicons name="open-outline" size={20} color={theme.colors.text.secondary} />}
+              {!selectionMode && (
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Ionicons name="open-outline" size={20} color={theme.colors.text.secondary} />
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation?.(); handleDelete(docId); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color={theme.colors.text.secondary} />
+                  </TouchableOpacity>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -141,11 +185,11 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity style={styles.actionBtn} onPress={handleExport}>
               <Ionicons name="document-text-outline" size={20} color="white" />
-              <Text style={styles.actionBtnText}>PDF</Text>
+              <Text style={styles.actionBtnText}>{t('subjects.pdf')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]} onPress={handleGenerate}>
               <Ionicons name="flash-outline" size={20} color="white" />
-              <Text style={styles.actionBtnText}>Tarjetas</Text>
+              <Text style={styles.actionBtnText}>{t('subjects.flashcards')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -156,7 +200,6 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
     marginBottom: 24,
     marginTop: 8,
   },

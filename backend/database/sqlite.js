@@ -31,6 +31,14 @@ const initializeSqliteDb = (db) => {
         }
       );
 
+      // Índices de rendimiento
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_decks_user_created ON flashcard_decks(user_id, created_at)`,
+        (err) => {
+          if (err) console.error('Error creando índice de rendimiento (idx_decks_user_created):', err.message);
+        }
+      );
+
       // Migrar columnas faltantes con promesas
       const migrateAll = async () => {
         for (const [tableName, schema] of Object.entries(tableSchema)) {

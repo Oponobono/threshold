@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image as RNImage,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -22,6 +23,7 @@ import {
   getAudioRecordings,
   getYouTubeVideos,
   getScannedDocumentsBySubject,
+  deleteYouTubeVideo,
   type Assessment,
   type Subject,
   type UserProfile,
@@ -43,6 +45,10 @@ import { SubjectInsights } from '../../src/components/SubjectInsights';
 import { useSubjectGrades } from '../../src/hooks/useSubjectGrades';
 import { useCameraPermissions, CameraView } from 'expo-camera';
 import { subjectDetailStyles as styles } from '../../src/styles/SubjectDetail.styles';
+import { useCustomAlert } from '../../src/components/CustomAlert';
+import { PDFDocument } from 'pdf-lib';
+
+// Helper removed
 
 type DetailSubject = Subject & {
   avg_score?: number | null;
@@ -82,6 +88,30 @@ export default function SubjectDetailScreen() {
   
   const [isFlashcardModalVisible, setIsFlashcardModalVisible] = useState(false);
   const [flashcardBase64, setFlashcardBase64] = useState<string | undefined>();
+  const { showAlert } = useCustomAlert();
+
+  const handleDeleteVideo = (videoId: number | string) => {
+    showAlert({
+      title: t('subjects.deleteVideo'),
+      message: t('subjects.deleteVideoConfirm'),
+      type: 'confirm',
+      buttons: [
+        { text: t('subjects.cancel'), style: 'cancel' },
+        {
+          text: t('subjects.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteYouTubeVideo(Number(videoId));
+              setRecentVideos(prev => prev.filter(v => v.id !== videoId));
+            } catch (e) {
+              showAlert({ title: t('subjects.error'), message: t('subjects.deleteVideoError'), type: 'error' });
+            }
+          }
+        }
+      ]
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -226,10 +256,18 @@ export default function SubjectDetailScreen() {
             subjectColor={selectedSubject?.color ?? undefined}
           />
 
-          <SubjectInsights recentAssessments={recentAssessments} />
+          <SubjectInsights 
+            recentAssessments={recentAssessments} 
+            onDeleteAssessment={(id) => {
+              setAssessments(prev => prev.filter(a => a.id !== id));
+            }}
+          />
 
           <SubjectDocumentsList 
-            documents={pdfDocuments} 
+            documents={pdfDocuments}
+            onDocumentDeleted={(id) => {
+              setScannedDocuments(prev => prev.filter(d => d.id !== id));
+            }}
             onGenerateFlashcards={async (uris) => {
               if (uris.length === 0) return;
               // Leemos la primera imagen para las flashcards (como MVP)
@@ -247,23 +285,59 @@ export default function SubjectDetailScreen() {
             onExportPdf={async (uris) => {
               if (uris.length === 0) return;
               try {
-                // Crear un HTML con todas las imagenes seleccionadas
-                const imagesHtml = uris.map(uri => `<img src="${uri}" style="width: 100%; page-break-after: always; margin-bottom: 20px;" />`).join('\n');
-                const html = `
-                  <html>
-                    <body style="margin: 0; padding: 0;">
-                      ${imagesHtml}
-                    </body>
-                  </html>
-                `;
-                const Print = require('expo-print');
-                const { uri: pdfUri } = await Print.printToFileAsync({ html });
+                console.log('[PDF] Iniciando exportación. URIs:', uris);
+                const ImageManipulator = require('expo-image-manipulator');
+                const pdfDoc = await PDFDocument.create();
+
+                for (const uri of uris) {
+                  if (!uri) continue;
+                  console.log('[PDF] Procesando:', uri);
+
+                  // Comprimir imagen antes de incrustar (reduce de 5MB a ~300KB)
+                  // Esto acelera embedJpg y saveAsBase64 drasticamente
+                  const compressed = await ImageManipulator.manipulateAsync(
+                    uri,
+                    [], // sin transformaciones de escala
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                  );
+                  console.log('[PDF] Imagen comprimida:', compressed.width, 'x', compressed.height);
+
+                  const fileResponse = await fetch(compressed.uri);
+                  const arrayBuffer = await fileResponse.arrayBuffer();
+                  console.log('[PDF] ArrayBuffer bytes:', arrayBuffer.byteLength);
+
+                  const embeddedImage = await pdfDoc.embedJpg(arrayBuffer);
+                  console.log('[PDF] Imagen incrustada');
+
+                  // Página exactamente del tamaño de la imagen comprimida
+                  const page = pdfDoc.addPage([compressed.width, compressed.height]);
+                  page.drawImage(embeddedImage, {
+                    x: 0,
+                    y: 0,
+                    width: compressed.width,
+                    height: compressed.height,
+                  });
+                  console.log('[PDF] Página añadida');
+                }
+
+                console.log('[PDF] Guardando...');
+                const pdfBase64 = await pdfDoc.saveAsBase64({ dataUri: false });
+                const pdfUri = `${FileSystem.cacheDirectory}Documento_${Date.now()}.pdf`;
+                await FileSystem.writeAsStringAsync(
+                  pdfUri,
+                  pdfBase64,
+                  { encoding: FileSystem.EncodingType.Base64 }
+                );
+                console.log('[PDF] Guardado en:', pdfUri);
+
                 const Sharing = require('expo-sharing');
                 if (await Sharing.isAvailableAsync()) {
                   await Sharing.shareAsync(pdfUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
                 }
-              } catch (e) {
-                console.error('Error exportando PDF:', e);
+              } catch (e: any) {
+                console.error('[PDF] Error:', e?.message || e);
+                const message = t('subjects.pdfGenerationError').replace('{{message}}', e?.message || 'desconocido');
+                showAlert({ title: t('subjects.error'), message, type: 'error' });
               }
             }}
           />
@@ -288,11 +362,12 @@ export default function SubjectDetailScreen() {
           />
 
           {recentVideos.length > 0 && (
-            <View style={{ marginTop: 24, paddingHorizontal: 16, marginBottom: 24 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text.primary }}>
-                  Videos de YouTube
-                </Text>
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeaderRow}>
+                <View>
+                  <Text style={styles.sectionTitle}>{t('subjects.youtubeVideos')}</Text>
+                  <Text style={styles.sectionHint}>{t('subjects.savedVideos')}</Text>
+                </View>
               </View>
               <View style={{ gap: 12 }}>
                 {recentVideos.map(video => (
@@ -310,14 +385,21 @@ export default function SubjectDetailScreen() {
                     <MaterialCommunityIcons name="youtube" size={40} color={theme.colors.text.error} style={{ marginRight: 12 }} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }} numberOfLines={2}>
-                        {video.title || 'Video de YouTube'}
+                        {video.title || t('subjects.youtubeVideoDefault')}
                       </Text>
                       <Text style={{ color: theme.colors.text.secondary, fontSize: 13, marginTop: 2 }}>
                         {video.created_at
                           ? new Date(video.created_at).toLocaleDateString()
-                          : 'Fecha desconocida'}
+                          : t('subjects.unknownDate')}
                       </Text>
                     </View>
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); handleDeleteVideo(video.id!); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={theme.colors.text.secondary} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 ))}
               </View>

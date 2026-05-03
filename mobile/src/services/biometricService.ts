@@ -28,6 +28,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
+import i18n from '../locales/i18n';
 
 const BIOMETRIC_TOKEN_KEY = 'threshold_biometric_token';
 const BIOMETRIC_USER_EMAIL_KEY = 'threshold_biometric_email';
@@ -106,8 +107,8 @@ export const enrollBiometricToken = async (userEmail: string): Promise<string | 
 
     // 2. Pedir confirmación biométrica al usuario antes de registrar
     const authResult = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Confirma tu identidad para activar Touch ID',
-      cancelLabel: 'Cancelar',
+      promptMessage: i18n.t('biometric.promptEnroll'),
+      cancelLabel: i18n.t('biometric.cancel'),
       disableDeviceFallback: false,
     });
 
@@ -152,8 +153,8 @@ export const authenticateWithBiometrics = async (): Promise<BiometricAuthResult>
 
     // 2. Lanzar el escáner nativo del SO
     const authResult = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Usa Touch ID para iniciar sesión en Threshold',
-      cancelLabel: 'Cancelar',
+      promptMessage: i18n.t('biometric.promptLogin'),
+      cancelLabel: i18n.t('biometric.cancel'),
       disableDeviceFallback: false, // Permite PIN como fallback si la huella falla
     });
 

@@ -97,7 +97,12 @@ export const audioRecorderStyles = StyleSheet.create({
     borderRadius: 10,
   },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: 8,
+    flexGrow: 0,
+  },
+  recordingsFlatList: {
+    flexShrink: 1,
+    flexGrow: 0,
   },
   recordingItem: {
     flexDirection: 'row',
@@ -127,10 +132,27 @@ export const audioRecorderStyles = StyleSheet.create({
   actionButton: {
     padding: 4,
   },
+  liveWaveform: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 3,
+    height: 36,
+    width: '70%',
+    alignSelf: 'center',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  liveWaveBar: {
+    flex: 1,
+    borderRadius: 3,
+    backgroundColor: '#FF3B30',
+    opacity: 0.85,
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 20,
   },
   emptyText: {
     marginTop: 12,

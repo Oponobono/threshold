@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Image, ActivityIndicator, StyleSheet } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { dashboardStyles } from '../styles/Dashboard.styles';
 import { Subject, createPhoto } from '../services/api';
@@ -31,6 +32,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(initialSubjectId || null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // If permissions are not yet determined
   if (!permission) {
@@ -107,20 +109,21 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         </View>
 
         {!capturedImage ? (
-          <CameraView style={styles.camera} facing="back" ref={cameraRef}>
-            <View style={styles.cameraOverlay}>
+          <View style={styles.camera}>
+            <CameraView style={StyleSheet.absoluteFillObject} facing="back" ref={cameraRef} />
+            <View style={[styles.cameraOverlay, { position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
               <View style={styles.captureButtonContainer}>
                 <TouchableOpacity style={styles.captureButtonOuter} onPress={takePicture}>
                   <View style={styles.captureButtonInner} />
                 </TouchableOpacity>
               </View>
             </View>
-          </CameraView>
+          </View>
         ) : (
           <View style={styles.previewContainer}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} resizeMode="contain" />
             
-            <View style={styles.actionSheet}>
+            <View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}>
               <Text style={styles.sheetTitle}>{t('dashboard.documentScannerModal.save') || 'Guardar'}</Text>
               
               <View style={styles.subjectGrid}>

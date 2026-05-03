@@ -17,6 +17,7 @@ import {
 import { alertRef } from './CustomAlert';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import YoutubePlayer from 'react-native-youtube-iframe';
@@ -39,15 +40,12 @@ import {
 } from '../services/api';
 
 // ---------------------------------------------------------------------------
-// Constants
+// Constants & Directories
 // ---------------------------------------------------------------------------
 const GROQ_API_KEY: string = process.env.EXPO_PUBLIC_GROK_API_KEY ?? process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 const YOUTUBE_API_KEY: string = process.env.EXPO_PUBLIC_YOUTUBE_API_KEY ?? '';
-
-// ---------------------------------------------------------------------------
-// Groq helpers
-// ---------------------------------------------------------------------------
+const TRANSCRIPTS_DIR = () => `${FileSystem.documentDirectory}Threshold/transcripts/`;
 // Groq helpers
 // ---------------------------------------------------------------------------
 async function transcribeYouTubeWithWhisper(videoId: string, apiKey: string): Promise<string> {
@@ -350,11 +348,41 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
         setVideoData(video);
         setSelectedSubjectId(video.subject_id ?? null);
       }
+
+      await loadPersistedTexts(videoId);
     } catch (e) {
       console.error('loadInitialData:', e);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadPersistedTexts = async (key: string) => {
+    const dir = TRANSCRIPTS_DIR();
+    try {
+      const ti = await FileSystem.getInfoAsync(`${dir}transcript_video_${key}.json`);
+      if (ti.exists) {
+        const parsed = JSON.parse(await FileSystem.readAsStringAsync(`${dir}transcript_video_${key}.json`));
+        if (parsed.text) { setTranscription(parsed.text); setShowTutorial(false); }
+      }
+    } catch (e) { console.warn('transcript file:', e); }
+    try {
+      const si = await FileSystem.getInfoAsync(`${dir}summary_video_${key}.json`);
+      if (si.exists) {
+        const parsed = JSON.parse(await FileSystem.readAsStringAsync(`${dir}summary_video_${key}.json`));
+        if (parsed.text) { setSummary(parsed.text); setShowTutorial(false); setActiveTab('summary'); }
+      }
+    } catch (e) { console.warn('summary file:', e); }
+  };
+
+  const saveTextToFile = async (text: string, type: 'transcript' | 'summary') => {
+    const dir = TRANSCRIPTS_DIR();
+    const fileUri = `${dir}${type}_video_${videoId}.json`;
+    try {
+      const di = await FileSystem.getInfoAsync(dir);
+      if (!di.exists) await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify({ text, date: new Date().toISOString() }));
+    } catch (e) { console.error('saveTextToFile:', e); }
   };
 
   // ---------------------------------------------------------------------------
@@ -395,11 +423,12 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
 
       setTranscription(text);
       setShowTutorial(false);
+      await saveTextToFile(text, 'transcript');
 
       if (videoData?.id) {
         await upsertYouTubeTranscript({
           video_id: videoData.id,
-          transcript_uri: videoData.youtube_url,
+          transcript_uri: videoData.youtube_url, // For DB we keep the original url reference
         }).catch(e => console.warn('upsert transcript DB:', e));
       }
     } catch (e) {
@@ -440,6 +469,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       setSummary(result);
       setShowTutorial(false);
       setActiveTab('summary');
+      await saveTextToFile(result, 'summary');
     } catch (e) {
       alertRef.show({ title: t('common.error') || 'Error', message: e instanceof Error ? e.message : t('youtube.errors.summaryFailed'), type: 'error' });
     } finally {

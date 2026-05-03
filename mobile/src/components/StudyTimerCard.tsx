@@ -274,7 +274,7 @@ export const StudyTimerCard: React.FC<StudyTimerCardProps> = ({ onOpenConfig, on
       {isActive && subjectId && (
         <View style={localStyles.footer}>
           <View style={[localStyles.dot, { backgroundColor: '#FFD700' }]} />
-          <Text style={localStyles.subjectName} numberOfLines={1}>Sesión activa</Text>
+          <Text style={localStyles.subjectName} numberOfLines={1}>{t('dashboard.activeSession')}</Text>
         </View>
       )}
     </TouchableOpacity>

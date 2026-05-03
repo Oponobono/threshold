@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, Pressable, S
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { thresholdDatePickerStyles as styles } from '../styles/ThresholdDatePicker.styles';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   value: Date;
@@ -17,6 +18,7 @@ const MONTHS_ES = [
 ];
 
 export const ThresholdDatePicker = ({ value, onChange }: Props) => {
+  const { t } = useTranslation();
   const [currentMonth, setCurrentMonth] = useState(new Date(value.getFullYear(), value.getMonth(), 1));
   const [view, setView] = useState<'calendar' | 'year'>('calendar');
 
@@ -86,7 +88,7 @@ export const ThresholdDatePicker = ({ value, onChange }: Props) => {
                 <TouchableOpacity onPress={() => setView('calendar')} style={{ marginRight: 12 }}>
                   <Ionicons name="arrow-back" size={20} color={theme.colors.text.primary} />
                 </TouchableOpacity>
-                <Text style={styles.monthTitle}>Seleccionar Año</Text>
+                <Text style={styles.monthTitle}>{t('modals.selectYear')}</Text>
               </View>
             )}
           </View>
@@ -142,7 +144,7 @@ export const ThresholdDatePicker = ({ value, onChange }: Props) => {
             style={styles.closeBtn}
             onPress={() => onChange({ type: 'dismissed' })}
           >
-            <Text style={styles.closeBtnText}>Cancelar</Text>
+            <Text style={styles.closeBtnText}>{t('modals.cancel')}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>

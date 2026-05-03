@@ -84,7 +84,7 @@ export const StudyTimerModal: React.FC<StudyTimerModalProps> = ({
 
       {selectedMode === 'pomodoro' && (
         <>
-          <Text style={styles.sheetLabel}>Duración (minutos)</Text>
+          <Text style={styles.sheetLabel}>{t('modals.durationMinutes')}</Text>
           <View style={localStyles.durationContainer}>
             {[15, 25, 45, 60].map((d) => (
               <TouchableOpacity 

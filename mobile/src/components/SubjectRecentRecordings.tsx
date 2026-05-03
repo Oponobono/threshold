@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { theme } from '../styles/theme';
+import { subjectDetailStyles as styles } from '../styles/SubjectDetail.styles';
 import { AudioPlayerItem } from './AudioPlayerItem';
 import { RecordingItem } from '../hooks/useAudioRecorder';
 import { useRouter } from 'expo-router';
@@ -11,7 +11,7 @@ interface SubjectRecentRecordingsProps {
   playingId: string | null;
   playSound: (uri: string, id: string) => void;
   stopSound: () => void;
-  deleteRecording: (id: string | number, uri: string) => void; // Note: receives deleteRecordingConfirmed, not deleteRecording
+  deleteRecording: (id: string | number, uri: string) => void;
 }
 
 export const SubjectRecentRecordings: React.FC<SubjectRecentRecordingsProps> = ({
@@ -27,11 +27,16 @@ export const SubjectRecentRecordings: React.FC<SubjectRecentRecordingsProps> = (
   if (recentRecordings.length === 0) return null;
 
   return (
-    <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text.primary }}>
-          {t('dashboard.audioRecorderModal.recordingsList') || 'Grabaciones Recientes'}
-        </Text>
+    <View style={styles.sectionBlock}>
+      <View style={styles.sectionHeaderRow}>
+        <View>
+          <Text style={styles.sectionTitle}>
+            {t('dashboard.audioRecorderModal.recordingsList') || 'Grabaciones Recientes'}
+          </Text>
+          <Text style={styles.sectionHint}>
+            {t('dashboard.audioRecorderModal.recordings') || 'Audios recientes de esta materia'}
+          </Text>
+        </View>
       </View>
       <View style={{ gap: 12 }}>
         {recentRecordings.map(rec => (

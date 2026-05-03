@@ -175,32 +175,32 @@ router.post('/flashcard-decks/generate-from-text', async (req, res) => {
             role: 'system',
             content: `Actúa como un experto en pedagogía universitaria y especialista en técnicas de estudio de alto rendimiento (Active Recall y Spaced Repetition).
 
-Tu tarea es analizar el texto proporcionado (una transcripción o resumen de clase) y extraer los conceptos más importantes para crear exactamente ${count} tarjetas de repaso.
+Tu tarea es analizar el texto proporcionado y extraer los conceptos más importantes para crear tarjetas de repaso de NIVEL UNIVERSITARIO.
 
-Reglas de Oro para las Tarjetas:
+Paso Previo Obligatorio: "Limpia" mentalmente el texto. Ignora muletillas, errores de transcripción, saludos y divagaciones innecesarias antes de extraer la información.
 
-1. Conceptos Atómicos: Cada tarjeta debe tratar un solo concepto. No mezcles varios temas en una sola pregunta.
-2. Dificultad Progresiva: Crea una mezcla de definiciones, comparaciones y aplicaciones prácticas.
-3. Claridad: Las preguntas deben ser directas. Las respuestas deben ser explicativas pero concisas.
-4. No alucines: Si el texto no tiene suficiente información para el número de tarjetas solicitado, genera solo las que sean posibles con alta calidad.
+Reglas de Oro:
+1. Profundidad Académica: Cero trivia. Enfócate en mecanismos subyacentes, causas, y consecuencias.
+2. Principio de Atomicidad: Cada tarjeta debe cubrir UN solo concepto o idea para facilitar el repaso espaciado. No mezcles varios temas en una sola respuesta. Si un mecanismo es complejo, divídelo en varias tarjetas que conecten entre sí.
+3. Formato de Pregunta: Usa preguntas abiertas que desafíen la comprensión (Ej: "¿De qué manera el factor X influye en el proceso Y?") en lugar de completar frases o buscar datos simples.
+4. Respuestas Técnicas: Máximo 2 oraciones, usando terminología precisa del texto. Deben explicar el concepto claramente.
+5. Calidad sobre Cantidad: Si el texto no tiene suficiente información para el número de tarjetas solicitado, genera solo las que sean posibles con alta calidad y rigor académico.
 
 Formato de Salida (ESTRICTO):
-Debes responder EXCLUSIVAMENTE con un objeto JSON válido con la siguiente estructura:
+Responde ÚNICAMENTE con el objeto JSON. Sin introducciones, sin explicaciones, sin bloques de código markdown.
 {
   "deck_metadata": { "suggested_title": "Título corto y alusivo" },
   "flashcards": [
-    { "question": "¿...?", "answer": "..." }
+    { "question": "...", "answer": "..." }
   ]
-}
-
-NO incluyas texto adicional ni markdown. Solo el JSON.`
+}`
           },
           {
             role: 'user',
-            content: `Por favor, genera exactamente ${count} tarjetas de estudio de alto calidad basadas en este contenido:\n\n${text}`
+            content: `Genera exactamente ${count} tarjetas basadas en este contenido: ${text}`
           }
         ],
-        temperature: 0.7,
+        temperature: 0.2,
         max_tokens: 4096,
       }),
     });
@@ -213,20 +213,12 @@ NO incluyas texto adicional ni markdown. Solo el JSON.`
     const groqData = await response.json();
     const groqResponse = groqData.choices[0].message.content.trim();
 
-    // Limpiar respuesta JSON (a veces Groq devuelve markdown formatting)
+    // Extraer solo la parte JSON usando regex
     let jsonString = groqResponse;
-    
-    // Eliminar markdown code blocks si existen
-    if (jsonString.startsWith('```json')) {
-      jsonString = jsonString.slice(7); // Eliminar ```json
-    } else if (jsonString.startsWith('```')) {
-      jsonString = jsonString.slice(3); // Eliminar ```
+    const jsonMatch = groqResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonString = jsonMatch[0];
     }
-    
-    if (jsonString.endsWith('```')) {
-      jsonString = jsonString.slice(0, -3); // Eliminar ``` final
-    }
-    
     jsonString = jsonString.trim();
 
     // Parsear la respuesta JSON de Groq
@@ -257,48 +249,48 @@ NO incluyas texto adicional ni markdown. Solo el JSON.`
         if (err) return res.status(500).json({ error: err.message });
 
         const deckId = this.lastID;
-        let insertedCount = 0;
-        let insertErrors = [];
 
-        // Insertar cada tarjeta
-        cardsData.flashcards.forEach((card) => {
-          db.run(
-            `INSERT INTO flashcards (deck_id, front, back, status) VALUES (?, ?, ?, 'new')`,
-            [deckId, card.question || card.front, card.answer || card.back],
-            (err) => {
-              if (err) {
-                insertErrors.push(err.message);
-              } else {
-                insertedCount++;
+        // Crear promesas para cada inserción
+        const insertPromises = cardsData.flashcards.map((card) => {
+          return new Promise((resolve, reject) => {
+            db.run(
+              `INSERT INTO flashcards (deck_id, front, back, status) VALUES (?, ?, ?, 'new')`,
+              [deckId, card.question || card.front, card.answer || card.back],
+              function(err) {
+                if (err) reject(err);
+                else resolve();
               }
-            }
-          );
+            );
+          });
         });
 
-        // Esperar a que se completen las inserciones
-        setTimeout(() => {
-          if (insertErrors.length > 0) {
-            return res.status(500).json({ error: 'Error al insertar tarjetas', details: insertErrors });
-          }
-
-          // Retornar el mazo con sus tarjetas
-          db.all(
-            `SELECT * FROM flashcards WHERE deck_id = ? ORDER BY created_at ASC`,
-            [deckId],
-            (err, cards) => {
-              if (err) return res.status(500).json({ error: err.message });
-              res.status(201).json({
-                id: deckId,
-                subject_id,
-                user_id,
-                title,
-                description: 'Mazo generado con IA',
-                card_count: insertedCount,
-                cards: cards
-              });
-            }
-          );
-        }, 500);
+        // Esperar a que TODAS las tarjetas se inserten
+        Promise.all(insertPromises)
+          .then(() => {
+            // Retornar el mazo con sus tarjetas
+            db.all(
+              `SELECT * FROM flashcards WHERE deck_id = ? ORDER BY created_at ASC`,
+              [deckId],
+              (err, cards) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.status(201).json({
+                  id: deckId,
+                  subject_id,
+                  user_id,
+                  title,
+                  description: 'Mazo generado con IA',
+                  card_count: cards.length,
+                  cards: cards
+                });
+              }
+            );
+          })
+          .catch((err) => {
+            // Manual Rollback: Eliminar el mazo vacío si fallan las inserciones
+            db.run(`DELETE FROM flashcard_decks WHERE id = ?`, [deckId], () => {
+              res.status(500).json({ error: 'Error al insertar tarjetas, mazo revertido', details: err.message });
+            });
+          });
       }
     );
   } catch (err) {
@@ -341,23 +333,25 @@ router.post('/flashcard-decks/generate-from-image', async (req, res) => {
               {
                 type: 'text',
                 text: `Eres un experto en OCR académico y pedagogía. 
-1. Transcribe el texto de esta imagen. 
-2. A partir del conocimiento extraído, genera EXACTAMENTE ${count} tarjetas de estudio de alto rendimiento (Pregunta/Respuesta).
+
+1. Transcribe mentalmente la imagen e ignora el "ruido" visual o posibles errores de captura.
+2. A partir de esa información limpia, genera tarjetas de estudio de NIVEL UNIVERSITARIO.
 
 Reglas de Oro:
-- Conceptos Atómicos: Una tarjeta = Un concepto.
-- Si la imagen contiene preguntas y respuestas explícitas, úsalas.
-- Si el texto no da para ${count} tarjetas, genera las que puedas con ALTA CALIDAD.
+1. Profundidad Académica: Cero trivia. Enfócate en mecanismos, definiciones técnicas, causas y consecuencias presentes en la imagen.
+2. Principio de Atomicidad: Cada tarjeta debe cubrir UN solo concepto para facilitar el repaso espaciado.
+3. Formato de Pregunta: Usa preguntas abiertas que desafíen la comprensión (Ej: "¿De qué manera el factor X influye en el proceso Y?").
+4. Respuestas Técnicas: Máximo 2 oraciones, usando terminología precisa.
+5. Calidad: Si el texto no da para ${count} tarjetas profundas, genera solo las que puedas con MÁXIMA CALIDAD académica.
 
 Formato de Salida (ESTRICTO):
-Debes responder EXCLUSIVAMENTE con un objeto JSON válido con la siguiente estructura:
+Responde ÚNICAMENTE con el objeto JSON. Sin introducciones, sin explicaciones, sin bloques de código markdown.
 {
   "deck_metadata": { "suggested_title": "Título corto" },
   "flashcards": [
-    { "question": "¿...?", "answer": "..." }
+    { "question": "...", "answer": "..." }
   ]
-}
-NO incluyas texto adicional ni markdown fuera del JSON.`
+}`
               },
               {
                 type: 'image_url',
@@ -368,7 +362,7 @@ NO incluyas texto adicional ni markdown fuera del JSON.`
             ]
           }
         ],
-        temperature: 0.5,
+        temperature: 0.2,
         max_tokens: 4096,
       }),
     });
@@ -381,11 +375,12 @@ NO incluyas texto adicional ni markdown fuera del JSON.`
     const groqData = await response.json();
     const groqResponse = groqData.choices[0].message.content.trim();
 
-    // Limpiar respuesta JSON (a veces Groq devuelve markdown formatting)
+    // Extraer solo la parte JSON usando regex
     let jsonString = groqResponse;
-    if (jsonString.startsWith('```json')) jsonString = jsonString.slice(7);
-    else if (jsonString.startsWith('```')) jsonString = jsonString.slice(3);
-    if (jsonString.endsWith('```')) jsonString = jsonString.slice(0, -3);
+    const jsonMatch = groqResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonString = jsonMatch[0];
+    }
     jsonString = jsonString.trim();
 
     // Parsear la respuesta JSON de Groq
@@ -412,43 +407,47 @@ NO incluyas texto adicional ni markdown fuera del JSON.`
         if (err) return res.status(500).json({ error: err.message });
 
         const deckId = this.lastID;
-        let insertedCount = 0;
-        let insertErrors = [];
 
-        // Insertar cada tarjeta
-        cardsData.flashcards.forEach((card) => {
-          db.run(
-            `INSERT INTO flashcards (deck_id, front, back, status) VALUES (?, ?, ?, 'new')`,
-            [deckId, card.question || card.front, card.answer || card.back],
-            (err) => {
-              if (err) insertErrors.push(err.message);
-              else insertedCount++;
-            }
-          );
+        // Crear promesas para cada inserción
+        const insertPromises = cardsData.flashcards.map((card) => {
+          return new Promise((resolve, reject) => {
+            db.run(
+              `INSERT INTO flashcards (deck_id, front, back, status) VALUES (?, ?, ?, 'new')`,
+              [deckId, card.question || card.front, card.answer || card.back],
+              function(err) {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          });
         });
 
-        // Esperar inserciones
-        setTimeout(() => {
-          if (insertErrors.length > 0) {
-            return res.status(500).json({ error: 'Error al insertar tarjetas', details: insertErrors });
-          }
-          db.all(
-            `SELECT * FROM flashcards WHERE deck_id = ? ORDER BY created_at ASC`,
-            [deckId],
-            (err, cards) => {
-              if (err) return res.status(500).json({ error: err.message });
-              res.status(201).json({
-                id: deckId,
-                subject_id,
-                user_id,
-                title,
-                description: 'Mazo generado con OCR + IA',
-                card_count: insertedCount,
-                cards: cards
-              });
-            }
-          );
-        }, 500);
+        // Esperar a que TODAS las tarjetas se inserten
+        Promise.all(insertPromises)
+          .then(() => {
+            db.all(
+              `SELECT * FROM flashcards WHERE deck_id = ? ORDER BY created_at ASC`,
+              [deckId],
+              (err, cards) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.status(201).json({
+                  id: deckId,
+                  subject_id,
+                  user_id,
+                  title,
+                  description: 'Mazo generado con OCR + IA',
+                  card_count: cards.length,
+                  cards: cards
+                });
+              }
+            );
+          })
+          .catch((err) => {
+            // Manual Rollback
+            db.run(`DELETE FROM flashcard_decks WHERE id = ?`, [deckId], () => {
+              res.status(500).json({ error: 'Error al insertar tarjetas, mazo revertido', details: err.message });
+            });
+          });
       }
     );
   } catch (err) {

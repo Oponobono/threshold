@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { Canvas, Image, useImage, ColorMatrix, useCanvasRef } from '@shopify/react-native-skia';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useTranslation } from 'react-i18next';
 
 interface FilterOption {
   id: string;
@@ -66,12 +67,20 @@ export interface AdvancedImageEnhancerRef {
 export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, AdvancedImageEnhancerProps>(({
   imageUri,
   onFilterChange,
-}, ref) => {
+  },
+  ref
+) => {
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState('original');
   const [renderKey, setRenderKey] = useState(0);
   const skImage = useImage(imageUri);
   const canvasRef = useCanvasRef();
   const [canvasSize, setCanvasSize] = useState({ width: 300, height: 400 });
+
+  const translatedFilters = FILTERS.map(f => ({
+    ...f,
+    name: t(`modals.filters.${f.id}`, f.name)
+  }));
 
   // Forzar re-render cuando la app vuelve al primer plano (para evitar canvas negro tras compartir)
   useEffect(() => {
@@ -97,7 +106,7 @@ export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, Advanc
     onFilterChange(id);
   };
 
-  const selectedFilter = FILTERS.find(f => f.id === activeFilter);
+  const selectedFilter = translatedFilters.find(f => f.id === activeFilter);
 
   // Exponemos el método para exportar la imagen a DocumentScannerModal
   useImperativeHandle(ref, () => ({
@@ -161,20 +170,20 @@ export const AdvancedImageEnhancer = forwardRef<AdvancedImageEnhancerRef, Advanc
         {activeFilter !== 'original' && (
           <View style={styles.activeFilterBadge}>
             <Text style={styles.activeFilterText}>
-              Filtro: {selectedFilter?.name}
+              {t('modals.filters.prefix', 'Filtro: ')}{selectedFilter?.name}
             </Text>
           </View>
         )}
       </View>
 
       <View style={styles.filtersContainer}>
-        <Text style={styles.filtersTitle}>Mejoras Inteligentes</Text>
+        <Text style={styles.filtersTitle}>{t('modals.filters.smartEnhancements', 'Mejoras Inteligentes')}</Text>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersScroll}
         >
-          {FILTERS.map((filter) => {
+          {translatedFilters.map((filter) => {
             const isActive = activeFilter === filter.id;
             return (
               <TouchableOpacity

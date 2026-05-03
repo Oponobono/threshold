@@ -35,5 +35,58 @@ export const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '80%',
+  },
+  ocrOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    zIndex: 20,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  ocrHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  ocrTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+  },
+  ocrScroll: {
+    flex: 1,
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  ocrText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: theme.colors.text.primary,
+  },
+  ocrCopyButton: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ocrCopyText: {
+    color: theme.colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   }
 });

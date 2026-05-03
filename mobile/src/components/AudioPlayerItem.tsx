@@ -92,7 +92,7 @@ export const AudioPlayerItem: React.FC<AudioPlayerItemProps> = ({
         >
           <Ionicons 
             name="trash-outline" 
-            size={24} 
+            size={20} 
             color={isMissing ? theme.colors.text.error : theme.colors.text.secondary} 
           />
         </TouchableOpacity>

@@ -120,41 +120,22 @@ export function useAudioRecorder() {
   const [isPaused, setIsPaused] = useState(false);
   const [recordings, setRecordings] = useState<RecordingItem[]>([]);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [meteringDb, setMeteringDb] = useState<number>(-160);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   useEffect(() => {
     loadRecordings();
     return () => {
       if (sound) sound.unloadAsync();
-      stopTimer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (isRecording && !isPaused) {
-      startTimer();
-    } else {
-      stopTimer();
-    }
-  }, [isRecording, isPaused]);
-
-  // ── Timer ──────────────────────────────────────────────────────────────────
-  const startTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setRecordingDuration((prev) => prev + 1), 1000);
-  };
-
-  const stopTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  };
+  // NOTE: Duration is now tracked exclusively by the recording status callback
+  // (setOnRecordingStatusUpdate every 100ms). The old setInterval was removed
+  // to prevent the race condition that caused the counter to jump ahead.
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -222,16 +203,35 @@ export function useAudioRecorder() {
         return;
       }
 
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      await Audio.setAudioModeAsync({ 
+        allowsRecordingIOS: true, 
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
 
       const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
+        {
+          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          isMeteringEnabled: true,
+        },
+        (status) => {
+          // Fired ~every 100ms — update duration and metering in real time
+          if (status.isRecording) {
+            const secs = Math.floor((status.durationMillis ?? 0) / 1000);
+            setRecordingDuration(secs);
+            if (status.metering !== undefined) {
+              setMeteringDb(status.metering); // dBFS, typically -160 … 0
+            }
+          }
+        },
+        100 // status update interval in ms
       );
 
       setRecording(newRecording);
       setIsRecording(true);
       setIsPaused(false);
       setRecordingDuration(0);
+      setMeteringDb(-160);
     } catch (err) {
       console.error('Failed to start recording', err);
       alertRef.show({ title: t('common.error'), message: t('dashboard.audioRecorderModal.recordingError'), type: 'error' });
@@ -266,6 +266,7 @@ export function useAudioRecorder() {
     setIsPaused(false);
     setRecording(null);
     setRecordingDuration(0);
+    setMeteringDb(-160);
 
     try {
       await recording.stopAndUnloadAsync();
@@ -417,6 +418,7 @@ export function useAudioRecorder() {
     isPaused,
     recordings,
     recordingDuration,
+    meteringDb,
     playingId,
     startRecording,
     pauseRecording,

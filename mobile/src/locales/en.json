@@ -54,8 +54,17 @@
     "share": "Share",
     "retake": "Retake",
     "preview": "Preview",
+    "copyText": "Copy Text",
     "grantPermission": "Grant permission",
-    "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "daysShort": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "errors": {
       "enterPassword": "Enter your password",
       "groqApiKeyMissing": "Groq API Key is missing from .env.local file",
@@ -209,28 +218,28 @@
       "pause": "Pause",
       "delete": "Delete",
       "noRecordings": "No recordings yet",
-        "recordingsList": "My Recordings",
-        "recordings": "Recordings",
-        "unclassified": "Unclassified",
-        "ai": {
-          "tabTranscription": "Transcription",
-          "tabSummary": "AI Summary",
-          "generateTranscription": "Generate transcription",
-          "generateSummary": "Generate AI summary",
-          "transcriptionHint": "Transcribe the recorded audio using AI. Great for reviewing lectures or searching for key moments.",
-          "summaryHint": "Get a smart summary of the audio. Perfect for quickly reviewing main ideas.",
-          "tutorialTitle": "New? Try transcription & AI summary",
-          "tutorialBody": "Tap the icons to switch between the full transcription and the AI-generated summary. You can copy the text or search for keywords.",
-          "downloadingModel": "Downloading transcription model...",
-          "downloadingModelDesc": "The first time may take a few minutes. Please don't close the app.",
-          "copy": "Copy text",
-          "copied": "Text copied!",
-          "error": "An error occurred while processing the audio. Please try again.",
-          "emptyTranscription": "No transcription yet. Tap to generate.",
-          "emptySummary": "No summary yet. Tap to generate.",
-          "loading": "Processing...",
-          "recording": "Recording"
-        },
+      "recordingsList": "My Recordings",
+      "recordings": "Recordings",
+      "unclassified": "Unclassified",
+      "ai": {
+        "tabTranscription": "Transcription",
+        "tabSummary": "AI Summary",
+        "generateTranscription": "Generate transcription",
+        "generateSummary": "Generate AI summary",
+        "transcriptionHint": "Transcribe the recorded audio using AI. Great for reviewing lectures or searching for key moments.",
+        "summaryHint": "Get a smart summary of the audio. Perfect for quickly reviewing main ideas.",
+        "tutorialTitle": "New? Try transcription & AI summary",
+        "tutorialBody": "Tap the icons to switch between the full transcription and the AI-generated summary. You can copy the text or search for keywords.",
+        "downloadingModel": "Downloading transcription model...",
+        "downloadingModelDesc": "The first time may take a few minutes. Please don't close the app.",
+        "copy": "Copy text",
+        "copied": "Text copied!",
+        "error": "An error occurred while processing the audio. Please try again.",
+        "emptyTranscription": "No transcription yet. Tap to generate.",
+        "emptySummary": "No summary yet. Tap to generate.",
+        "loading": "Processing...",
+        "recording": "Recording"
+      },
       "fileLabel": "Recording {{date}}",
       "emptyState": "Press the red button to start recording your first voice note."
     },
@@ -261,6 +270,7 @@
     "documentScannerModal": {
       "title": "Document Scanner",
       "subtitle": "Digitize your notes with professional quality.",
+      "transcribedText": "Extracted Text",
       "guide": "Align document with the dragonfly",
       "capture": "Capture",
       "adjust": "Adjust Crop",
@@ -401,7 +411,9 @@
       "grades": "Grades",
       "gallery": "Gallery",
       "settings": "Settings"
-    }
+    },
+    "noScheduleAssigned": "No schedule assigned — tap the grid to add",
+    "activeSession": "Active session"
   },
   "calendar": {
     "weekOverview": "Weekly Overview",
@@ -518,7 +530,22 @@
       "assess2Due": "May 03",
       "assess3Name": "Midterm Exam",
       "assess3Due": "May 05"
-    }
+    },
+    "youtubeVideos": "YouTube Videos",
+    "savedVideos": "Saved videos for this subject",
+    "youtubeVideoDefault": "YouTube Video",
+    "unknownDate": "Unknown date",
+    "deleteVideo": "Delete video",
+    "deleteVideoConfirm": "Are you sure you want to delete this video?",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "error": "Error",
+    "deleteVideoError": "Could not delete the video.",
+    "pdfGenerationError": "Error generating PDF: {{message}}",
+    "scannedDocuments": "Scanned Documents",
+    "scannedDocumentsHint": "Scanned PDFs and images for this subject",
+    "pdf": "PDF",
+    "flashcards": "Flashcards"
   },
   "grades": {
     "title": "Grade Tracker",
@@ -624,7 +651,11 @@
     "academicPrefs": "Academic Preferences",
     "academicPrefsDesc": "Terms, pass thresholds & grading scales",
     "termsSemesters": "Terms / Semesters",
-    "termOptions": ["Fall 2025", "Spring 2026", "Summer 2026"],
+    "termOptions": [
+      "Fall 2025",
+      "Spring 2026",
+      "Summer 2026"
+    ],
     "manageTerms": "Manage terms and active semester",
     "addTerm": "Add Term",
     "minGrade": "Minimum grade to pass (per subject)",
@@ -702,9 +733,18 @@
     "calendarSyncDesc": "Two-way sync with your academic calendar",
     "linkedLms": "Linked LMS Accounts",
     "lmsAccounts": [
-      { "name": "Canvas • University of State", "user": "maya.reyes" },
-      { "name": "Moodle • Evening Courses", "user": "mr.reyes" },
-      { "name": "Blackboard • College Partner", "user": "mayare" }
+      {
+        "name": "Canvas • University of State",
+        "user": "maya.reyes"
+      },
+      {
+        "name": "Moodle • Evening Courses",
+        "user": "mr.reyes"
+      },
+      {
+        "name": "Blackboard • College Partner",
+        "user": "mayare"
+      }
     ],
     "remove": "Remove",
     "addLms": "Add LMS Link",
@@ -732,7 +772,14 @@
       "fillAllFields": "Please fill in all required fields",
       "passwordRequired": "Enter your password",
       "passwordUpdateFailed": "Failed to update password"
-    }
+    },
+    "collaboration": "Collaboration",
+    "joinGroup": "Join a group",
+    "sharePin": "Share PIN",
+    "fixed": "Fixed",
+    "pinPlaceholderJoin": "Enter PIN (e.g., A1B2C3)",
+    "pinPlaceholderCreate": "e.g., MYPIN1 (min. 4 characters)",
+    "logout": "Log out"
   },
   "modals": {
     "audioRecorder": {
@@ -775,7 +822,18 @@
       },
       "fileLabel": "Recording {{date}}",
       "emptyState": "Press the red button to start recording your first voice note."
-    }
+    },
+    "editScan": "Edit Scan",
+    "exportFormat": "Export format",
+    "retake": "Retake",
+    "save": "Save",
+    "shared": "Shared",
+    "shareDeck": "Share deck",
+    "pinPlaceholder": "e.g., ABC123",
+    "cancel": "Cancel",
+    "select": "Select",
+    "durationMinutes": "Duration (minutes)",
+    "selectYear": "Select Year"
   },
   "recordings": {
     "title": "Recordings",
@@ -787,7 +845,13 @@
       "noVoiceDetected": "Whisper detected no voice in the audio.",
       "transcriptionFailed": "Error transcribing audio.",
       "summaryFailed": "Error generating summary."
-    }
+    },
+    "addYoutubeVideo": "Add YouTube Video",
+    "youtubeLinkPrompt": "Paste the video link to transcribe it.",
+    "youtubePlaceholder": "https://www.youtube.com/watch?v=...",
+    "cancel": "Cancel",
+    "startTranscription": "Start transcription",
+    "startSummary": "Start summary"
   },
   "youtube": {
     "title": "Videos",
@@ -855,5 +919,56 @@
         "saveFailed": "Error saving the deck."
       }
     }
+  },
+  "biometric": {
+    "promptEnroll": "Confirm your identity to enable Touch ID",
+    "cancel": "Cancel",
+    "promptLogin": "Use Touch ID to log into Threshold"
+  },
+  "about": {
+    "productOf": "a product of",
+    "theApp": "The application",
+    "launch": "Launch",
+    "version": "Version",
+    "rd": "R&D",
+    "origin": "Origin",
+    "theSymbol": "The symbol",
+    "theDragonfly": "The Dragonfly",
+    "dragonflyLower": "dragonfly",
+    "theSubsidiary": "The subsidiary",
+    "tangibleTech": "tangible technology",
+    "headquarters": "The headquarters"
+  },
+  "modals": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "select": "Select",
+    "retake": "Retake",
+    "editScan": "Edit Scan",
+    "exportFormat": "Export format",
+    "durationMinutes": "Duration (minutes)",
+    "selectYear": "Select Year",
+    "deleteDeck": "Delete Deck",
+    "deleteDeckConfirm": "Are you sure you want to delete the deck \"{{title}}\"? This action cannot be undone.",
+    "deleteCard": "Delete Card",
+    "deleteCardConfirm": "Are you sure you want to delete this card?",
+    "shared": "Shared",
+    "shareDeck": "Share deck",
+    "shareDeckDesc": "Enter the PIN of the user you want to share \"{{title}}\" with.",
+    "pinPlaceholder": "e.g. ABC123",
+    "sharing": "Sharing...",
+    "share": "Share",
+    "filters": {
+      "prefix": "Filter: ",
+      "smartEnhancements": "Smart Enhancements",
+      "original": "Original",
+      "magic": "Magic Text",
+      "bw": "B&W OCR",
+      "grayscale": "Grayscale"
+    }
+  },
+  "recordings": {
+    "startTranscription": "Start transcription",
+    "startSummary": "Start summary"
   }
 }

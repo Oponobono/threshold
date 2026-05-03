@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { Assessment } from '../services/api';
+import { Assessment, deleteAssessment } from '../services/api';
 import { theme } from '../styles/theme';
+import { useCustomAlert } from './CustomAlert';
 import { subjectDetailStyles as styles } from '../styles/SubjectDetail.styles';
 import {
   getAssessmentProgress,
@@ -21,10 +22,35 @@ const ProgressBar = ({ value, color }: { value: number; color: string }) => (
 
 interface SubjectInsightsProps {
   recentAssessments: Assessment[];
+  onDeleteAssessment?: (id: number) => void;
 }
 
-export const SubjectInsights: React.FC<SubjectInsightsProps> = ({ recentAssessments }) => {
+export const SubjectInsights: React.FC<SubjectInsightsProps> = ({ recentAssessments, onDeleteAssessment }) => {
   const { t } = useTranslation();
+  const { showAlert } = useCustomAlert();
+
+  const handleDelete = (id: number) => {
+    showAlert({
+      title: 'Eliminar nota',
+      message: '¿Estás seguro de que quieres eliminar esta nota/evaluación?',
+      type: 'confirm',
+      buttons: [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAssessment(id);
+              onDeleteAssessment?.(id);
+            } catch (e) {
+              showAlert({ title: 'Error', message: 'No se pudo eliminar la evaluación.', type: 'error' });
+            }
+          }
+        }
+      ]
+    });
+  };
 
   return (
     <View style={styles.sectionBlock}>
@@ -63,7 +89,17 @@ export const SubjectInsights: React.FC<SubjectInsightsProps> = ({ recentAssessme
                       {typeLabel}{weightText}{assessment.date ? ` · ${assessment.date}` : ''}
                     </Text>
                   </View>
-                  <Text style={styles.insightScore}>{scoreText}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Text style={styles.insightScore}>{scoreText}</Text>
+                    {onDeleteAssessment && assessment.id && (
+                      <TouchableOpacity 
+                        onPress={() => handleDelete(assessment.id!)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={20} color={theme.colors.text.secondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
                 <ProgressBar value={progress} color={progress >= 80 ? '#34C759' : progress >= 60 ? '#FF9500' : '#FF3B30'} />
               </View>

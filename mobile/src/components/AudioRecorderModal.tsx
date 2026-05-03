@@ -24,6 +24,7 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
     isPaused,
     recordings,
     recordingDuration,
+    meteringDb,
     playingId,
     startRecording,
     pauseRecording,
@@ -35,6 +36,18 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
     formatDuration,
     loadRecordings,
   } = useAudioRecorder();
+
+  // Smooth metering animation: dBFS (-160…0) → normalised 0…1
+  const meterAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    // Map dBFS to 0-1: silence=-160 → 0, loud=0 → 1 (clamped)
+    const normalised = Math.max(0, Math.min(1, (meteringDb + 60) / 60));
+    Animated.timing(meterAnim, {
+      toValue: normalised,
+      duration: 80,
+      useNativeDriver: false,
+    }).start();
+  }, [meteringDb]);
 
   // Reload recordings when modal becomes visible to sync with full screen
   useEffect(() => {
@@ -183,9 +196,34 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
               )}
             </View>
             
+            {/* Live waveform during recording */}
+            {isRecording && !isPaused && (
+              <View style={localStyles.liveWaveform}>
+                {Array.from({ length: 15 }, (_, i) => {
+                  // Each bar has a fixed base ratio so they have different heights
+                  const baseRatio = 0.25 + Math.sin((i / 14) * Math.PI) * 0.75;
+                  const minH = 3;
+                  const maxH = 32;
+                  const barH = meterAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [minH, minH + (maxH - minH) * baseRatio],
+                  });
+                  return (
+                    <Animated.View
+                      key={i}
+                      style={[
+                        localStyles.liveWaveBar,
+                        { height: barH },
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+            )}
+
             <Text style={localStyles.hintText}>
-              {isRecording 
-                ? t('dashboard.audioRecorderModal.stopRecording') 
+              {isRecording
+                ? t('dashboard.audioRecorderModal.stopRecording')
                 : t('dashboard.audioRecorderModal.startRecording')}
             </Text>
           </View>
@@ -200,6 +238,8 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({ isVisibl
             keyExtractor={(item) => item.id_string || item.id?.toString() || Math.random().toString()}
             renderItem={renderRecordingItem}
             contentContainerStyle={localStyles.listContent}
+            style={localStyles.recordingsFlatList}
+            scrollEnabled={recordings.length > 0}
             ListEmptyComponent={
               <View style={localStyles.emptyState}>
                 <MaterialCommunityIcons name="microphone-off" size={48} color={theme.colors.border} />

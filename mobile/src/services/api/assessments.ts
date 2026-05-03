@@ -36,6 +36,21 @@ export const createAssessment = async (payload: Assessment) => {
   if (!response.ok) {
     throw new Error(data?.error || 'No se pudo crear la evaluación.');
   }
+  return data;
+};
+
+/**
+ * Elimina una evaluación o tarea
+ */
+export const deleteAssessment = async (id: number) => {
+  const response = await fetchWithFallback(`/assessments/${id}`, {
+    method: 'DELETE',
+  });
+
+  const data = await parseJsonSafely(response);
+  if (!response.ok) {
+    throw new Error(data?.error || 'No se pudo eliminar la evaluación.');
+  }
 
   return data;
 };

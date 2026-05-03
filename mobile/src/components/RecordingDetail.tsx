@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import Slider from '@react-native-community/slider';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   View,
   Text,
@@ -293,6 +295,76 @@ const AnimatedSubjectSelector: React.FC<AnimatedSubjectSelectorProps> = ({
 };
 
 // ---------------------------------------------------------------------------
+// WaveformBars – animated spectrum visualizer
+// ---------------------------------------------------------------------------
+const WAVE_HEIGHTS = [12, 22, 32, 26, 40, 18, 36, 28, 44, 24, 34, 16, 38, 28, 20];
+
+const WaveformBars: React.FC<{ isPlaying: boolean }> = ({ isPlaying }) => {
+  const anims = useRef(
+    WAVE_HEIGHTS.map(() => new Animated.Value(0.3))
+  ).current;
+  const activeRef = useRef(false);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      activeRef.current = false;
+      Animated.parallel(
+        anims.map((anim) =>
+          Animated.timing(anim, {
+            toValue: 0.3,
+            duration: 500,
+            useNativeDriver: true,
+          })
+        )
+      ).start();
+      return;
+    }
+
+    activeRef.current = true;
+
+    const animateBar = (anim: Animated.Value) => {
+      if (!activeRef.current) return;
+      const target = 0.25 + Math.random() * 0.85;
+      Animated.timing(anim, {
+        toValue: target,
+        duration: 120 + Math.random() * 220,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished && activeRef.current) animateBar(anim);
+      });
+    };
+
+    anims.forEach((anim, i) => {
+      // staggered start so bars don't sync
+      setTimeout(() => animateBar(anim), i * 25);
+    });
+
+    return () => { activeRef.current = false; };
+  }, [isPlaying]);
+
+  return (
+    <View style={styles.waveformRow} pointerEvents="none">
+      {anims.map((anim, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.waveBar,
+            { 
+              height: WAVE_HEIGHTS[i], 
+              opacity: isPlaying ? 0.65 : 0.2,
+              transform: [
+                { scaleY: anim },
+                { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [WAVE_HEIGHTS[i] / 2, 0] }) }
+              ]
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // RecordingDetail Component
 // ---------------------------------------------------------------------------
 interface RecordingDetailProps {
@@ -306,7 +378,11 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
 
   // Playback
   const soundRef = useRef<Audio.Sound | null>(null);
+  const isSeeking = useRef(false);
+  const isToggling = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [positionMs, setPositionMs] = useState(0);
+  const [durationMs, setDurationMs] = useState(0);
 
   // AI state
   const [transcription, setTranscription] = useState<string | null>(null);
@@ -439,35 +515,77 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
   // ---------------------------------------------------------------------------
   // Playback
   // ---------------------------------------------------------------------------
+  const formatMs = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleSeek = useCallback(async (value: number) => {
+    if (!soundRef.current) return;
+    try {
+      const status = await soundRef.current.getStatusAsync();
+      if (status.isLoaded) {
+        await soundRef.current.setPositionAsync(Math.floor(value * (status.durationMillis ?? 0)));
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
+
   const togglePlayback = useCallback(async () => {
     try {
       if (soundRef.current) {
         const status = await soundRef.current.getStatusAsync();
         if (status.isLoaded) {
+          isToggling.current = true;
           if (status.isPlaying) {
+            setIsPlaying(false); // Update UI immediately to avoid lag
             await soundRef.current.pauseAsync();
-            setIsPlaying(false);
           } else {
+            setIsPlaying(true); // Update UI immediately to avoid lag
             await soundRef.current.playAsync();
-            setIsPlaying(true);
           }
+          isToggling.current = false;
           return;
         }
         await soundRef.current.unloadAsync();
         soundRef.current = null;
       }
 
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri: audioUri }, { shouldPlay: true });
+      await Audio.setAudioModeAsync({ 
+        allowsRecordingIOS: false, 
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUri },
+        // 100ms interval (10fps) prevents UI thread locks while keeping slider smooth
+        { shouldPlay: true, progressUpdateIntervalMillis: 100 },
+      );
       soundRef.current = sound;
       setIsPlaying(true);
+      setPositionMs(0);
 
       sound.setOnPlaybackStatusUpdate((s: AVPlaybackStatus) => {
-        if (s.isLoaded && s.didJustFinish) {
+        if (!s.isLoaded) return;
+        if (s.durationMillis) setDurationMs(s.durationMillis);
+        
+        if (s.didJustFinish) {
           setIsPlaying(false);
+          setPositionMs(0);
+          sound.stopAsync(); // Physically stop and rewind audio to start
+        } else {
+          if (!isSeeking.current) {
+            setPositionMs(s.positionMillis ?? 0);
+          }
+          // Only sync state with audio engine if we are not manually toggling it right now
+          if (!isToggling.current) {
+            setIsPlaying(prev => prev !== s.isPlaying ? s.isPlaying : prev);
+          }
         }
       });
     } catch (e) {
+      isToggling.current = false;
       setIsPlaying(false);
       alertRef.show({ title: t('common.error') || 'Error', message: t('recordings.errors.playbackFailed'), type: 'error' });
     }
@@ -572,17 +690,66 @@ export const RecordingDetail: React.FC<RecordingDetailProps> = ({ recordingId, o
         showsVerticalScrollIndicator={false}
       >
         {/* Player Card */}
-        <View style={[styles.playerCard, { flexDirection: 'row', alignItems: 'center' }]}>
-          <View style={{ flex: 1, marginRight: 16 }}>
-            <Text style={styles.playerTitle} numberOfLines={2}>{recordingTitle}</Text>
-            <Text style={[styles.playerDate, { marginBottom: 0 }]}>{date}</Text>
+        <LinearGradient
+          colors={['#1A1A2E', '#16213E', '#0F3460']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.playerCard}
+        >
+          {/* Dynamic waveform visualizer */}
+          <WaveformBars isPlaying={isPlaying} />
+
+          {/* Top row: mic badge + meta */}
+          <View style={styles.playerTopRow}>
+            <View style={styles.playerMicBadge}>
+              <MaterialCommunityIcons name="microphone" size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.playerTitle} numberOfLines={2}>{recordingTitle}</Text>
+              <Text style={styles.playerDate}>{date}</Text>
+            </View>
           </View>
 
-          {/* Play button */}
-          <TouchableOpacity style={styles.playButton} onPress={togglePlayback}>
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={32} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
+          {/* Divider */}
+          <View style={styles.playerDivider} />
+
+          {/* Controls row: play btn + slider column */}
+          <View style={styles.playerControls}>
+            <TouchableOpacity style={styles.playButton} onPress={togglePlayback} activeOpacity={0.8}>
+              <View style={styles.playButtonRing}>
+                <Ionicons
+                  name={isPlaying ? 'pause' : 'play'}
+                  size={26}
+                  color="#fff"
+                  style={isPlaying ? {} : { marginLeft: 3 }}
+                />
+              </View>
+            </TouchableOpacity>
+
+            <View style={{ flex: 1 }}>
+              {/* Seek bar */}
+              <Slider
+                style={{ width: '100%', height: 36, marginTop: -4 }}
+                minimumValue={0}
+                maximumValue={1}
+                value={durationMs > 0 ? positionMs / durationMs : 0}
+                minimumTrackTintColor="#ffffff"
+                maximumTrackTintColor="rgba(255,255,255,0.25)"
+                thumbTintColor="#ffffff"
+                onSlidingStart={() => { isSeeking.current = true; }}
+                onSlidingComplete={async (v) => {
+                  isSeeking.current = false;
+                  await handleSeek(v);
+                }}
+              />
+              {/* Timestamps */}
+              <View style={styles.playerTimestamps}>
+                <Text style={styles.playerTimeText}>{formatMs(positionMs)}</Text>
+                <Text style={styles.playerTimeText}>{durationMs > 0 ? formatMs(durationMs) : '--:--'}</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
 
         {/* Animated Subject Selector */}
         <AnimatedSubjectSelector 

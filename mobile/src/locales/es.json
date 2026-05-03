@@ -54,8 +54,17 @@
     "share": "Compartir",
     "retake": "Reintentar",
     "preview": "Vista previa",
+    "copyText": "Copiar Texto",
     "grantPermission": "Dar permiso",
-    "daysShort": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+    "daysShort": [
+      "Lun",
+      "Mar",
+      "Mié",
+      "Jue",
+      "Vie",
+      "Sáb",
+      "Dom"
+    ],
     "errors": {
       "enterPassword": "Ingresa tu contraseña",
       "groqApiKeyMissing": "Falta la API Key de Groq en el archivo .env.local",
@@ -209,28 +218,28 @@
       "pause": "Pausa",
       "delete": "Eliminar",
       "noRecordings": "No hay grabaciones aún",
-        "recordingsList": "Mis grabaciones",
-        "recordings": "Audios",
-        "unclassified": "Sin clasificar",
-        "ai": {
-          "tabTranscription": "Transcripción",
-          "tabSummary": "Resumen IA",
-          "generateTranscription": "Generar transcripción",
-          "generateSummary": "Generar resumen IA",
-          "transcriptionHint": "Transcribe el audio grabado usando IA. Ideal para repasar clases o buscar fragmentos clave.",
-          "summaryHint": "Obtén un resumen inteligente del audio. Perfecto para repasar ideas principales rápidamente.",
-          "tutorialTitle": "¿Nuevo? Prueba la transcripción y resumen IA",
-          "tutorialBody": "Pulsa los íconos para alternar entre la transcripción completa y el resumen generado por IA. Puedes copiar el texto o buscar palabras clave.",
-          "downloadingModel": "Descargando modelo de transcripción...",
-          "downloadingModelDesc": "La primera vez puede tardar unos minutos. No cierres la app.",
-          "copy": "Copiar texto",
-          "copied": "¡Texto copiado!",
-          "error": "Ocurrió un error al procesar el audio. Intenta de nuevo.",
-          "emptyTranscription": "Aún no hay transcripción. Pulsa para generar.",
-          "emptySummary": "Aún no hay resumen. Pulsa para generar.",
-          "loading": "Procesando...",
-          "recording": "Grabación"
-        },
+      "recordingsList": "Mis grabaciones",
+      "recordings": "Audios",
+      "unclassified": "Sin clasificar",
+      "ai": {
+        "tabTranscription": "Transcripción",
+        "tabSummary": "Resumen IA",
+        "generateTranscription": "Generar transcripción",
+        "generateSummary": "Generar resumen IA",
+        "transcriptionHint": "Transcribe el audio grabado usando IA. Ideal para repasar clases o buscar fragmentos clave.",
+        "summaryHint": "Obtén un resumen inteligente del audio. Perfecto para repasar ideas principales rápidamente.",
+        "tutorialTitle": "¿Nuevo? Prueba la transcripción y resumen IA",
+        "tutorialBody": "Pulsa los íconos para alternar entre la transcripción completa y el resumen generado por IA. Puedes copiar el texto o buscar palabras clave.",
+        "downloadingModel": "Descargando modelo de transcripción...",
+        "downloadingModelDesc": "La primera vez puede tardar unos minutos. No cierres la app.",
+        "copy": "Copiar texto",
+        "copied": "¡Texto copiado!",
+        "error": "Ocurrió un error al procesar el audio. Intenta de nuevo.",
+        "emptyTranscription": "Aún no hay transcripción. Pulsa para generar.",
+        "emptySummary": "Aún no hay resumen. Pulsa para generar.",
+        "loading": "Procesando...",
+        "recording": "Grabación"
+      },
       "fileLabel": "Grabación {{date}}",
       "emptyState": "Pulsa el botón rojo para comenzar a grabar tu primera nota de voz."
     },
@@ -261,6 +270,7 @@
     "documentScannerModal": {
       "title": "Escáner de documentos",
       "subtitle": "Digitaliza tus apuntes con calidad profesional.",
+      "transcribedText": "Texto Extraído",
       "guide": "Alinea el documento con la libélula",
       "capture": "Capturar",
       "adjust": "Ajustar recorte",
@@ -401,7 +411,9 @@
       "grades": "Notas",
       "gallery": "Galería",
       "settings": "Ajustes"
-    }
+    },
+    "noScheduleAssigned": "Sin horario asignado — toca la grilla para añadir",
+    "activeSession": "Sesión activa"
   },
   "calendar": {
     "weekOverview": "Resumen semanal",
@@ -502,31 +514,6 @@
     "defaultSubtitle": "Semestre actual",
     "noSchedule": "Sin horario registrado",
     "statsTitle": "Estadísticas de la materia",
-    "currentAverage": "Promedio actual",
-    "projectedGrade": "Nota proyectada",
-    "deliveredTasks": "Tareas entregadas",
-    "gradeScale": "Escala 0-5",
-    "trendNote": "Siguiendo el ritmo actual",
-    "deliveredHint": "Completadas vs. total",
-    "thresholdTitle": "Umbral final",
-    "thresholdSubtitle": "El corazón del seguimiento académico",
-    "thresholdHint": "Ya tienes asegurado el {{percent}}% de la nota final.",
-    "secured": "Asegurado",
-    "finalNeedsMeta": "Agrega una meta de aprobación para calcular el examen final.",
-    "metaSecured": "Meta cumplida: el umbral ya está cubierto.",
-    "finalNeedsGrade": "Necesitas un {{grade}} en el examen final.",
-    "insightsTitle": "Análisis de notas",
-    "insightsHint": "Últimos resultados con barras de progreso.",
-    "notes": "notas",
-    "note": "Nota",
-    "pending": "Pendiente",
-    "emptyInsightsTitle": "Aún no hay notas registradas",
-    "emptyInsightsText": "Cuando agregues evaluaciones, aquí verás barras de progreso y el comportamiento de cada entrega.",
-    "galleryTitle": "Galería de apuntes",
-    "galleryHint": "Últimas 4 fotos de la pizarra en formato Bento.",
-    "openGallery": "Abrir galería",
-    "galleryFooterText": "Toca la tarjeta para ver la galería completa.",
-    "galleryFallbackSubject": "Materia",
     "sample": {
       "csName": "Sistemas Computacionales II",
       "csProf": "Prof. Aguilar K.",
@@ -543,7 +530,22 @@
       "assess2Due": "03 May",
       "assess3Name": "Examen parcial",
       "assess3Due": "05 May"
-    }
+    },
+    "youtubeVideos": "Videos de YouTube",
+    "savedVideos": "Videos guardados de esta materia",
+    "youtubeVideoDefault": "Video de YouTube",
+    "unknownDate": "Fecha desconocida",
+    "deleteVideo": "Eliminar video",
+    "deleteVideoConfirm": "¿Estás seguro de que quieres eliminar este video?",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "error": "Error",
+    "deleteVideoError": "No se pudo eliminar el video.",
+    "pdfGenerationError": "Error al generar PDF: {{message}}",
+    "scannedDocuments": "Documentos Escaneados",
+    "scannedDocumentsHint": "PDFs e imágenes escaneadas de esta materia",
+    "pdf": "PDF",
+    "flashcards": "Tarjetas"
   },
   "grades": {
     "title": "Seguimiento de notas",
@@ -649,7 +651,11 @@
     "academicPrefs": "Preferencias académicas",
     "academicPrefsDesc": "Semestres, umbrales de aprobación y escalas",
     "termsSemesters": "Períodos / semestres",
-    "termOptions": ["Otoño 2025", "Primavera 2026", "Verano 2026"],
+    "termOptions": [
+      "Otoño 2025",
+      "Primavera 2026",
+      "Verano 2026"
+    ],
     "manageTerms": "Gestiona períodos y el semestre activo",
     "addTerm": "Añadir período",
     "minGrade": "Nota mínima para aprobar (por materia)",
@@ -727,9 +733,18 @@
     "calendarSyncDesc": "Sincronización bidireccional con tu calendario académico",
     "linkedLms": "Plataformas LMS vinculadas",
     "lmsAccounts": [
-      { "name": "Canvas • Universidad del Estado", "user": "maya.reyes" },
-      { "name": "Moodle • Cursos nocturnos", "user": "mr.reyes" },
-      { "name": "Blackboard • Instituto asociado", "user": "mayare" }
+      {
+        "name": "Canvas • Universidad del Estado",
+        "user": "maya.reyes"
+      },
+      {
+        "name": "Moodle • Cursos nocturnos",
+        "user": "mr.reyes"
+      },
+      {
+        "name": "Blackboard • Instituto asociado",
+        "user": "mayare"
+      }
     ],
     "remove": "Quitar",
     "addLms": "Añadir LMS",
@@ -757,7 +772,14 @@
       "fillAllFields": "Por favor, completa todos los campos requeridos.",
       "passwordRequired": "Ingresa tu contraseña",
       "passwordUpdateFailed": "Fallo al actualizar contraseña"
-    }
+    },
+    "collaboration": "Colaboración",
+    "joinGroup": "Unirse a un grupo",
+    "sharePin": "PIN de Compartir",
+    "fixed": "Fijo",
+    "pinPlaceholderJoin": "Ingresa el PIN (ej: A1B2C3)",
+    "pinPlaceholderCreate": "Ej: MIPIN1 (mín. 4 caracteres)",
+    "logout": "Salir"
   },
   "modals": {
     "audioRecorder": {
@@ -800,7 +822,18 @@
       },
       "fileLabel": "Grabación {{date}}",
       "emptyState": "Pulsa el botón rojo para comenzar a grabar tu primera nota de voz."
-    }
+    },
+    "editScan": "Editar Escaneo",
+    "exportFormat": "Formato de exportación",
+    "retake": "Retomar",
+    "save": "Guardar",
+    "shared": "Compartido",
+    "shareDeck": "Compartir mazo",
+    "pinPlaceholder": "Ej: ABC123",
+    "cancel": "Cancelar",
+    "select": "Seleccionar",
+    "durationMinutes": "Duración (minutos)",
+    "selectYear": "Seleccionar Año"
   },
   "recordings": {
     "title": "Grabaciones",
@@ -812,7 +845,13 @@
       "noVoiceDetected": "Whisper no detectó voz en el audio.",
       "transcriptionFailed": "Error al transcribir el audio.",
       "summaryFailed": "Error al generar el resumen."
-    }
+    },
+    "addYoutubeVideo": "Añadir Video de YouTube",
+    "youtubeLinkPrompt": "Pega el enlace del video para transcribirlo.",
+    "youtubePlaceholder": "https://www.youtube.com/watch?v=...",
+    "cancel": "Cancelar",
+    "startTranscription": "Iniciar transcripción",
+    "startSummary": "Iniciar resumen"
   },
   "youtube": {
     "title": "Videos",
@@ -880,5 +919,56 @@
         "saveFailed": "Error al guardar el mazo."
       }
     }
+  },
+  "biometric": {
+    "promptEnroll": "Confirma tu identidad para activar Touch ID",
+    "cancel": "Cancelar",
+    "promptLogin": "Usa Touch ID para iniciar sesión en Threshold"
+  },
+  "about": {
+    "productOf": "un producto de",
+    "theApp": "La aplicación",
+    "launch": "Lanzamiento",
+    "version": "Versión",
+    "rd": "I+D",
+    "origin": "Origen",
+    "theSymbol": "El símbolo",
+    "theDragonfly": "La Libélula",
+    "dragonflyLower": "libélula",
+    "theSubsidiary": "La filial",
+    "tangibleTech": "tecnología tangible",
+    "headquarters": "La casa matriz"
+  },
+  "modals": {
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "select": "Seleccionar",
+    "retake": "Retomar",
+    "editScan": "Editar Escaneo",
+    "exportFormat": "Formato de exportación",
+    "durationMinutes": "Duración (minutos)",
+    "selectYear": "Seleccionar Año",
+    "deleteDeck": "Eliminar Mazo",
+    "deleteDeckConfirm": "¿Estás seguro de que deseas eliminar el mazo \"{{title}}\"? Esta acción no se puede deshacer.",
+    "deleteCard": "Eliminar Tarjeta",
+    "deleteCardConfirm": "¿Estás seguro de que deseas eliminar esta tarjeta?",
+    "shared": "Compartido",
+    "shareDeck": "Compartir mazo",
+    "shareDeckDesc": "Ingresa el PIN del usuario con quien deseas compartir \"{{title}}\".",
+    "pinPlaceholder": "Ej: ABC123",
+    "sharing": "Compartiendo...",
+    "share": "Compartir",
+    "filters": {
+      "prefix": "Filtro: ",
+      "smartEnhancements": "Mejoras Inteligentes",
+      "original": "Original",
+      "magic": "Texto Mágico",
+      "bw": "B/N OCR",
+      "grayscale": "Escala de Grises"
+    }
+  },
+  "recordings": {
+    "startTranscription": "Iniciar transcripción",
+    "startSummary": "Iniciar resumen"
   }
 }

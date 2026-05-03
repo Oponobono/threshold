@@ -44,8 +44,8 @@ export const recordingsStyles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
@@ -69,7 +69,7 @@ export const recordingsStyles = StyleSheet.create({
   },
   activeRecorderContainer: {
     position: 'absolute',
-    bottom: 24,
+    // bottom is set dynamically via insets in the component
     left: 16,
     right: 16,
     backgroundColor: theme.colors.card,

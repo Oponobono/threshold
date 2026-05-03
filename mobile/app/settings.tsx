@@ -627,14 +627,14 @@ export default function SettingsScreen() {
         {/* ── COLLABORATION ── */}
         {/* ─────────────────────────────────────────── */}
         <View style={styles.section}>
-          <SectionHeader title="Colaboración" desc="Conecta con tus compañeros y comparte mazos" icon="people-outline" />
+          <SectionHeader title={t('settings.collaboration')} desc={t('settings.collaborationDesc', 'Conecta con tus compañeros y comparte mazos')} icon="people-outline" />
           
-          <Text style={styles.subSectionTitle}>Unirse a un grupo</Text>
+          <Text style={styles.subSectionTitle}>{t('settings.joinGroup')}</Text>
           <View style={[styles.settingRow, { alignItems: 'center' }]}>
             <View style={{ flex: 1, marginRight: 12 }}>
               <TextInput 
                 style={[styles.modalInput, { marginBottom: 0, paddingVertical: 8 }]}
-                placeholder="Ingresa el PIN (ej: A1B2C3)"
+                placeholder={t('settings.pinPlaceholderJoin')}
                 value={pinToJoin}
                 onChangeText={setPinToJoin}
                 autoCapitalize="characters"
@@ -646,24 +646,24 @@ export default function SettingsScreen() {
               onPress={handleJoinGroup}
               disabled={isJoiningGroup}
             >
-              <Text style={styles.darkPillText}>{isJoiningGroup ? 'Uniendo...' : 'Unirse'}</Text>
+              <Text style={styles.darkPillText}>{isJoiningGroup ? t('settings.joining', 'Uniendo...') : t('settings.joinBtn', 'Unirse')}</Text>
             </TouchableOpacity>
           </View>
 
           {userGroups.length > 0 && (
             <>
-              <Text style={[styles.subSectionTitle, { marginTop: 16 }]}>Mis grupos ({userGroups.length})</Text>
+              <Text style={[styles.subSectionTitle, { marginTop: 16 }]}>{t('settings.myGroups', 'Mis grupos')} ({userGroups.length})</Text>
               {userGroups.map((group, i) => (
                 <View key={i} style={styles.lmsRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.settingTitle}>Grupo PIN: {group.group_pin_id}</Text>
-                    <Text style={styles.settingDesc}>Rol: {group.role} • Unido el {new Date(group.joined_at!).toLocaleDateString()}</Text>
+                    <Text style={styles.settingTitle}>{t('settings.groupPin', 'Grupo PIN:')} {group.group_pin_id}</Text>
+                    <Text style={styles.settingDesc}>{t('settings.role', 'Rol:')} {group.role} • {t('settings.joinedOn', 'Unido el')} {new Date(group.joined_at!).toLocaleDateString()}</Text>
                   </View>
                   <TouchableOpacity 
                     style={styles.outlinePill}
                     onPress={() => handleLeaveGroup(group.group_pin_id)}
                   >
-                    <Text style={styles.outlinePillText}>Salir</Text>
+                    <Text style={styles.outlinePillText}>{t('settings.logout')}</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -751,7 +751,7 @@ export default function SettingsScreen() {
               <TextInput style={styles.modalInput} value={editUniversity} onChangeText={setEditUniversity} />
 
               {/* PIN de usuario: solo asignable una vez */}
-              <Text style={styles.modalLabel}>PIN de Compartir</Text>
+              <Text style={styles.modalLabel}>{t('settings.sharePin')}</Text>
               {profile?.share_pin ? (
                 <View style={[styles.modalInput, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: theme.colors.inputBackground }]}>
                   <Text style={{ fontSize: 20, fontWeight: '800', letterSpacing: 4, color: theme.colors.primary }}>
@@ -759,7 +759,7 @@ export default function SettingsScreen() {
                   </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Ionicons name="lock-closed" size={14} color={theme.colors.text.secondary} />
-                    <Text style={{ fontSize: 11, color: theme.colors.text.secondary }}>Fijo</Text>
+                    <Text style={{ fontSize: 11, color: theme.colors.text.secondary }}>{t('settings.fixed')}</Text>
                   </View>
                 </View>
               ) : (
@@ -768,12 +768,12 @@ export default function SettingsScreen() {
                     style={styles.modalInput}
                     value={editPin}
                     onChangeText={setEditPin}
-                    placeholder="Ej: MIPIN1 (mín. 4 caracteres)"
+                    placeholder={t('settings.pinPlaceholderCreate')}
                     autoCapitalize="characters"
                     maxLength={8}
                   />
                   <Text style={{ fontSize: 11, color: theme.colors.text.secondary, marginTop: -8, marginBottom: 4 }}>
-                    ⚠️ Una vez guardado, el PIN no puede modificarse.
+                    {t('settings.pinFixedWarning', '⚠️ Una vez guardado, el PIN no puede modificarse.')}
                   </Text>
                 </>
               )}

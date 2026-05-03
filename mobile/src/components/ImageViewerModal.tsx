@@ -1,10 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Modal, TouchableOpacity, Image, FlatList, Dimensions, Share, ActionSheetIOS, Platform, ActivityIndicator } from 'react-native';
+import { View, Modal, TouchableOpacity, Image, FlatList, Dimensions, Share, ActionSheetIOS, Platform, ActivityIndicator, Text, ScrollView, TextInput } from 'react-native';
 import { useCustomAlert } from './CustomAlert';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { deletePhoto, extractTextFromImage } from '../services/api';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Clipboard from 'expo-clipboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { theme } from '../styles/theme';
 import { styles } from '../styles/ImageViewerModal.styles';
 
 const { width, height } = Dimensions.get('window');
@@ -34,6 +37,8 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedText, setExtractedText] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (isVisible && photos.length > 0) {
@@ -76,10 +81,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
         return;
       }
 
-      await Share.share({
-        title: 'Texto extraído de Threshold',
-        message: text,
-      });
+      setExtractedText(text);
     } catch (error: any) {
       showAlert({ title: 'Error OCR', message: error.message, type: 'error' });
     } finally {
@@ -113,36 +115,6 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
     });
   };
 
-  const showOptions = () => {
-    const currentPhoto = photos[currentIndex];
-    if (!currentPhoto) return;
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [t('common.cancel') || 'Cancelar', t('common.share') || 'Compartir', t('common.delete') || 'Eliminar'],
-          destructiveButtonIndex: 2,
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
-            handleShare(currentPhoto.local_uri);
-          } else if (buttonIndex === 2) {
-            if (currentPhoto.id) handleDelete(currentPhoto.id);
-          }
-        }
-      );
-    } else {
-      showAlert({
-        title: t('common.options') || 'Opciones',
-        buttons: [
-          { text: t('common.share') || 'Compartir', onPress: () => handleShare(currentPhoto.local_uri) },
-          { text: t('common.delete') || 'Eliminar', onPress: () => currentPhoto.id && handleDelete(currentPhoto.id), style: 'destructive' },
-          { text: t('common.cancel') || 'Cancelar', style: 'cancel' }
-        ]
-      });
-    }
-  };
 
   const renderItem = ({ item }: { item: PhotoItem }) => (
     <View style={styles.imageContainer}>
@@ -157,7 +129,10 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   }).current;
 
   return (
-    <Modal visible={isVisible} transparent={true} animationType="fade" onRequestClose={onClose}>
+    <Modal visible={isVisible} transparent={true} animationType="fade" onRequestClose={() => {
+      if (extractedText) setExtractedText(null);
+      else onClose();
+    }}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.iconButton}>
@@ -165,10 +140,13 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <TouchableOpacity onPress={handleOCR} style={styles.iconButton} disabled={isProcessing}>
-              {isProcessing ? <ActivityIndicator color="#C5A059" /> : <Ionicons name="text" size={24} color="#C5A059" />}
+              {isProcessing ? <ActivityIndicator color="#C5A059" /> : <MaterialCommunityIcons name="text-recognition" size={24} color="#C5A059" />}
             </TouchableOpacity>
-            <TouchableOpacity onPress={showOptions} style={styles.iconButton}>
-              <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+            <TouchableOpacity onPress={() => handleShare(photos[currentIndex]?.local_uri)} style={styles.iconButton}>
+              <Ionicons name="share-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => photos[currentIndex]?.id && handleDelete(photos[currentIndex].id!)} style={styles.iconButton}>
+              <Ionicons name="trash-outline" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -191,6 +169,36 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
             }, 500);
           }}
         />
+
+        {/* Panel Inferior para Texto Extraído */}
+        {extractedText && (
+          <View style={[styles.ocrOverlay, { paddingBottom: Math.max(insets.bottom + 10, 20) }]}>
+            <View style={styles.ocrHeader}>
+              <Text style={styles.ocrTitle}>{t('dashboard.documentScannerModal.transcribedText') || 'Texto Extraído'}</Text>
+              <TouchableOpacity onPress={() => setExtractedText(null)}>
+                <Ionicons name="close" size={24} color={theme.colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <TextInput 
+              style={[styles.ocrScroll, styles.ocrText, { textAlignVertical: 'top' }]}
+              multiline={true}
+              value={extractedText}
+              onChangeText={setExtractedText}
+            />
+            
+            <TouchableOpacity 
+              style={styles.ocrCopyButton}
+              onPress={async () => {
+                await Clipboard.setStringAsync(extractedText);
+                showAlert({ title: t('common.success') || 'Copiado', message: 'Texto copiado al portapapeles', type: 'success' });
+              }}
+            >
+              <Ionicons name="copy-outline" size={20} color={theme.colors.white} style={{ marginRight: 8 }} />
+              <Text style={styles.ocrCopyText}>{t('common.copyText') || 'Copiar Texto'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </Modal>
   );
