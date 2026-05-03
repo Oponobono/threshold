@@ -95,6 +95,22 @@ export function useSubjectGrades(
       .slice(0, 15);
   }, [assessments]);
 
+  const thresholdStatus = useMemo<'safe' | 'caution' | 'risk'>(() => {
+    if (evaluatedPercentage === 0) return 'safe';
+    if (accumulatedPoints >= targetGrade) return 'safe';
+    if (requiredGrade === null) return 'safe';
+
+    // If you need more than the max scale, you're at high risk (impossible or near impossible)
+    if (requiredGrade > SCALE_MAX * 0.9) return 'risk';
+    
+    // If you need significantly higher than the target grade to recover
+    const midpoint = (SCALE_MAX + targetGrade) / 2;
+    if (requiredGrade > midpoint) return 'risk';
+    if (requiredGrade > targetGrade) return 'caution';
+    
+    return 'safe';
+  }, [evaluatedPercentage, accumulatedPoints, targetGrade, requiredGrade]);
+
   return {
     evaluatedPercentage,
     accumulatedPoints,
@@ -107,5 +123,6 @@ export function useSubjectGrades(
     deliveredText,
     finalNeededText,
     recentAssessments,
+    thresholdStatus,
   };
 }

@@ -179,6 +179,7 @@ export default function SubjectDetailScreen() {
     securedPercent,
     finalNeededText,
     recentAssessments,
+    thresholdStatus,
   } = useSubjectGrades(assessments, selectedSubject, profile);
 
   const imagePhotos = useMemo(() => photos.filter(p => !p.local_uri?.endsWith('.pdf')), [photos]);
@@ -252,6 +253,7 @@ export default function SubjectDetailScreen() {
             securedPercent={securedPercent}
             finalNeededText={finalNeededText}
             subjectColor={selectedSubject?.color ?? undefined}
+            status={thresholdStatus}
           />
 
           <SubjectInsights 
