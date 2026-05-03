@@ -43,8 +43,8 @@ export const SubjectInsights: React.FC<SubjectInsightsProps> = ({ recentAssessme
             try {
               await deleteAssessment(id);
               onDeleteAssessment?.(id);
-            } catch (e) {
-              showAlert({ title: 'Error', message: 'No se pudo eliminar la evaluación.', type: 'error' });
+            } catch (e: any) {
+              showAlert({ title: 'Error', message: `No se pudo eliminar: ${e.message || 'Error de red'}`, type: 'error' });
             }
           }
         }

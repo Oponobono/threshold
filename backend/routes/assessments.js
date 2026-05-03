@@ -139,4 +139,29 @@ router.post('/assessments', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/assessments/{id}:
+ *   delete:
+ *     summary: Elimina una evaluación
+ *     tags: [Assessments]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Evaluación eliminada exitosamente
+ */
+router.delete('/assessments/:id', (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM assessments WHERE id = ?`, [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'Evaluación no encontrada.' });
+    res.json({ message: 'Evaluación eliminada exitosamente' });
+  });
+});
+
 module.exports = router;

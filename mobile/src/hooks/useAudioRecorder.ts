@@ -355,21 +355,27 @@ export function useAudioRecorder() {
   // deleteRecordingConfirmed: runs the actual deletion without showing any dialog.
   // The calling component is responsible for showing the confirmation prompt.
   async function deleteRecordingConfirmed(id: number | string, uri: string) {
+    // 1. Optimistic update: remove from UI immediately
+    const previousRecordings = [...recordings];
+    setRecordings((prev) =>
+      prev.filter((r) => r.uri !== uri && r.id_string !== String(id))
+    );
+
     try {
       // Convert string id to number if needed
       const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
       
-      // Only delete from DB if it's a numeric ID (already synced)
+      // 2. Delete from DB if it's a numeric ID (already synced)
       if (!isNaN(numericId) && numericId > 0) {
         try {
           await deleteAudioRecording(numericId);
         } catch (dbErr) {
           console.error('Error deleting from DB:', dbErr);
-          throw dbErr; // Don't silently ignore
+          throw dbErr; // Let the outer catch handle and revert
         }
       }
       
-      // Delete the physical file - wait for completion
+      // 3. Delete the physical file - wait for completion
       try {
         const fileInfo = await FileSystem.getInfoAsync(uri);
         if (fileInfo.exists) {
@@ -380,15 +386,14 @@ export function useAudioRecorder() {
         // Continue anyway - file might not exist locally
       }
 
-      // Update state immediately
-      setRecordings((prev) =>
-        prev.filter((r) => r.uri !== uri && r.id_string !== String(id))
-      );
-
-      // Refresh after a small delay to ensure file deletion is complete
+      // Refresh after a small delay to ensure everything is in sync
       setTimeout(() => loadRecordings(), 500);
     } catch (error) {
       console.error('Error in deleteRecordingConfirmed:', error);
+      
+      // Revert optimistic update on failure
+      setRecordings(previousRecordings);
+      
       // Show error to user
       alertRef.show({
         title: 'Error al eliminar',

@@ -508,4 +508,23 @@ export const subjectDetailStyles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.text.secondary,
   },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    zIndex: 100,
+  },
+  fabButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...globalStyles.shadow,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
 });

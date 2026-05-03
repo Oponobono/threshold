@@ -42,6 +42,8 @@ import { FlashcardCreatorModal } from '../../src/components/FlashcardCreatorModa
 import { SubjectStats } from '../../src/components/SubjectStats';
 import { SubjectThreshold } from '../../src/components/SubjectThreshold';
 import { SubjectInsights } from '../../src/components/SubjectInsights';
+import { SubjectAIFab } from '../../src/components/SubjectAIFab';
+import { SubjectAIChatModal } from '../../src/components/SubjectAIChatModal';
 import { useSubjectGrades } from '../../src/hooks/useSubjectGrades';
 import { useCameraPermissions, CameraView } from 'expo-camera';
 import { subjectDetailStyles as styles } from '../../src/styles/SubjectDetail.styles';
@@ -81,13 +83,24 @@ export default function SubjectDetailScreen() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = React.useRef<CameraView>(null);
-  const [recentRecordings, setRecentRecordings] = useState<RecordingItem[]>([]);
   const [recentVideos, setRecentVideos] = useState<YouTubeVideo[]>([]);
+  const [allSubjectVideos, setAllSubjectVideos] = useState<YouTubeVideo[]>([]);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const { playSound, stopSound, playingId, deleteRecordingConfirmed } = useAudioRecorder();
+  const { playSound, stopSound, playingId, deleteRecordingConfirmed, recordings } = useAudioRecorder();
+
+  // All recordings for this subject (used by the AI context modal — not sliced)
+  const allSubjectRecordings = useMemo(() => {
+    if (!subjectId || !recordings) return [];
+    // eslint-disable-next-line eqeqeq
+    return recordings.filter(r => r.subject_id == subjectId);
+  }, [recordings, subjectId]);
+
+  const recentRecordings = useMemo(() => allSubjectRecordings.slice(0, 3), [allSubjectRecordings]);
   
   const [isFlashcardModalVisible, setIsFlashcardModalVisible] = useState(false);
+  const [isAIChatModalVisible, setIsAIChatModalVisible] = useState(false);
   const [flashcardBase64, setFlashcardBase64] = useState<string | undefined>();
+  const [selectedItemsForAI, setSelectedItemsForAI] = useState<any[]>([]);
   const { showAlert } = useCustomAlert();
 
   const handleDeleteVideo = (videoId: number | string) => {
@@ -141,27 +154,12 @@ export default function SubjectDetailScreen() {
         if (docsRes.status === 'fulfilled') setScannedDocuments(docsRes.value || []);
         if (assessmentsRes.status === 'fulfilled') setAssessments((assessmentsRes.value || []) as Assessment[]);
         if (schedulesRes.status === 'fulfilled') setSubjectSchedules(schedulesRes.value || []);
-        if (recordingsRes.status === 'fulfilled') {
-          // eslint-disable-next-line eqeqeq
-          const filtered = recordingsRes.value.filter(r => r.subject_id == subjectId).slice(0, 3);
-          setRecentRecordings(
-            filtered.map(rec => ({
-              ...rec,
-              id_string: rec.id?.toString() || rec.local_uri,
-              uri: rec.local_uri,
-              date: new Date(rec.created_at || Date.now()).toLocaleString(),
-              name:
-                rec.name ||
-                t('dashboard.audioRecorderModal.fileLabel', {
-                  date: new Date(rec.created_at || Date.now()).toLocaleDateString(),
-                }),
-            }))
-          );
-        }
+        // Grabaciones gestionadas por useAudioRecorder hook
         if (videosRes.status === 'fulfilled') {
           // eslint-disable-next-line eqeqeq
-          const filtered = videosRes.value.filter(v => v.subject_id == subjectId).slice(0, 3);
-          setRecentVideos(filtered);
+          const filtered = videosRes.value.filter(v => v.subject_id == subjectId);
+          setAllSubjectVideos(filtered);
+          setRecentVideos(filtered.slice(0, 3));
         }
       } catch (err) {
         console.error('Error loading subject data:', err);
@@ -471,6 +469,45 @@ export default function SubjectDetailScreen() {
           title={selectedSubject?.name || 'Documento'}
           subjectId={subjectId}
           userId={profile.id}
+        />
+      )}
+
+      {selectedSubject && (
+        <SubjectAIFab
+          subjectName={selectedSubject.name}
+          recordings={allSubjectRecordings}
+          photos={imagePhotos}
+          documents={pdfDocuments as any}
+          videos={allSubjectVideos}
+          onGenerateFlashcards={async (selectedItems) => {
+            // For now: pick the first document/photo and open the flashcard creator
+            const firstDoc = selectedItems.find(i => i.type === 'document' || i.type === 'photo');
+            if (firstDoc?.uri && subjectId && profile?.id) {
+              try {
+                const FileSystem = require('expo-file-system/legacy');
+                const base64Data = await FileSystem.readAsStringAsync(firstDoc.uri, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                setFlashcardBase64(base64Data);
+                setIsFlashcardModalVisible(true);
+              } catch (e) {
+                console.error('Error reading file for flashcards:', e);
+              }
+            }
+          }}
+          onAskQuestions={(selectedItems) => {
+            setSelectedItemsForAI(selectedItems);
+            setIsAIChatModalVisible(true);
+          }}
+        />
+      )}
+
+      {selectedSubject && (
+        <SubjectAIChatModal
+          isVisible={isAIChatModalVisible}
+          onClose={() => setIsAIChatModalVisible(false)}
+          selectedItems={selectedItemsForAI}
+          subjectName={selectedSubject.name}
         />
       )}
     </>

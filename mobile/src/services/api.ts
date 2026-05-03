@@ -10,3 +10,4 @@ export * from './api/audio';
 export * from './api/youtube';
 export * from './api/documents';
 export * from './api/learning';
+export * from './api/ai';
