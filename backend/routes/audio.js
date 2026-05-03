@@ -5,6 +5,22 @@ const router = express.Router();
 
 // --- AUDIO RECORDINGS ENDPOINTS ---
 
+/**
+ * @swagger
+ * /api/audio-recordings/{userId}:
+ *   get:
+ *     summary: Obtiene todas las grabaciones de audio de un usuario
+ *     tags: [Audio]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de grabaciones
+ */
 // Obtener todas las grabaciones de un usuario
 router.get('/audio-recordings/:userId', (req, res) => {
   const { userId } = req.params;
@@ -23,6 +39,36 @@ router.get('/audio-recordings/:userId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/audio-recordings:
+ *   post:
+ *     summary: Guarda una nueva grabación de audio
+ *     tags: [Audio]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - local_uri
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               subject_id:
+ *                 type: integer
+ *               name:
+ *                 type: string
+ *               local_uri:
+ *                 type: string
+ *               duration:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Grabación guardada exitosamente
+ */
 // Crear una grabación
 router.post('/audio-recordings', (req, res) => {
   const { user_id, subject_id, name, local_uri, duration } = req.body;
@@ -77,6 +123,33 @@ router.delete('/audio-recordings/:id', (req, res) => {
 
 // --- AUDIO TRANSCRIPTS ENDPOINTS ---
 
+/**
+ * @swagger
+ * /api/audio-transcripts:
+ *   post:
+ *     summary: Guarda o actualiza la transcripción y el resumen de IA de una grabación
+ *     tags: [Audio]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recording_id
+ *             properties:
+ *               recording_id:
+ *                 type: integer
+ *               transcript_uri:
+ *                 type: string
+ *               summary_uri:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Transcripción/resumen actualizado
+ *       201:
+ *         description: Transcripción/resumen creado
+ */
 // Upsert (Crear o actualizar) transcripción/resumen
 router.post('/audio-transcripts', (req, res) => {
   const { recording_id, transcript_uri, summary_uri } = req.body;

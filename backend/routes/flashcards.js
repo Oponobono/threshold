@@ -3,6 +3,27 @@ const { db } = require('../db');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/flashcard-decks:
+ *   get:
+ *     summary: Obtiene todos los mazos de flashcards del usuario (propios y compartidos)
+ *     tags: [Flashcards]
+ *     parameters:
+ *       - in: query
+ *         name: user_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del usuario
+ *     responses:
+ *       200:
+ *         description: Lista de mazos de flashcards
+ *       400:
+ *         description: Falta el user_id
+ *       500:
+ *         description: Error interno
+ */
 // Obtener todos los mazos de un usuario
 router.get('/flashcard-decks', (req, res) => {
   const userId = req.query.user_id;
@@ -35,6 +56,37 @@ router.get('/flashcard-decks', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/flashcard-decks:
+ *   post:
+ *     summary: Crea un nuevo mazo de flashcards
+ *     tags: [Flashcards]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - subject_id
+ *               - user_id
+ *               - title
+ *             properties:
+ *               subject_id:
+ *                 type: integer
+ *               user_id:
+ *                 type: integer
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Mazo creado exitosamente
+ *       400:
+ *         description: Faltan campos requeridos
+ */
 // Crear un mazo nuevo
 router.post('/flashcard-decks', (req, res) => {
   const { subject_id, user_id, title, description } = req.body;
@@ -49,6 +101,25 @@ router.post('/flashcard-decks', (req, res) => {
   );
 });
 
+/**
+ * @swagger
+ * /api/flashcard-decks/{deckId}/cards:
+ *   get:
+ *     summary: Obtiene todas las tarjetas de un mazo
+ *     tags: [Flashcards]
+ *     parameters:
+ *       - in: path
+ *         name: deckId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del mazo
+ *     responses:
+ *       200:
+ *         description: Lista de tarjetas
+ *       500:
+ *         description: Error interno
+ */
 // Obtener las tarjetas de un mazo
 router.get('/flashcard-decks/:deckId/cards', (req, res) => {
   const { deckId } = req.params;
@@ -58,6 +129,38 @@ router.get('/flashcard-decks/:deckId/cards', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/flashcard-decks/{deckId}/cards:
+ *   post:
+ *     summary: Crea una nueva tarjeta en un mazo
+ *     tags: [Flashcards]
+ *     parameters:
+ *       - in: path
+ *         name: deckId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - front
+ *               - back
+ *             properties:
+ *               front:
+ *                 type: string
+ *               back:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Tarjeta creada exitosamente
+ *       400:
+ *         description: Faltan campos
+ */
 // Crear una tarjeta en un mazo
 router.post('/flashcard-decks/:deckId/cards', (req, res) => {
   const { deckId } = req.params;
@@ -73,6 +176,31 @@ router.post('/flashcard-decks/:deckId/cards', (req, res) => {
   );
 });
 
+/**
+ * @swagger
+ * /api/flashcards/{cardId}:
+ *   put:
+ *     summary: Actualiza el estado de una tarjeta
+ *     tags: [Flashcards]
+ *     parameters:
+ *       - in: path
+ *         name: cardId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Estado actualizado
+ */
 // Actualizar estado de una tarjeta
 router.put('/flashcards/:cardId', (req, res) => {
   const { cardId } = req.params;
@@ -83,6 +211,22 @@ router.put('/flashcards/:cardId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/flashcards/{cardId}:
+ *   delete:
+ *     summary: Elimina una tarjeta
+ *     tags: [Flashcards]
+ *     parameters:
+ *       - in: path
+ *         name: cardId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tarjeta eliminada
+ */
 // Eliminar una tarjeta
 router.delete('/flashcards/:cardId', (req, res) => {
   const { cardId } = req.params;
@@ -92,6 +236,22 @@ router.delete('/flashcards/:cardId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/flashcard-decks/{deckId}:
+ *   delete:
+ *     summary: Elimina un mazo completo y sus tarjetas
+ *     tags: [Flashcards]
+ *     parameters:
+ *       - in: path
+ *         name: deckId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Mazo eliminado
+ */
 // Eliminar un mazo (y sus tarjetas)
 router.delete('/flashcard-decks/:deckId', (req, res) => {
   const { deckId } = req.params;
@@ -104,6 +264,38 @@ router.delete('/flashcard-decks/:deckId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/flashcard-decks/{deckId}/share:
+ *   post:
+ *     summary: Comparte un mazo con otro usuario usando su PIN
+ *     tags: [Flashcards]
+ *     parameters:
+ *       - in: path
+ *         name: deckId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - owner_id
+ *               - target_pin
+ *             properties:
+ *               owner_id:
+ *                 type: integer
+ *               target_pin:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Mazo compartido exitosamente
+ *       404:
+ *         description: PIN no encontrado
+ */
 // Compartir un mazo con otro usuario via PIN
 router.post('/flashcard-decks/:deckId/share', (req, res) => {
   const { deckId } = req.params;

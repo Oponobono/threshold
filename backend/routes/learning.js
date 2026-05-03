@@ -5,6 +5,22 @@ const router = express.Router();
 
 // ================= STUDY SESSIONS =================
 
+/**
+ * @swagger
+ * /api/learning/sessions/{userId}:
+ *   get:
+ *     summary: Obtiene todas las sesiones de estudio de un usuario
+ *     tags: [Learning]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de sesiones de estudio
+ */
 // Obtener sesiones de estudio de un usuario
 router.get('/learning/sessions/:userId', (req, res) => {
   const { userId } = req.params;
@@ -18,6 +34,39 @@ router.get('/learning/sessions/:userId', (req, res) => {
   );
 });
 
+/**
+ * @swagger
+ * /api/learning/sessions:
+ *   post:
+ *     summary: Guarda una nueva sesión de estudio terminada
+ *     tags: [Learning]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - session_type
+ *               - duration_seconds
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               subject_id:
+ *                 type: integer
+ *               session_type:
+ *                 type: string
+ *               config_value:
+ *                 type: string
+ *               duration_seconds:
+ *                 type: integer
+ *               performance_rating:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Sesión de estudio guardada
+ */
 // Guardar una nueva sesión de estudio
 router.post('/learning/sessions', (req, res) => {
   const { user_id, subject_id, session_type, config_value, duration_seconds, performance_rating } = req.body;
@@ -40,6 +89,22 @@ router.post('/learning/sessions', (req, res) => {
 
 // ================= CARD LOGS =================
 
+/**
+ * @swagger
+ * /api/learning/card_logs/{userId}:
+ *   get:
+ *     summary: Obtiene el registro de aprendizaje (logs) de las flashcards
+ *     tags: [Learning]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de interacciones con tarjetas
+ */
 // Obtener logs de tarjetas (analytics)
 router.get('/learning/card_logs/:userId', (req, res) => {
   const { userId } = req.params;
@@ -53,6 +118,34 @@ router.get('/learning/card_logs/:userId', (req, res) => {
   );
 });
 
+/**
+ * @swagger
+ * /api/learning/card_logs:
+ *   post:
+ *     summary: Registra la interacción de un usuario con una flashcard (acierto/error)
+ *     tags: [Learning]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - card_id
+ *               - user_id
+ *             properties:
+ *               card_id:
+ *                 type: integer
+ *               user_id:
+ *                 type: integer
+ *               result:
+ *                 type: string
+ *               response_time_ms:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Log registrado
+ */
 // Registrar un log de tarjeta (interacción de estudio)
 router.post('/learning/card_logs', (req, res) => {
   const { card_id, user_id, result, response_time_ms } = req.body;
@@ -75,6 +168,22 @@ router.post('/learning/card_logs', (req, res) => {
 
 // ================= GROUP MEMBERSHIPS =================
 
+/**
+ * @swagger
+ * /api/learning/groups/{userId}:
+ *   get:
+ *     summary: Obtiene los grupos a los que pertenece el usuario
+ *     tags: [Learning]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de grupos
+ */
 // Obtener los grupos de un usuario
 router.get('/learning/groups/:userId', (req, res) => {
   const { userId } = req.params;
@@ -88,6 +197,34 @@ router.get('/learning/groups/:userId', (req, res) => {
   );
 });
 
+/**
+ * @swagger
+ * /api/learning/groups/join:
+ *   post:
+ *     summary: Se une a un grupo de estudio mediante un PIN
+ *     tags: [Learning]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - group_pin_id
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               group_pin_id:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Unido exitosamente
+ *       400:
+ *         description: Error de validación o ya es miembro
+ *       404:
+ *         description: PIN no encontrado
+ */
 // Unirse a un grupo mediante PIN
 router.post('/learning/groups/join', (req, res) => {
   const { user_id, group_pin_id } = req.body;
@@ -120,6 +257,30 @@ router.post('/learning/groups/join', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/learning/groups/leave:
+ *   delete:
+ *     summary: Sale de un grupo de estudio
+ *     tags: [Learning]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - group_pin_id
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               group_pin_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Ha salido del grupo
+ */
 // Salir de un grupo
 router.delete('/learning/groups/leave', (req, res) => {
   const { user_id, group_pin_id } = req.body;

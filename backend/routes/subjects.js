@@ -3,6 +3,24 @@ const { db } = require('../db');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/subject/{subjectId}:
+ *   get:
+ *     summary: Obtiene una materia específica por su ID
+ *     tags: [Subjects]
+ *     parameters:
+ *       - in: path
+ *         name: subjectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Datos de la materia
+ *       404:
+ *         description: Materia no encontrada
+ */
 // Obtener una materia específica por su ID
 router.get('/subject/:subjectId', (req, res) => {
   const { subjectId } = req.params;
@@ -58,6 +76,22 @@ router.get('/subject/:subjectId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/subjects/{userId}:
+ *   get:
+ *     summary: Obtiene todas las materias de un usuario
+ *     tags: [Subjects]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de materias
+ */
 // Obtener todas las materias de un usuario
 router.get('/subjects/:userId', (req, res) => {
   const { userId } = req.params;
@@ -112,6 +146,44 @@ router.get('/subjects/:userId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/subjects:
+ *   post:
+ *     summary: Agrega una nueva materia
+ *     tags: [Subjects]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - name
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               name:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               credits:
+ *                 type: integer
+ *               professor:
+ *                 type: string
+ *               color:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *               target_grade:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Materia creada
+ *       400:
+ *         description: Faltan campos requeridos
+ */
 // Agregar una nueva materia
 router.post('/subjects', (req, res) => {
   const { user_id, code, name, credits, professor, color, icon, target_grade } = req.body;

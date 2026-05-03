@@ -208,6 +208,50 @@ router.delete('/users/:userId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/register:
+ *   post:
+ *     summary: Registra un nuevo usuario
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               lastname:
+ *                 type: string
+ *               username:
+ *                 type: string
+ *               grading_scale:
+ *                 type: string
+ *               approval_threshold:
+ *                 type: number
+ *               major:
+ *                 type: string
+ *               university:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Usuario registrado exitosamente
+ *       400:
+ *         description: Faltan campos requeridos
+ *       409:
+ *         description: El correo ya está registrado
+ *       500:
+ *         description: Error interno del servidor
+ */
 // Ruta de Registro de Usuario
 router.post('/register', async (req, res) => {
   const { 
@@ -258,6 +302,36 @@ router.post('/register', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/login:
+ *   post:
+ *     summary: Inicia sesión con email y contraseña
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login exitoso
+ *       400:
+ *         description: Faltan campos requeridos
+ *       401:
+ *         description: Credenciales inválidas o cuenta eliminada
+ *       500:
+ *         description: Error interno del servidor
+ */
 // Ruta de Login de Usuario
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;

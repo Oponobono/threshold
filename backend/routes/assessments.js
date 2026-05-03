@@ -3,6 +3,22 @@ const { db } = require('../db');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/assessments/{subjectId}:
+ *   get:
+ *     summary: Obtiene todas las evaluaciones de una materia
+ *     tags: [Assessments]
+ *     parameters:
+ *       - in: path
+ *         name: subjectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de evaluaciones
+ */
 // Obtener evaluaciones por materia
 router.get('/assessments/:subjectId', (req, res) => {
   const { subjectId } = req.params;
@@ -12,6 +28,22 @@ router.get('/assessments/:subjectId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/assessments/user/{userId}:
+ *   get:
+ *     summary: Obtiene todas las evaluaciones de todas las materias de un usuario
+ *     tags: [Assessments]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de evaluaciones consolidadas
+ */
 // Obtener todas las evaluaciones de un usuario
 router.get('/assessments/user/:userId', (req, res) => {
   const { userId } = req.params;
@@ -28,6 +60,46 @@ router.get('/assessments/user/:userId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/assessments:
+ *   post:
+ *     summary: Agrega una nueva evaluación a una materia
+ *     tags: [Assessments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - subject_id
+ *               - name
+ *             properties:
+ *               subject_id:
+ *                 type: integer
+ *               name:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               date:
+ *                 type: string
+ *               weight:
+ *                 type: string
+ *               out_of:
+ *                 type: number
+ *               score:
+ *                 type: number
+ *               percentage:
+ *                 type: number
+ *               grade_value:
+ *                 type: number
+ *               is_completed:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Evaluación agregada
+ */
 // Agregar evaluación
 router.post('/assessments', (req, res) => {
   const {

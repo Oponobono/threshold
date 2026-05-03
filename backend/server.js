@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { db, initializeDb } = require('./db');
+const { swaggerUi, specs } = require('./swagger');
 
 // Importar rutas
 const authRoutes = require('./routes/auth');
@@ -27,6 +28,9 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Inicializar la base de datos y crear tablas
 initializeDb();
+
+// Configurar Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Ruta de estado
 app.get('/api/status', (req, res) => {
@@ -54,7 +58,8 @@ app.use('/api', learningRoutes);
 
 function startServer(port, retriesLeft) {
   const server = app.listen(port, HOST, () => {
-    console.log(`Servidor corriendo en http://${HOST}:${port}`);
+    console.log(`Servidor corriendo en http://localhost:${port}`);
+    console.log(`Documentación de Swagger disponible en http://localhost:${port}/api-docs`);
     console.log('Para celular, usa la IP local de esta PC (ej: 192.168.x.x).');
   });
 

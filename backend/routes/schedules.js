@@ -3,6 +3,22 @@ const { db } = require('../db');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/prediction/{userId}:
+ *   get:
+ *     summary: Predice la materia actual de un usuario basándose en su horario y la hora actual
+ *     tags: [Schedules]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Materia actual o nulo si no hay clases en este momento
+ */
 // Predecir materia actual por horario
 router.get('/prediction/:userId', (req, res) => {
   const { userId } = req.params;
@@ -33,6 +49,22 @@ router.get('/prediction/:userId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/schedules/today/{userId}:
+ *   get:
+ *     summary: Obtiene todos los horarios programados para el día actual
+ *     tags: [Schedules]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de clases para hoy
+ */
 // Obtener todos los horarios de hoy para un usuario
 router.get('/schedules/today/:userId', (req, res) => {
   const { userId } = req.params;
@@ -54,6 +86,36 @@ router.get('/schedules/today/:userId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/schedules:
+ *   post:
+ *     summary: Agrega un horario a una materia
+ *     tags: [Schedules]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - subject_id
+ *               - day_of_week
+ *               - start_time
+ *               - end_time
+ *             properties:
+ *               subject_id:
+ *                 type: integer
+ *               day_of_week:
+ *                 type: integer
+ *               start_time:
+ *                 type: string
+ *               end_time:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Horario agregado
+ */
 // Agregar un horario a una materia
 router.post('/schedules', (req, res) => {
   const { subject_id, day_of_week, start_time, end_time } = req.body;
@@ -68,6 +130,22 @@ router.post('/schedules', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/schedules/{id}:
+ *   delete:
+ *     summary: Elimina un bloque de horario
+ *     tags: [Schedules]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Horario eliminado
+ */
 // Eliminar un horario
 router.delete('/schedules/:id', (req, res) => {
   const { id } = req.params;
@@ -77,6 +155,22 @@ router.delete('/schedules/:id', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/schedules/subject/{subjectId}:
+ *   get:
+ *     summary: Obtiene todos los horarios de una materia específica
+ *     tags: [Schedules]
+ *     parameters:
+ *       - in: path
+ *         name: subjectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de horarios para la materia
+ */
 // Obtener horarios por materia
 router.get('/schedules/subject/:subjectId', (req, res) => {
   const { subjectId } = req.params;
@@ -86,6 +180,22 @@ router.get('/schedules/subject/:subjectId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/schedules/user/{userId}:
+ *   get:
+ *     summary: Obtiene todos los horarios de todas las materias de un usuario (Vista Semanal)
+ *     tags: [Schedules]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista completa de horarios semanales
+ */
 // Obtener todos los horarios de un usuario (para la vista semanal)
 router.get('/schedules/user/:userId', (req, res) => {
   const { userId } = req.params;

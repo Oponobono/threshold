@@ -5,6 +5,22 @@ const router = express.Router();
 
 // --- YOUTUBE VIDEOS ENDPOINTS ---
 
+/**
+ * @swagger
+ * /api/youtube-videos/{userId}:
+ *   get:
+ *     summary: Obtiene todos los videos de YouTube guardados por un usuario
+ *     tags: [YouTube]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de videos
+ */
 // Obtener todos los videos de YouTube de un usuario
 router.get('/youtube-videos/:userId', (req, res) => {
   const { userId } = req.params;
@@ -37,6 +53,41 @@ router.get('/youtube-videos/:userId', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/youtube-videos:
+ *   post:
+ *     summary: Guarda un nuevo video de YouTube asociado a una materia
+ *     tags: [YouTube]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - youtube_url
+ *               - video_id
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               subject_id:
+ *                 type: integer
+ *               youtube_url:
+ *                 type: string
+ *               video_id:
+ *                 type: string
+ *               title:
+ *                 type: string
+ *               thumbnail_url:
+ *                 type: string
+ *               duration:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Video guardado exitosamente
+ */
 // Crear un nuevo video de YouTube
 router.post('/youtube-videos', (req, res) => {
   const { user_id, subject_id, youtube_url, video_id, title, thumbnail_url, duration } = req.body;
@@ -56,6 +107,33 @@ router.post('/youtube-videos', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/youtube-videos/{id}:
+ *   put:
+ *     summary: Actualiza la información de un video guardado
+ *     tags: [YouTube]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               subject_id:
+ *                 type: integer
+ *               title:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Video actualizado
+ */
 // Actualizar un video de YouTube (ej: cambiar materia, título)
 router.put('/youtube-videos/:id', (req, res) => {
   const { id } = req.params;
@@ -87,6 +165,22 @@ router.put('/youtube-videos/:id', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/youtube-videos/{id}:
+ *   delete:
+ *     summary: Elimina un video de la biblioteca
+ *     tags: [YouTube]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Video eliminado
+ */
 // Eliminar un video de YouTube
 router.delete('/youtube-videos/:id', (req, res) => {
   const { id } = req.params;
@@ -96,6 +190,32 @@ router.delete('/youtube-videos/:id', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/youtube-captions:
+ *   post:
+ *     summary: Extrae los subtítulos de un video de YouTube usando Supadata.ai
+ *     tags: [AI Services]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - video_id
+ *             properties:
+ *               video_id:
+ *                 type: string
+ *               language:
+ *                 type: string
+ *                 default: es
+ *     responses:
+ *       200:
+ *         description: Subtítulos extraídos
+ *       404:
+ *         description: Subtítulos no encontrados
+ */
 // Obtener subtítulos de un video de YouTube usando Supadata.ai
 router.post('/youtube-captions', async (req, res) => {
   const { video_id, language = 'es' } = req.body;
@@ -181,6 +301,31 @@ router.post('/youtube-captions', async (req, res) => {
 
 // --- YOUTUBE TRANSCRIPTS ENDPOINTS ---
 
+/**
+ * @swagger
+ * /api/youtube-transcripts:
+ *   post:
+ *     summary: Guarda o actualiza los metadatos locales de transcripción o resumen de IA
+ *     tags: [YouTube]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - video_id
+ *             properties:
+ *               video_id:
+ *                 type: integer
+ *               transcript_uri:
+ *                 type: string
+ *               summary_uri:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Metadatos actualizados o creados
+ */
 // Upsert transcripción/resumen de YouTube
 router.post('/youtube-transcripts', (req, res) => {
   const { video_id, transcript_uri, summary_uri } = req.body;
