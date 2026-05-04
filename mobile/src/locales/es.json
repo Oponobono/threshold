@@ -841,6 +841,7 @@
   },
   "recordings": {
     "title": "Grabaciones",
+    "multimedia": "Multimedia",
     "loadingList": "Cargando grabaciones...",
     "loading": "Cargando grabación...",
     "errors": {
@@ -855,7 +856,11 @@
     "youtubePlaceholder": "https://www.youtube.com/watch?v=...",
     "cancel": "Cancelar",
     "startTranscription": "Iniciar transcripción",
-    "startSummary": "Iniciar resumen"
+    "startSummary": "Iniciar resumen",
+    "searchPlaceholder": "Buscar grabaciones o videos...",
+    "filterAll": "Todo",
+    "filterAudio": "Audio",
+    "filterVideo": "Video"
   },
   "youtube": {
     "title": "Videos",
@@ -971,8 +976,4 @@
       "grayscale": "Escala de Grises"
     }
   },
-  "recordings": {
-    "startTranscription": "Iniciar transcripción",
-    "startSummary": "Iniciar resumen"
-  }
 }

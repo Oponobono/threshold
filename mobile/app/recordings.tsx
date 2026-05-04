@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, SectionList, Animated, Easing, StatusBar, TextInput, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+  Easing,
+  StatusBar,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,31 +17,23 @@ import { useTranslation } from 'react-i18next';
 import { theme } from '../src/styles/theme';
 import { recordingsStyles as styles } from '../src/styles/RecordingsScreen.styles';
 import { useAudioRecorder, RecordingItem } from '../src/hooks/useAudioRecorder';
-import { AudioPlayerItem } from '../src/components/AudioPlayerItem';
 import { PremiumLoading } from '../src/components/PremiumLoading';
-import { getYouTubeVideos, createYouTubeVideo, YouTubeVideo, deleteYouTubeVideo } from '../src/services/api';
+import { RecordingsGrid, GridMediaItem, SubjectSection } from '../src/components/RecordingsGrid';
+import {
+  getYouTubeVideos,
+  createYouTubeVideo,
+  YouTubeVideo,
+  deleteYouTubeVideo,
+} from '../src/services/api';
 
-interface MediaItem extends RecordingItem {
-  type?: 'recording' | 'video';
-  youtube_url?: string;
-  video_id?: string;
-}
-
-interface GroupedSection {
-  title: string;
-  data: MediaItem[];
-  subtype?: 'recordings' | 'videos';
-  mediaType?: 'recordings' | 'videos';
-  isFirstInType?: boolean;
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
 export default function RecordingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Audio recordings state
+  // ── Audio recordings ───────────────────────────────────────────────────────
   const {
     isRecording,
     isPaused,
@@ -49,22 +51,45 @@ export default function RecordingsScreen() {
     loadRecordings,
   } = useAudioRecorder();
 
-  // YouTube videos state
+  // ── YouTube videos ─────────────────────────────────────────────────────────
   const [youTubeVideos, setYouTubeVideos] = useState<YouTubeVideo[]>([]);
   const [showYoutubeModal, setShowYoutubeModal] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
   const [isAddingYouTubeVideo, setIsAddingYouTubeVideo] = useState(false);
 
-  useEffect(() => {
-    if (isRecording && !isPaused) {
-      startPulse();
+  // ── Search & filter ────────────────────────────────────────────────────────
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'recording' | 'video'>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const searchAnim = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef<TextInput>(null);
+
+  // ── Search bar animation ───────────────────────────────────────────────────
+  const toggleSearch = () => {
+    const opening = !showSearch;
+    setShowSearch(opening);
+    Animated.spring(searchAnim, {
+      toValue: opening ? 1 : 0,
+      useNativeDriver: false,
+      bounciness: 4,
+    }).start();
+    if (opening) {
+      setTimeout(() => searchInputRef.current?.focus(), 150);
     } else {
-      stopPulse();
+      setSearchQuery('');
     }
+  };
+
+  // ── Pulse animation (while recording) ─────────────────────────────────────
+  useEffect(() => {
+    if (isRecording && !isPaused) startPulse();
+    else stopPulse();
   }, [isRecording, isPaused]);
 
-  // Auto-refresh list when recording stops
   const prevIsRecording = useRef(isRecording);
   useEffect(() => {
     if (prevIsRecording.current === true && isRecording === false) {
@@ -73,7 +98,6 @@ export default function RecordingsScreen() {
     prevIsRecording.current = isRecording;
   }, [isRecording]);
 
-  // Load data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadYouTubeVideos();
@@ -118,153 +142,149 @@ export default function RecordingsScreen() {
     pulseAnim.setValue(1);
   };
 
-  const renderRecordingItem = ({ item }: { item: MediaItem }) => {
-    const isVideo = item.type === 'video';
+  // ── Build unified subject sections ─────────────────────────────────────────
+  const sections: SubjectSection[] = useMemo(() => {
+    const UNCLASSIFIED = t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar';
+    const bySubject = new Map<string, SubjectSection>();
+    const q = searchQuery.trim().toLowerCase();
 
-    if (isVideo) {
-      // Render video item
-      return (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-          <TouchableOpacity
-            style={{
-              backgroundColor: theme.colors.card,
-              borderRadius: 12,
-              padding: 12,
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 8,
-            }}
-            onPress={() => router.push(`/recordings/${item.id}?type=video` as any)}
-          >
-            <MaterialCommunityIcons name="youtube" size={40} color={theme.colors.text.error} style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{ color: theme.colors.text.primary, fontWeight: '600', fontSize: 15 }}
-                numberOfLines={2}
-                ellipsizeMode="tail"
-              >
-                {item.name || 'Video de YouTube'}
-              </Text>
-              <Text style={{ color: theme.colors.text.secondary, fontSize: 12, marginTop: 4 }}>
-                {item.subject_name || 'Sin materia'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                if (item.id) {
-                  deleteYouTubeVideo(item.id).catch(e => console.warn('Error deleting video:', e));
-                  loadYouTubeVideos();
-                }
-              }}
-              style={{ padding: 8 }}
-            >
-              <Ionicons name="trash-outline" size={20} color={theme.colors.text.error} />
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </View>
-      );
+    const getOrCreate = (name: string, color?: string): SubjectSection => {
+      if (!bySubject.has(name)) {
+        bySubject.set(name, { subjectName: name, subjectColor: color, items: [] });
+      }
+      return bySubject.get(name)!;
+    };
+
+    const now = Date.now();
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+    const ONE_MONTH_MS = 30 * ONE_DAY_MS;
+
+    const passesDateFilter = (dateString?: string) => {
+      if (dateFilter === 'all') return true;
+      if (!dateString) return true;
+      const t = new Date(dateString).getTime();
+      if (isNaN(t)) return true;
+      const diff = now - t;
+      if (dateFilter === 'today') return diff <= ONE_DAY_MS;
+      if (dateFilter === 'week') return diff <= ONE_WEEK_MS;
+      if (dateFilter === 'month') return diff <= ONE_MONTH_MS;
+      return true;
+    };
+
+    // Audio recordings
+    if (activeFilter !== 'video') {
+      recordings.forEach((rec) => {
+        if (q && !rec.name?.toLowerCase().includes(q) && !(rec.subject_name || '').toLowerCase().includes(q)) return;
+        if (!passesDateFilter(rec.created_at || rec.date)) return;
+        const subjectName = rec.subject_name || UNCLASSIFIED;
+        const section = getOrCreate(subjectName, rec.subject_color || undefined);
+        const item: GridMediaItem = {
+          id: rec.id_string || rec.id?.toString() || '',
+          name: rec.name || 'Grabación',
+          type: 'recording',
+          date: rec.date,
+          created_at: rec.created_at,
+          subject_name: rec.subject_name,
+          subject_color: rec.subject_color || undefined,
+          uri: rec.uri,
+          duration: rec.duration ?? undefined,
+          missingFile: (rec as any).missingFile,
+        };
+        section.items.push(item);
+      });
     }
 
-    // Render audio recording item
-    return (
-      <AudioPlayerItem
-        item={item}
-        isPlaying={playingId === (item.id_string || item.id)}
-        onPlay={playSound}
-        onStop={stopSound}
-        onDelete={deleteRecordingConfirmed}
-        onPress={() => router.push(`/recordings/${encodeURIComponent(item.id_string || item.id?.toString() || '')}?type=recording` as any)}
-      />
-    );
-  };
-
-  const groupedRecordings = useMemo(() => {
-    const recordingsBySubject: { [key: string]: MediaItem[] } = {};
-    const videosBySubject: { [key: string]: MediaItem[] } = {};
-
-    // Group audio recordings by subject
-    recordings.forEach(rec => {
-      const subjectName = rec.subject_name || (t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar');
-      const item: MediaItem = { ...rec, type: 'recording' };
-      if (!recordingsBySubject[subjectName]) recordingsBySubject[subjectName] = [];
-      recordingsBySubject[subjectName].push(item);
-    });
-
-    // Group YouTube videos by subject
-    youTubeVideos.forEach(video => {
-      const subjectName = video.subject_name || (t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar');
-      const item: MediaItem = {
-        ...video,
-        id_string: video.id?.toString(),
-        type: 'video',
-        name: video.title || 'Video de YouTube',
-      } as MediaItem;
-      if (!videosBySubject[subjectName]) videosBySubject[subjectName] = [];
-      videosBySubject[subjectName].push(item);
-    });
-
-    const sections: (GroupedSection & { mediaType: 'recordings' | 'videos'; isFirstInType: boolean })[] = [];
-    let isFirstRecording = true;
-    let isFirstVideo = true;
-
-    // Add recordings grouped by subject
-    Object.keys(recordingsBySubject)
-      .sort((a, b) => {
-        const unclassified = t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar';
-        if (a === unclassified) return 1;
-        if (b === unclassified) return -1;
-        return a.localeCompare(b);
-      })
-      .forEach(subjectName => {
-        sections.push({
-          title: subjectName,
-          data: recordingsBySubject[subjectName],
-          subtype: 'recordings',
-          mediaType: 'recordings',
-          isFirstInType: isFirstRecording
-        });
-        isFirstRecording = false;
+    // YouTube videos
+    if (activeFilter !== 'recording') {
+      youTubeVideos.forEach((video) => {
+        const title = video.title || 'Video de YouTube';
+        if (q && !title.toLowerCase().includes(q) && !(video.subject_name || '').toLowerCase().includes(q)) return;
+        if (!passesDateFilter(video.created_at)) return;
+        const subjectName = video.subject_name || UNCLASSIFIED;
+        const section = getOrCreate(subjectName, undefined);
+        const item: GridMediaItem = {
+          id: video.id?.toString() || '',
+          name: title,
+          type: 'video',
+          date: video.created_at
+            ? new Date(video.created_at).toLocaleString()
+            : 'Fecha desconocida',
+          created_at: video.created_at,
+          subject_name: video.subject_name,
+          thumbnail_url: video.thumbnail_url || undefined,
+        };
+        section.items.push(item);
       });
+    }
 
-    // Add videos grouped by subject
-    Object.keys(videosBySubject)
-      .sort((a, b) => {
-        const unclassified = t('dashboard.audioRecorderModal.unclassified') || 'Sin clasificar';
-        if (a === unclassified) return 1;
-        if (b === unclassified) return -1;
-        return a.localeCompare(b);
-      })
-      .forEach(subjectName => {
-        sections.push({
-          title: subjectName,
-          data: videosBySubject[subjectName],
-          subtype: 'videos',
-          mediaType: 'videos',
-          isFirstInType: isFirstVideo
+    // Remove empty sections, then sort items within sections by date, and finally sort sections
+    return Array.from(bySubject.values())
+      .filter((s) => s.items.length > 0)
+      .map((section) => {
+        section.items.sort((a, b) => {
+          const timeA = new Date(a.created_at || a.date).getTime();
+          const timeB = new Date(b.created_at || b.date).getTime();
+          return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
         });
-        isFirstVideo = false;
+        return section;
+      })
+      .sort((a, b) => {
+        if (a.subjectName === UNCLASSIFIED) return 1;
+        if (b.subjectName === UNCLASSIFIED) return -1;
+        return a.subjectName.localeCompare(b.subjectName);
       });
+  }, [recordings, youTubeVideos, t, searchQuery, activeFilter, sortOrder, dateFilter]);
 
-    return sections;
-  }, [recordings, youTubeVideos, t]);
+  // ── Delete handlers ────────────────────────────────────────────────────────
+  const handleDeleteItem = useCallback(
+    (id: string) => {
+      // check if it's a video
+      const video = youTubeVideos.find((v) => v.id?.toString() === id);
+      if (video) {
+        deleteYouTubeVideo(video.id!)
+          .catch((e) => console.warn('Error deleting video:', e))
+          .finally(() => loadYouTubeVideos());
+        return;
+      }
+      // otherwise it's an audio recording
+      const rec = recordings.find(
+        (r) => (r.id_string || r.id?.toString()) === id
+      );
+      if (rec) {
+        deleteRecordingConfirmed(rec.id_string || rec.id || 0, rec.uri);
+      }
+    },
+    [youTubeVideos, recordings, deleteRecordingConfirmed]
+  );
 
+  const handlePressItem = useCallback(
+    (item: GridMediaItem) => {
+      if (item.type === 'video') {
+        router.push(`/recordings/${item.id}?type=video` as any);
+      } else {
+        router.push(
+          `/recordings/${encodeURIComponent(item.id)}?type=recording` as any
+        );
+      }
+    },
+    [router]
+  );
+
+  // ── YouTube add ────────────────────────────────────────────────────────────
   const handleAddYoutube = async () => {
-    // Validate URL format
     const trimmedUrl = youtubeUrl.trim();
     if (!trimmedUrl) {
       alert('Por favor, ingresa un enlace de YouTube.');
       return;
     }
-
     if (!trimmedUrl.includes('youtube.com') && !trimmedUrl.includes('youtu.be')) {
       alert('Por favor, ingresa un enlace válido de YouTube (youtube.com o youtu.be).');
       return;
     }
-
     try {
       setIsAddingYouTubeVideo(true);
 
-      // Extract video ID from URL
       let videoId = '';
       if (trimmedUrl.includes('youtube.com/watch?v=')) {
         videoId = trimmedUrl.split('v=')[1]?.split('&')[0]?.trim() || '';
@@ -273,31 +293,26 @@ export default function RecordingsScreen() {
       }
 
       if (!videoId || videoId.length < 10) {
-        alert('No se pudo extraer un ID de video válido de este enlace. Verifica que sea un enlace directo a un video.');
+        alert('No se pudo extraer un ID de video válido.');
         setIsAddingYouTubeVideo(false);
         return;
       }
 
-      // Get video metadata from YouTube
       let videoTitle = 'Video de YouTube';
       let thumbnailUrl = '';
       try {
-        const metadataRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+        const metadataRes = await fetch(
+          `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`
+        );
         if (metadataRes.ok) {
           const metadata = await metadataRes.json();
           if (metadata.title) videoTitle = metadata.title;
           if (metadata.thumbnail_url) thumbnailUrl = metadata.thumbnail_url;
-        } else if (metadataRes.status === 404) {
-          alert('No se encontró información sobre este video. Verifica que el enlace sea válido.');
-          setIsAddingYouTubeVideo(false);
-          return;
         }
       } catch (err) {
         console.warn('Error fetching video metadata:', err);
-        // Continue anyway with default title
       }
 
-      // Create YouTube video record
       await createYouTubeVideo({
         youtube_url: trimmedUrl,
         video_id: videoId,
@@ -312,88 +327,341 @@ export default function RecordingsScreen() {
     } catch (e) {
       console.error('Error adding YouTube video:', e);
       const errorMsg = e instanceof Error ? e.message : 'Error desconocido';
-      alert(`Error al agregar el video: ${errorMsg}. Por favor, intenta de nuevo.`);
+      alert(`Error al agregar el video: ${errorMsg}.`);
     } finally {
       setIsAddingYouTubeVideo(false);
     }
   };
 
+  // ── Loading state ──────────────────────────────────────────────────────────
   if (isLoadingVideos && youTubeVideos.length === 0 && recordings.length === 0) {
     return <PremiumLoading text={t('recordings.loadingList') || 'CARGANDO'} />;
   }
 
+  const isEmpty = sections.length === 0;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { flex: 1 }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.card} translucent={false} />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={theme.colors.card}
+        translucent={false}
+      />
 
-      {/* Status bar safe area */}
+      {/* Safe-area top */}
       <View style={{ height: insets.top, backgroundColor: theme.colors.card }} />
 
+      {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('dashboard.audioRecorderModal.recordingsList')}</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => setShowYoutubeModal(true)}
-        >
-          <MaterialCommunityIcons name="youtube" size={28} color={theme.colors.text.error} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {t('recordings.multimedia')}
+        </Text>
+        {/* Right actions: Search · YouTube */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <TouchableOpacity
+            style={[
+              styles.backBtn,
+              showSearch && {
+                backgroundColor: `${theme.colors.primary}12`,
+                borderRadius: 20,
+              },
+            ]}
+            onPress={toggleSearch}
+          >
+            <Ionicons
+              name={showSearch ? 'search' : 'search-outline'}
+              size={22}
+              color={showSearch ? theme.colors.primary : theme.colors.text.primary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => setShowYoutubeModal(true)}
+          >
+            <MaterialCommunityIcons name="youtube" size={26} color={theme.colors.text.error} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Ionicons
+              name={dateFilter !== 'all' || sortOrder === 'asc' ? 'filter' : 'filter-outline'}
+              size={22}
+              color={theme.colors.text.primary}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <SectionList
-        sections={groupedRecordings}
-        keyExtractor={(item, index) => item.id_string || item.id?.toString() || `${index}`}
-        renderItem={renderRecordingItem}
-        renderSectionHeader={({ section }: { section: GroupedSection }) => {
-          const isVideo = section.subtype === 'videos';
-          const mediaTypeLabel = isVideo ? 'Videos' : (t('dashboard.audioRecorderModal.recordingsList') || 'Grabaciones');
-          
-          return (
-            <View style={{ backgroundColor: theme.colors.background }}>
-              {/* Main type header (Grabaciones/Videos) - only shown for first of each type */}
-              {section.isFirstInType && (
-                <View style={{ paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {isVideo ? (
-                      <MaterialCommunityIcons name="youtube" size={20} color={theme.colors.text.error} />
-                    ) : (
-                      <Ionicons name="mic" size={20} color={theme.colors.primary} />
-                    )}
-                    <Text style={{ color: theme.colors.text.primary, fontWeight: '700', fontSize: 18 }}>
-                      {mediaTypeLabel}
-                    </Text>
-                  </View>
-                </View>
-              )}
-              
-              {/* Subject category header */}
-              <View style={{ paddingVertical: 10, paddingHorizontal: 16, backgroundColor: `${theme.colors.border}20` }}>
-                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600', fontSize: 13 }}>
-                  {section.title}
-                </Text>
-              </View>
-            </View>
-          );
+      {/* ── Collapsible search bar ─────────────────────────────────────── */}
+      <Animated.View
+        style={{
+          overflow: 'hidden',
+          maxHeight: searchAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 56],
+          }),
+          opacity: searchAnim,
+          backgroundColor: theme.colors.card,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+          paddingHorizontal: 16,
+          justifyContent: 'center',
         }}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="microphone-off" size={64} color={theme.colors.border} />
-            <Text style={styles.emptyText}>{t('dashboard.audioRecorderModal.emptyState')}</Text>
-          </View>
-        }
-      />
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: theme.colors.background,
+            borderRadius: 14,
+            paddingHorizontal: 12,
+            height: 40,
+            gap: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }}
+        >
+          <Ionicons name="search" size={16} color={theme.colors.text.placeholder} />
+          <TextInput
+            ref={searchInputRef}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={t('recordings.searchPlaceholder')}
+            placeholderTextColor={theme.colors.text.placeholder}
+            style={{ flex: 1, fontSize: 14, color: theme.colors.text.primary, paddingVertical: 0 }}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color={theme.colors.text.placeholder} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </Animated.View>
 
-      {/* ── YOUTUBE MODAL ─────────────────────────────── */}
+      {/* ── Tab indicators (subtle, always visible) ─────────────────── */}
+      <View
+        style={{
+          flexDirection: 'row',
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: 20,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+        }}
+      >
+        {(['all', 'recording', 'video'] as const).map((f) => {
+          const labels = { all: t('recordings.filterAll'), recording: t('recordings.filterAudio'), video: t('recordings.filterVideo') };
+          const isActive = activeFilter === f;
+          return (
+            <TouchableOpacity
+              key={f}
+              onPress={() => setActiveFilter(f)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderBottomWidth: 2,
+                borderBottomColor: isActive ? theme.colors.text.primary : 'transparent',
+                marginBottom: -1,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: isActive ? '700' : '400',
+                  color: isActive ? theme.colors.text.primary : theme.colors.text.placeholder,
+                }}
+              >
+                {labels[f]}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Main scrollable content */}
+      <ScrollView
+        contentContainerStyle={[styles.listContent, { paddingBottom: 120 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {isEmpty ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="microphone-off"
+              size={64}
+              color={theme.colors.border}
+            />
+            <Text style={styles.emptyText}>
+              {t('dashboard.audioRecorderModal.emptyState')}
+            </Text>
+          </View>
+        ) : (
+          <RecordingsGrid
+            sections={sections}
+            playingId={playingId}
+            onPlay={playSound}
+            onStop={stopSound}
+            onDelete={handleDeleteItem}
+            onPress={handlePressItem}
+          />
+        )}
+      </ScrollView>
+
+      {/* ── FILTER & SORT MODAL ─────────────────────────────────────────── */}
+      {showFilterModal && (
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowFilterModal(false)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 100,
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: theme.colors.card,
+              width: '85%',
+              borderRadius: 20,
+              padding: 24,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.text.primary }}>
+                Filtros y Orden
+              </Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color={theme.colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.text.secondary, marginBottom: 8 }}>
+              Ordenar por
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {(['desc', 'asc'] as const).map((order) => (
+                <TouchableOpacity
+                  key={order}
+                  onPress={() => setSortOrder(order)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor: sortOrder === order ? theme.colors.primary : theme.colors.background,
+                    borderWidth: 1,
+                    borderColor: sortOrder === order ? theme.colors.primary : theme.colors.border,
+                  }}
+                >
+                  <Text style={{ color: sortOrder === order ? '#fff' : theme.colors.text.primary, fontSize: 13, fontWeight: '600' }}>
+                    {order === 'desc' ? 'Más recientes' : 'Más antiguos'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.text.secondary, marginBottom: 8 }}>
+              Filtrar por fecha
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+              {(['all', 'today', 'week', 'month'] as const).map((filter) => {
+                const labels = { all: 'Todas', today: 'Hoy', week: 'Esta semana', month: 'Este mes' };
+                return (
+                  <TouchableOpacity
+                    key={filter}
+                    onPress={() => setDateFilter(filter)}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: dateFilter === filter ? theme.colors.primary : theme.colors.background,
+                      borderWidth: 1,
+                      borderColor: dateFilter === filter ? theme.colors.primary : theme.colors.border,
+                    }}
+                  >
+                    <Text style={{ color: dateFilter === filter ? '#fff' : theme.colors.text.primary, fontSize: 13, fontWeight: '600' }}>
+                      {labels[filter]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setShowFilterModal(false)}
+              style={{
+                backgroundColor: theme.colors.primary,
+                paddingVertical: 12,
+                borderRadius: 12,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Aplicar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
+
+      {/* ── YOUTUBE MODAL ───────────────────────────────────────────────── */}
       {showYoutubeModal && (
-        <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
-          <View style={{ backgroundColor: theme.colors.card, width: '85%', borderRadius: 16, padding: 24 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: theme.colors.text.primary }}>{t('recordings.addYoutubeVideo')}</Text>
-            <Text style={{ color: theme.colors.text.secondary, marginBottom: 12 }}>{t('recordings.youtubeLinkPrompt')}</Text>
-            <View style={{ borderWidth: 1, borderColor: theme.colors.border, borderRadius: 8, paddingHorizontal: 12, marginBottom: 20 }}>
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 100,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.card,
+              width: '85%',
+              borderRadius: 20,
+              padding: 24,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: 'bold',
+                marginBottom: 16,
+                color: theme.colors.text.primary,
+              }}
+            >
+              {t('recordings.addYoutubeVideo')}
+            </Text>
+            <Text style={{ color: theme.colors.text.secondary, marginBottom: 12 }}>
+              {t('recordings.youtubeLinkPrompt')}
+            </Text>
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                marginBottom: 20,
+              }}
+            >
               <TextInput
                 value={youtubeUrl}
                 onChangeText={setYoutubeUrl}
@@ -414,19 +682,24 @@ export default function RecordingsScreen() {
                 disabled={isAddingYouTubeVideo}
                 style={{ padding: 10, opacity: isAddingYouTubeVideo ? 0.5 : 1 }}
               >
-                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>{t('recordings.cancel')}</Text>
+                <Text style={{ color: theme.colors.text.secondary, fontWeight: '600' }}>
+                  {t('recordings.cancel')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleAddYoutube}
                 disabled={isAddingYouTubeVideo || !youtubeUrl.trim()}
                 style={{
-                  backgroundColor: (isAddingYouTubeVideo || !youtubeUrl.trim()) ? theme.colors.border : theme.colors.primary,
+                  backgroundColor:
+                    isAddingYouTubeVideo || !youtubeUrl.trim()
+                      ? theme.colors.border
+                      : theme.colors.primary,
                   paddingHorizontal: 16,
                   paddingVertical: 10,
-                  borderRadius: 8,
+                  borderRadius: 10,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 8
+                  gap: 8,
                 }}
               >
                 {isAddingYouTubeVideo && <ActivityIndicator size="small" color="white" />}
@@ -439,59 +712,81 @@ export default function RecordingsScreen() {
         </View>
       )}
 
-      {/* ── BOTONES DE GRABACIÓN TIPO WHATSAPP ─────────────────────────────── */}
+      {/* ── BOTONES DE GRABACIÓN (WhatsApp style) ──────────────────────── */}
       {!isRecording ? (
-        <View style={[styles.idleRecorderContainer, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
-          <TouchableOpacity 
+        <View
+          style={[
+            styles.idleRecorderContainer,
+            { paddingBottom: Math.max(insets.bottom, 16) + 8 },
+          ]}
+        >
+          <TouchableOpacity
             onPress={startRecording}
             style={styles.startRecordingBtn}
             activeOpacity={0.8}
           >
-            <Ionicons name="mic" size={20} color="white" style={{marginRight: 8}}/>
-            <Text style={styles.startRecordingText}>{t('dashboard.audioRecorderModal.startRecording') || 'Iniciar Grabación'}</Text>
+            <Ionicons name="mic" size={20} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.startRecordingText}>
+              {t('dashboard.audioRecorderModal.startRecording') || 'Iniciar Grabación'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <Animated.View style={[
-          styles.activeRecorderContainer,
-          {
-            bottom: Math.max(insets.bottom, 16) + 8,
-            borderColor: isPaused ? theme.colors.border : theme.colors.primary,
-          }
-        ]}>
-          {/* Izquierda: Timer y Ondas (WhatsApp Style) */}
+        <Animated.View
+          style={[
+            styles.activeRecorderContainer,
+            {
+              bottom: Math.max(insets.bottom, 16) + 8,
+              borderColor: isPaused ? theme.colors.border : theme.colors.primary,
+            },
+          ]}
+        >
+          {/* Timer + waveform */}
           <View style={styles.recordingInfo}>
-            <Animated.View style={[
-              styles.recordingDot, 
-              isPaused && { backgroundColor: theme.colors.text.secondary },
-              !isPaused && { opacity: pulseAnim } // El punto rojo palpita cuando graba
-            ]} />
-            <Text style={styles.recordingTimerText}>
-              {formatDuration(recordingDuration)}
-            </Text>
-            
+            <Animated.View
+              style={[
+                styles.recordingDot,
+                isPaused && { backgroundColor: theme.colors.text.secondary },
+                !isPaused && { opacity: pulseAnim },
+              ]}
+            />
+            <Text style={styles.recordingTimerText}>{formatDuration(recordingDuration)}</Text>
+
             <View style={styles.wavesContainer}>
-              {/* Animación falsa de ondas */}
               {[0.4, 0.8, 0.5, 1, 0.6, 0.3, 0.7, 0.9, 0.4, 0.6].map((h, i) => (
-                <Animated.View key={i} style={[
-                  styles.waveBar,
-                  {
-                    height: isPaused ? 4 : 24 * h,
-                    backgroundColor: isPaused ? theme.colors.text.placeholder : theme.colors.primary,
-                    opacity: isPaused ? 0.5 : pulseAnim.interpolate({
-                      inputRange: [1, 1.2],
-                      outputRange: [0.5, 1] // Variación de opacidad para que se vea vivo
-                    })
-                  }
-                ]} />
+                <Animated.View
+                  key={i}
+                  style={[
+                    styles.waveBar,
+                    {
+                      height: isPaused ? 4 : 24 * h,
+                      backgroundColor: isPaused
+                        ? theme.colors.text.placeholder
+                        : theme.colors.primary,
+                      opacity: isPaused
+                        ? 0.5
+                        : pulseAnim.interpolate({
+                            inputRange: [1, 1.2],
+                            outputRange: [0.5, 1],
+                          }),
+                    },
+                  ]}
+                />
               ))}
             </View>
           </View>
 
-          {/* Derecha: Controles */}
+          {/* Controls */}
           <View style={styles.recordingControls}>
-            <TouchableOpacity onPress={isPaused ? resumeRecording : pauseRecording} style={styles.iconBtn}>
-              <Ionicons name={isPaused ? "play" : "pause"} size={20} color={theme.colors.text.primary} />
+            <TouchableOpacity
+              onPress={isPaused ? resumeRecording : pauseRecording}
+              style={styles.iconBtn}
+            >
+              <Ionicons
+                name={isPaused ? 'play' : 'pause'}
+                size={20}
+                color={theme.colors.text.primary}
+              />
             </TouchableOpacity>
             <TouchableOpacity onPress={stopRecording} style={styles.stopBtn}>
               <Ionicons name="stop" size={18} color="white" />
