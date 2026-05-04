@@ -119,7 +119,8 @@ export default function SubjectDetailScreen() {
             try {
               setIsLoading(true);
               await deleteSubject(subjectId);
-              router.replace('/');
+              router.back();
+              showAlert({ title: 'Materia eliminada', message: 'La materia ha sido eliminada exitosamente.', type: 'info' });
             } catch (e: any) {
               setIsLoading(false);
               showAlert({ title: t('subjects.error') || 'Error', message: e.message || 'Error al eliminar', type: 'error' });

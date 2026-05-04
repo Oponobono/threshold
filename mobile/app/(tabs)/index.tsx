@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThresholdDatePicker } from '../../src/components/ThresholdDatePicker';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { globalStyles } from '../../src/styles/globalStyles';
 import { theme } from '../../src/styles/theme';
 import { dashboardStyles as styles } from '../../src/styles/Dashboard.styles';
@@ -172,9 +172,11 @@ export default function HybridDashboardScreen() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const fullName = useMemo(() => {
     const first = profile?.name?.trim() || '';

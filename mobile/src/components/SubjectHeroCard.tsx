@@ -40,15 +40,17 @@ export const SubjectHeroCard: React.FC<SubjectHeroCardProps> = ({
           <TouchableOpacity 
             onPress={onDelete} 
             style={{ 
-              backgroundColor: `${theme.colors.text.error}15`, 
+              backgroundColor: theme.colors.background, 
               width: 40,
               height: 40,
               borderRadius: 20,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <Ionicons name="trash-outline" size={20} color={theme.colors.text.error} />
+            <Ionicons name="trash-outline" size={20} color={theme.colors.text.secondary} />
           </TouchableOpacity>
         )}
       </View>
