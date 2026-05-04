@@ -237,4 +237,41 @@ router.post('/subjects', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/subjects/{subjectId}:
+ *   delete:
+ *     summary: Elimina una materia y sus elementos
+ *     tags: [Subjects]
+ *     parameters:
+ *       - in: path
+ *         name: subjectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Materia eliminada
+ *       500:
+ *         description: Error del servidor
+ */
+router.delete('/subjects/:subjectId', (req, res) => {
+  const { subjectId } = req.params;
+  
+  db.serialize(() => {
+    db.run(`DELETE FROM assessments WHERE subject_id = ?`, [subjectId]);
+    db.run(`DELETE FROM schedules WHERE subject_id = ?`, [subjectId]);
+    db.run(`DELETE FROM photos WHERE subject_id = ?`, [subjectId]);
+    db.run(`DELETE FROM scanned_documents WHERE subject_id = ?`, [subjectId]);
+    db.run(`DELETE FROM audio_recordings WHERE subject_id = ?`, [subjectId]);
+    db.run(`DELETE FROM youtube_videos WHERE subject_id = ?`, [subjectId]);
+    db.run(`DELETE FROM flashcard_decks WHERE subject_id = ?`, [subjectId]);
+    
+    db.run(`DELETE FROM subjects WHERE id = ?`, [subjectId], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, message: 'Materia y elementos asociados eliminados correctamente' });
+    });
+  });
+});
+
 module.exports = router;

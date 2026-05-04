@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,12 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import YoutubeIframe from 'react-native-youtube-iframe';
 import { theme } from '../styles/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 200;
-const MEDIUM_SIZE = (SCREEN_WIDTH - 16 * 2 - 8) / 2; // two columns with gap
+const MEDIUM_SIZE = (SCREEN_WIDTH - 20 * 2 - 8) / 2; // two columns with gap
 const RADIUS = 24;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ export interface GridMediaItem {
   subject_color?: string;
   uri?: string;
   thumbnail_url?: string;
+  video_id?: string;
   duration?: number;
   missingFile?: boolean;
   isPlaying?: boolean;
@@ -116,6 +118,48 @@ function HeroCard({
 }) {
   const accent = subjectColor || theme.colors.primary;
   const isVideo = item.type === 'video';
+  const [isInlinePlaying, setIsInlinePlaying] = useState(false);
+
+  // If inline playing, show just the video player
+  if (isVideo && isInlinePlaying && item.video_id) {
+    return (
+      <View
+        style={{
+          borderRadius: RADIUS,
+          overflow: 'hidden',
+          height: HERO_HEIGHT,
+          marginBottom: 12,
+          backgroundColor: '#000',
+        }}
+      >
+        <YoutubeIframe
+          height={HERO_HEIGHT}
+          play={true}
+          videoId={item.video_id}
+          initialPlayerParams={{
+            preventFullScreen: true,
+          }}
+        />
+        {/* Close inline playback button overlay */}
+        <TouchableOpacity
+          onPress={() => setIsInlinePlaying(false)}
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Ionicons name="close" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -198,7 +242,11 @@ function HeroCard({
           {isVideo && (
             <View style={{ alignItems: 'flex-start', marginBottom: 8 }}>
               <TouchableOpacity
-                onPress={() => onPress(item)}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (item.video_id) setIsInlinePlaying(true);
+                  else onPress(item);
+                }}
                 style={{
                   width: 44,
                   height: 44,
@@ -391,6 +439,7 @@ function SmallCard({
   onStop,
   onDelete,
   onPress,
+  isLast,
 }: {
   item: GridMediaItem;
   subjectColor?: string;
@@ -399,6 +448,7 @@ function SmallCard({
   onStop: () => void;
   onDelete: (id: string) => void;
   onPress: (item: GridMediaItem) => void;
+  isLast?: boolean;
 }) {
   const accent = subjectColor || theme.colors.primary;
   const isVideo = item.type === 'video';
@@ -411,12 +461,9 @@ function SmallCard({
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.card,
-        borderRadius: 16,
         padding: 12,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: isMissing ? `${theme.colors.text.error}40` : theme.colors.border,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: theme.colors.border,
         opacity: isMissing ? 0.6 : 1,
       }}
     >
@@ -483,7 +530,6 @@ function SmallCard({
 }
 
 // ─── One subject section ──────────────────────────────────────────────────────
-const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function SubjectSectionView({
   section,
@@ -507,11 +553,8 @@ function SubjectSectionView({
   );
 
   const hero = sorted[0] ?? null;
-  const recent = sorted
-    .slice(1)
-    .filter((i) => now - new Date(i.created_at || i.date).getTime() <= ONE_WEEK_MS)
-    .slice(0, 4); // max 4 medium cards (2 rows)
-  const rest = sorted.slice(1 + recent.length);
+  const recent = sorted.slice(1, 3);
+  const rest = sorted.slice(3);
 
   const accentColor = section.subjectColor || theme.colors.primary;
 
@@ -575,7 +618,7 @@ function SubjectSectionView({
               textTransform: 'uppercase',
             }}
           >
-            Esta semana
+            Recientes
           </Text>
           <View
             style={{
@@ -616,24 +659,35 @@ function SubjectSectionView({
           >
             Anteriores
           </Text>
-          <ScrollView
-            nestedScrollEnabled={true}
-            style={rest.length > 4 ? { maxHeight: 260 } : undefined}
-            showsVerticalScrollIndicator={rest.length > 4}
+          <View
+            style={{
+              backgroundColor: theme.colors.card,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              overflow: 'hidden',
+            }}
           >
-            {rest.map((item) => (
-              <SmallCard
-                key={item.id}
-                item={item}
-                subjectColor={accentColor}
-                isPlaying={playingId === item.id}
-                onPlay={onPlay}
-                onStop={onStop}
-                onDelete={onDelete}
-                onPress={onPress}
-              />
-            ))}
-          </ScrollView>
+            <ScrollView
+              nestedScrollEnabled={true}
+              style={rest.length > 3 ? { maxHeight: 195 } : undefined}
+              showsVerticalScrollIndicator={rest.length > 3}
+            >
+              {rest.map((item, index) => (
+                <SmallCard
+                  key={item.id}
+                  item={item}
+                  subjectColor={accentColor}
+                  isPlaying={playingId === item.id}
+                  onPlay={onPlay}
+                  onStop={onStop}
+                  onDelete={onDelete}
+                  onPress={onPress}
+                  isLast={index === rest.length - 1}
+                />
+              ))}
+            </ScrollView>
+          </View>
         </View>
       )}
     </View>

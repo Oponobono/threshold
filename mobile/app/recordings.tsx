@@ -39,6 +39,7 @@ export default function RecordingsScreen() {
     isPaused,
     recordings,
     recordingDuration,
+    meteringDb,
     playingId,
     startRecording,
     pauseRecording,
@@ -83,6 +84,17 @@ export default function RecordingsScreen() {
       setSearchQuery('');
     }
   };
+
+  // ── Smooth metering animation: dBFS (-160…0) → normalised 0…1 ─────────────
+  const meterAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const normalised = Math.max(0, Math.min(1, (meteringDb + 60) / 60));
+    Animated.timing(meterAnim, {
+      toValue: normalised,
+      duration: 80,
+      useNativeDriver: false,
+    }).start();
+  }, [meteringDb]);
 
   // ── Pulse animation (while recording) ─────────────────────────────────────
   useEffect(() => {
@@ -213,6 +225,7 @@ export default function RecordingsScreen() {
           created_at: video.created_at,
           subject_name: video.subject_name,
           thumbnail_url: video.thumbnail_url || undefined,
+          video_id: video.video_id,
         };
         section.items.push(item);
       });
@@ -753,26 +766,30 @@ export default function RecordingsScreen() {
             <Text style={styles.recordingTimerText}>{formatDuration(recordingDuration)}</Text>
 
             <View style={styles.wavesContainer}>
-              {[0.4, 0.8, 0.5, 1, 0.6, 0.3, 0.7, 0.9, 0.4, 0.6].map((h, i) => (
-                <Animated.View
-                  key={i}
-                  style={[
-                    styles.waveBar,
-                    {
-                      height: isPaused ? 4 : 24 * h,
-                      backgroundColor: isPaused
-                        ? theme.colors.text.placeholder
-                        : theme.colors.primary,
-                      opacity: isPaused
-                        ? 0.5
-                        : pulseAnim.interpolate({
-                            inputRange: [1, 1.2],
-                            outputRange: [0.5, 1],
-                          }),
-                    },
-                  ]}
-                />
-              ))}
+              {Array.from({ length: 15 }, (_, i) => {
+                const baseRatio = 0.25 + Math.sin((i / 14) * Math.PI) * 0.75;
+                const minH = 4;
+                const maxH = 24;
+                const barH = isPaused ? minH : meterAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [minH, minH + (maxH - minH) * baseRatio],
+                });
+                return (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      styles.waveBar,
+                      {
+                        height: barH,
+                        backgroundColor: isPaused
+                          ? theme.colors.text.placeholder
+                          : theme.colors.primary,
+                        opacity: isPaused ? 0.5 : 1,
+                      },
+                    ]}
+                  />
+                );
+              })}
             </View>
           </View>
 

@@ -24,6 +24,7 @@ import {
   getYouTubeVideos,
   getScannedDocumentsBySubject,
   deleteYouTubeVideo,
+  deleteSubject,
   type Assessment,
   type Subject,
   type UserProfile,
@@ -102,6 +103,32 @@ export default function SubjectDetailScreen() {
   const [flashcardBase64, setFlashcardBase64] = useState<string | undefined>();
   const [selectedItemsForAI, setSelectedItemsForAI] = useState<any[]>([]);
   const { showAlert } = useCustomAlert();
+
+  const handleDeleteSubject = () => {
+    showAlert({
+      title: 'Eliminar Materia',
+      message: '¿Estás seguro de que deseas eliminar esta materia? Al hacerlo, se eliminarán todos los elementos asociados a ella de forma permanente.',
+      type: 'confirm',
+      buttons: [
+        { text: t('subjects.cancel') || 'Cancelar', style: 'cancel' },
+        {
+          text: t('subjects.delete') || 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            if (!subjectId) return;
+            try {
+              setIsLoading(true);
+              await deleteSubject(subjectId);
+              router.replace('/');
+            } catch (e: any) {
+              setIsLoading(false);
+              showAlert({ title: t('subjects.error') || 'Error', message: e.message || 'Error al eliminar', type: 'error' });
+            }
+          }
+        }
+      ]
+    });
+  };
 
   const handleDeleteVideo = (videoId: number | string) => {
     showAlert({
@@ -241,6 +268,7 @@ export default function SubjectDetailScreen() {
             title={selectedSubject?.name || t('subjects.noSubjectSelected')}
             subtitle={subjectSubtitle}
             meta={subjectScheduleLabel}
+            onDelete={handleDeleteSubject}
           />
 
           <SubjectStats

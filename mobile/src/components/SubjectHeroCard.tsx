@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { subjectDetailStyles as styles } from '../styles/SubjectDetail.styles';
 import { SubjectIcon } from './SubjectIcon';
@@ -10,6 +11,7 @@ interface SubjectHeroCardProps {
   title: string;
   subtitle: string;
   meta: string;
+  onDelete?: () => void;
 }
 
 export const SubjectHeroCard: React.FC<SubjectHeroCardProps> = ({
@@ -18,23 +20,47 @@ export const SubjectHeroCard: React.FC<SubjectHeroCardProps> = ({
   title,
   subtitle,
   meta,
+  onDelete,
 }) => {
   return (
     <View style={styles.heroCard}>
-      <View style={styles.heroInner}>
-        <View style={[styles.heroIcon, { backgroundColor: color || '#DDE7FF' }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <View style={{
+          width: 56,
+          height: 56,
+          borderRadius: 16,
+          backgroundColor: color || '#DDE7FF',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
           <SubjectIcon iconName={iconName} color={theme.colors.white} />
         </View>
 
-        <View style={styles.heroCopy}>
-          <Text style={styles.heroTitle} numberOfLines={2}>
-            {title}
-          </Text>
-          <Text style={styles.heroSubtitle} numberOfLines={1}>
-            {subtitle}
-          </Text>
-          <Text style={styles.heroMeta}>{meta}</Text>
-        </View>
+        {onDelete && (
+          <TouchableOpacity 
+            onPress={onDelete} 
+            style={{ 
+              backgroundColor: `${theme.colors.text.error}15`, 
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Ionicons name="trash-outline" size={20} color={theme.colors.text.error} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View>
+        <Text style={styles.heroTitle} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={styles.heroSubtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+        <Text style={styles.heroMeta}>{meta}</Text>
       </View>
     </View>
   );

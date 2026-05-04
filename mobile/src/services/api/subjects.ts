@@ -64,3 +64,17 @@ export const getPredictedSubject = async (): Promise<Subject | null> => {
   const response = await fetchWithFallback(`/prediction/${userId}`);
   return await parseJsonSafely(response);
 };
+
+/**
+ * Elimina una materia
+ */
+export const deleteSubject = async (subjectId: number | string) => {
+  const response = await fetchWithFallback(`/subjects/${subjectId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const errorData = await parseJsonSafely(response);
+    throw new Error(errorData?.error || 'No se pudo eliminar la materia.');
+  }
+  return await parseJsonSafely(response);
+};
