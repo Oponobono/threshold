@@ -156,7 +156,7 @@ router.patch('/photos/:photoId/favorite', galleryController.toggleFavoritePhoto)
  * @swagger
  * /api/photos/{photoId}:
  *   put:
- *     summary: Actualiza una foto (ej: OCR extraído posteriormente)
+ *     summary: "Actualiza una foto (ej: OCR extraído posteriormente)"
  *     tags: [Photos]
  *     parameters:
  *       - in: path
