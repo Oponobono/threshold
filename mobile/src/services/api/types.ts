@@ -116,6 +116,7 @@ export interface AudioRecording {
   subject_color?: string;
   subject_icon?: string;
   transcript_uri?: string;
+  transcript_text?: string;
   summary_uri?: string;
 }
 
@@ -134,5 +135,6 @@ export interface YouTubeVideo {
   subject_color?: string;
   subject_icon?: string;
   transcript_uri?: string;
+  transcript_text?: string;
   summary_uri?: string;
 }

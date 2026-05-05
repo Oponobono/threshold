@@ -91,45 +91,67 @@ exports.buildContext = async (req, res) => {
         } 
         else if (item.type === 'recording') {
           // Obtener transcripción de audio
+          console.log(`[buildContext] Processing recording: id=${item.id}, label="${item.label}"`);
+          
           const transcript = await new Promise((resolve, reject) => {
             db.get(`
               SELECT transcript_text, transcript_uri 
               FROM audio_transcripts 
               WHERE recording_id = ?
             `, [item.id], (err, row) => {
-              if (err) reject(err); else resolve(row);
+              if (err) {
+                console.error(`[buildContext] DB error for recording_id=${item.id}:`, err.message);
+                reject(err);
+              } else {
+                console.log(`[buildContext] Query result for recording_id=${item.id}:`, row);
+                resolve(row);
+              }
             });
           });
 
           if (transcript?.transcript_text) {
+            console.log(`[buildContext] Using transcript_text for recording_id=${item.id}`);
             text = `[AUDIO: ${item.label}]\n${transcript.transcript_text}`;
           } else if (transcript?.transcript_uri) {
             // Intentar leer desde archivo si no está inline
+            console.log(`[buildContext] Attempting to read file: ${transcript.transcript_uri}`);
             try {
               const fileContent = await fs.readFile(transcript.transcript_uri, 'utf8');
               text = `[AUDIO: ${item.label}]\n${fileContent}`;
             } catch (fErr) {
-              console.warn(`No se pudo leer archivo de audio: ${transcript.transcript_uri}`);
+              console.warn(`No se pudo leer archivo de audio: ${transcript.transcript_uri}`, fErr.message);
             }
+          } else {
+            console.log(`[buildContext] No hay transcripción para recording_id=${item.id}, label="${item.label}"`);
           }
         }
         else if (item.type === 'video') {
           // 1. Buscar transcript cacheado en la BD
+          console.log(`[buildContext] Processing video: id=${item.id}, label="${item.label}"`);
+          
           const ytTranscript = await new Promise((resolve, reject) => {
             db.get(`
               SELECT transcript_text, transcript_uri 
               FROM youtube_transcripts 
               WHERE video_id = ?
             `, [item.id], (err, row) => {
-              if (err) reject(err); else resolve(row);
+              if (err) {
+                console.error(`[buildContext] DB error for video_id=${item.id}:`, err.message);
+                reject(err);
+              } else {
+                console.log(`[buildContext] Query result for video_id=${item.id}:`, row);
+                resolve(row);
+              }
             });
           });
 
           if (ytTranscript?.transcript_text) {
             // Caso ideal: texto inline en la BD — costo cero
+            console.log(`[buildContext] Using transcript_text for video_id=${item.id}`);
             text = `[VIDEO YOUTUBE: ${item.label}]\n${ytTranscript.transcript_text}`;
           } else if (ytTranscript?.transcript_uri) {
             // Fallback: leer desde archivo
+            console.log(`[buildContext] Attempting to read file: ${ytTranscript.transcript_uri}`);
             try {
               const fileContent = await fs.readFile(ytTranscript.transcript_uri, 'utf8');
               text = `[VIDEO YOUTUBE: ${item.label}]\n${fileContent}`;
@@ -139,6 +161,7 @@ exports.buildContext = async (req, res) => {
           } else {
             // No hay transcript cacheado — obtener captions de YouTube en tiempo real
             // y guardarlas en la BD para las próximas consultas
+            console.log(`[buildContext] No transcript cached for video_id=${item.id}, attempting to fetch from YouTube`);
             try {
               const ytVideo = await new Promise((resolve, reject) => {
                 db.get('SELECT video_id FROM youtube_videos WHERE id = ?', [item.id], (err, row) => {
@@ -193,11 +216,14 @@ exports.buildContext = async (req, res) => {
     });
 
     const results = await Promise.all(contextPromises);
-    const finalContext = results.filter(t => t.length > 0).join('\n\n---\n\n');
+    const successfulItems = results.filter(t => t.length > 0);
+    const finalContext = successfulItems.join('\n\n---\n\n');
 
+    console.log(`[buildContext] Procesados ${results.length} items, ${successfulItems.length} con contenido exitoso`);
+    
     res.json({ 
       context: finalContext,
-      itemsCount: results.filter(t => t.length > 0).length
+      itemsCount: successfulItems.length
     });
 
   } catch (err) {

@@ -20,6 +20,7 @@ exports.getYoutubeVideos = (req, res) => {
       s.color as subject_color,
       s.icon as subject_icon,
       yt.transcript_uri,
+      yt.transcript_text,
       yt.summary_uri
     FROM youtube_videos yv
     LEFT JOIN subjects s ON yv.subject_id = s.id

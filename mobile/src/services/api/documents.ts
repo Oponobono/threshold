@@ -78,6 +78,28 @@ export const deleteScannedDocument = async (documentId: number | string): Promis
   }
 };
 
+/** Actualiza un documento escaneado en la base de datos */
+export const updateScannedDocument = async (
+  documentId: number | string,
+  data: Partial<ScannedDocument>
+): Promise<ScannedDocument> => {
+  try {
+    const response = await fetchWithFallback(`/scanned_documents/${documentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    
+    const responseData = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(responseData?.error || 'Error al actualizar el documento escaneado');
+    }
+    return responseData;
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al actualizar el documento escaneado');
+  }
+};
+
 /**
  * Extrae texto de una imagen usando Groq Vision (OCR on-cloud).
  * La imagen debe enviarse como base64. El tamaño máximo recomendado es ~3.5 MB.

@@ -45,9 +45,11 @@ import { SubjectInsights } from '../../src/components/SubjectInsights';
 import { SubjectAIFab } from '../../src/components/SubjectAIFab';
 import { useSubjectGrades } from '../../src/hooks/useSubjectGrades';
 import { useCameraPermissions, CameraView } from 'expo-camera';
+import * as FileSystem from 'expo-file-system/legacy';
 import { subjectDetailStyles as styles } from '../../src/styles/SubjectDetail.styles';
 import { useCustomAlert } from '../../src/components/CustomAlert';
 import { SubjectYouTubeVideos } from '../../src/components/SubjectYouTubeVideos';
+import { PDFImportModal } from '../../src/components/PDFImportModal';
 import { generatePdfFromImages } from '../../src/utils/pdfGenerator';
 
 // Helper removed
@@ -85,6 +87,7 @@ export default function SubjectDetailScreen() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
+  const [isPDFImportVisible, setIsPDFImportVisible] = useState(false);
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const [initialViewerIndex, setInitialViewerIndex] = useState(0);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -107,6 +110,7 @@ export default function SubjectDetailScreen() {
   const [isFlashcardModalVisible, setIsFlashcardModalVisible] = useState(false);
   /** contextText construido por el backend — se pasa directamente al FlashcardCreatorModal como `content` */
   const [flashcardContextText, setFlashcardContextText] = useState<string>('');
+  const [flashcardBase64, setFlashcardBase64] = useState<string>('');
   const { showAlert } = useCustomAlert();
 
   /** Muestra la alerta de confirmación y elimina la materia completa (en cascada) */
@@ -207,6 +211,13 @@ export default function SubjectDetailScreen() {
     return () => { mounted = false; };
   }, [subjectId]);
 
+  // Cleanup: detener la reproducción de audio cuando se desmonta el componente o se sale de la pantalla
+  useEffect(() => {
+    return () => {
+      stopSound();
+    };
+  }, [stopSound]);
+
   const {
     averageGrade,
     projectedGrade,
@@ -304,6 +315,7 @@ export default function SubjectDetailScreen() {
             onDocumentDeleted={(id) => {
               setScannedDocuments(prev => prev.filter(d => d.id !== id));
             }}
+            onOpenImportPDF={() => setIsPDFImportVisible(true)}
             onGenerateFlashcards={async (uris) => {
               if (uris.length === 0) return;
               // Leemos la primera imagen para las flashcards (como MVP)
@@ -404,6 +416,18 @@ export default function SubjectDetailScreen() {
         onClose={() => setIsViewerVisible(false)}
         onPhotoDeleted={(id) => {
           setPhotos(prev => prev.filter(p => p.id !== id));
+        }}
+      />
+
+      <PDFImportModal
+        isVisible={isPDFImportVisible}
+        onClose={() => setIsPDFImportVisible(false)}
+        selectedSubjectId={subjectId || undefined}
+        onImportSuccess={async () => {
+          if (subjectId) {
+            const updatedDocs = await getScannedDocumentsBySubject(subjectId);
+            setScannedDocuments(updatedDocs || []);
+          }
         }}
       />
 

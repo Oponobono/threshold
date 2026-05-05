@@ -13,6 +13,8 @@ export interface SubjectDocumentCardProps {
   onPress: () => void;
   onLongPress: () => void;
   onDelete: () => void;
+  onExtractOCR?: () => void;
+  isExtractingOCR?: boolean;
 }
 
 /**
@@ -39,9 +41,12 @@ export const SubjectDocumentCard: React.FC<SubjectDocumentCardProps> = ({
   onPress,
   onLongPress,
   onDelete,
+  onExtractOCR,
+  isExtractingOCR,
 }) => {
   const { t } = useTranslation();
   const isPdf = doc.local_uri?.endsWith('.pdf');
+  const hasOCR = !!(doc.ocr_text && doc.ocr_text.length > 0);
 
   return (
     <TouchableOpacity 
@@ -61,6 +66,28 @@ export const SubjectDocumentCard: React.FC<SubjectDocumentCardProps> = ({
           size={32} 
           color={isPdf ? (theme.colors.text.error || '#FF3B30') : theme.colors.primary} 
         />
+        {/* OCR Status Indicator */}
+        <View 
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            backgroundColor: hasOCR ? theme.colors.success || '#34C759' : theme.colors.warning || '#FF9500',
+            borderWidth: 2,
+            borderColor: 'white',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Ionicons 
+            name={hasOCR ? "checkmark-done" : "alert"} 
+            size={10} 
+            color="white" 
+          />
+        </View>
       </View>
       <View style={styles.infoContainer}>
         <Text style={styles.docName} numberOfLines={1}>
@@ -69,9 +96,27 @@ export const SubjectDocumentCard: React.FC<SubjectDocumentCardProps> = ({
         <Text style={styles.docDate}>
           {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : (t('common.recent') || 'Reciente')}
         </Text>
+        {!hasOCR && (
+          <Text style={{ fontSize: 11, color: theme.colors.warning || '#FF9500', marginTop: 4 }}>
+            {t('common.ocrPending') || 'Sin OCR - Extrae texto'}
+          </Text>
+        )}
       </View>
       {!selectionMode && (
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          {!hasOCR && onExtractOCR && (
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation?.(); onExtractOCR(); }}
+              disabled={isExtractingOCR}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {isExtractingOCR ? (
+                <Ionicons name="hourglass" size={20} color={theme.colors.primary} />
+              ) : (
+                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color={theme.colors.primary} />
+              )}
+            </TouchableOpacity>
+          )}
           <Ionicons name="open-outline" size={20} color={theme.colors.text.secondary} />
           <TouchableOpacity
             onPress={(e) => { e.stopPropagation?.(); onDelete(); }}

@@ -5,7 +5,7 @@ import { theme } from '../styles/theme';
 import { subjectDetailStyles as sectionStyles } from '../styles/SubjectDetail.styles';
 import { documentListStyles as styles } from '../styles/SubjectDocumentsList.styles';
 import { useCustomAlert } from './CustomAlert';
-import { deleteScannedDocument } from '../services/api';
+import { deleteScannedDocument, updateScannedDocument, extractTextFromImage } from '../services/api';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ export interface SubjectDocumentsListProps {
   onGenerateFlashcards?: (uris: string[]) => void;
   onExportPdf?: (uris: string[]) => void;
   onDocumentDeleted?: (id: number | string) => void;
+  onOpenImportPDF?: () => void;
 }
 
 /**
@@ -35,12 +36,14 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
   documents,
   onGenerateFlashcards,
   onExportPdf,
-  onDocumentDeleted 
+  onDocumentDeleted,
+  onOpenImportPDF
 }) => {
   const { t } = useTranslation();
   const { showAlert } = useCustomAlert();
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number | string>>(new Set());
+  const [ocrInProgress, setOcrInProgress] = useState<Set<string | number>>(new Set());
 
   if (documents.length === 0) return null;
 
@@ -153,6 +156,57 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
     });
   };
 
+  const handleExtractOCR = async (docId: string | number) => {
+    const doc = documents.find(d => d.id === docId || documents.indexOf(d) === docId);
+    if (!doc) return;
+
+    try {
+      setOcrInProgress(prev => new Set([...prev, docId]));
+
+      // Leer el archivo PDF/imagen
+      const fileContent = await FileSystem.readAsStringAsync(doc.local_uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Llamar a la API de OCR
+      const ocrText = await extractTextFromImage(fileContent);
+
+      if (!ocrText) {
+        showAlert({
+          title: t('common.warning') || 'Aviso',
+          message: t('subjects.ocrNoTextFound') || 'No se encontró texto en el documento. Verifica que sea un PDF o imagen legible.',
+          type: 'warning',
+        });
+        return;
+      }
+
+      // Actualizar el documento en la BD
+      await updateScannedDocument(docId as any, { ocr_text: ocrText });
+
+      showAlert({
+        title: t('common.success') || 'Éxito',
+        message: t('subjects.ocrExtracted') || 'Texto extraído correctamente. Ya puedes usar este documento en el asistente IA.',
+        type: 'success',
+      });
+
+      // Recargar documentos (delegado al padre)
+      onDocumentDeleted?.(docId); // Trigger parent to refresh
+    } catch (error: any) {
+      console.error('[OCR Error]', error);
+      showAlert({
+        title: t('common.error') || 'Error',
+        message: error?.message || t('subjects.ocrFailed') || 'No se pudo extraer el texto del documento.',
+        type: 'error',
+      });
+    } finally {
+      setOcrInProgress(prev => {
+        const next = new Set(prev);
+        next.delete(docId);
+        return next;
+      });
+    }
+  };
+
   return (
     <View style={sectionStyles.sectionBlock}>
       <View style={sectionStyles.sectionHeaderRow}>
@@ -160,21 +214,29 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
           <Text style={sectionStyles.sectionTitle}>{t('subjects.scannedDocuments')}</Text>
           <Text style={sectionStyles.sectionHint}>{t('subjects.scannedDocumentsHint')}</Text>
         </View>
-        {selectionMode ? (
-          <TouchableOpacity onPress={() => { setSelectionMode(false); setSelectedIds(new Set()); }}>
-            <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.cancel')}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => setSelectionMode(true)}>
-            <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.select')}</Text>
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+          {onOpenImportPDF && (
+            <TouchableOpacity onPress={onOpenImportPDF} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
+            </TouchableOpacity>
+          )}
+          {selectionMode ? (
+            <TouchableOpacity onPress={() => { setSelectionMode(false); setSelectedIds(new Set()); }}>
+              <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.cancel')}</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => setSelectionMode(true)}>
+              <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.select')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.list}>
         {documents.map((doc, index) => {
           const docId = doc.id || index;
           const isSelected = selectedIds.has(docId);
+          const isExtracting = ocrInProgress.has(docId);
 
           return (
             <SubjectDocumentCard
@@ -186,6 +248,8 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
               onPress={() => selectionMode ? toggleSelection(docId) : openDocument(doc.local_uri)}
               onLongPress={() => handleLongPress(docId)}
               onDelete={() => handleDelete(docId)}
+              onExtractOCR={() => handleExtractOCR(docId)}
+              isExtractingOCR={isExtracting}
             />
           );
         })}

@@ -63,6 +63,50 @@ exports.deleteScannedDocument = (req, res) => {
 };
 
 /**
+ * Actualizar un documento escaneado (ej. agregar ocr_text después de una extracción manual)
+ */
+exports.updateScannedDocument = (req, res) => {
+  const { documentId } = req.params;
+  const { name, ocr_text } = req.body;
+
+  if (!documentId) {
+    return res.status(400).json({ error: 'ID de documento requerido' });
+  }
+
+  // Construir dinámicamente el query según qué campos se proporcionen
+  const updates = [];
+  const values = [];
+
+  if (name !== undefined) {
+    updates.push('name = ?');
+    values.push(name);
+  }
+  if (ocr_text !== undefined) {
+    updates.push('ocr_text = ?');
+    values.push(ocr_text);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No hay campos para actualizar' });
+  }
+
+  values.push(documentId); // Para el WHERE clause
+
+  const query = `UPDATE scanned_documents SET ${updates.join(', ')} WHERE id = ?`;
+
+  db.run(query, values, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'Documento no encontrado' });
+
+    // Retornar el documento actualizado
+    db.get(`SELECT * FROM scanned_documents WHERE id = ?`, [documentId], (getErr, row) => {
+      if (getErr) return res.status(500).json({ error: getErr.message });
+      res.json(row);
+    });
+  });
+};
+
+/**
  * Extraer texto OCR de una imagen base64 usando Groq Vision
  */
 exports.performOCR = async (req, res) => {

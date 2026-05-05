@@ -10,14 +10,17 @@ import { AIContextItemData, AIContextItemType } from '../components/AIContextIte
 import { RecordingItem } from '../hooks/useAudioRecorder';
 import { YouTubeVideo } from '../services/api/types';
 
-/** Mapea grabaciones de audio — hasText=false hasta que el usuario las transcriba */
+/** Mapea grabaciones de audio — hasText=true si existe transcript_uri o transcript_text */
 export function mapRecordings(recordings: RecordingItem[]): AIContextItemData[] {
   return recordings.map((r, i) => ({
     id: `rec_${r.id_string || r.id || i}`,
     label: r.name || 'Grabación de voz',
     uri: r.uri || r.local_uri,
     type: 'recording' as AIContextItemType,
-    hasText: false, // se actualiza tras transcribir en RecordingDetail
+    hasText: !!(
+      (r.transcript_uri && r.transcript_uri.length > 0) ||
+      (r.transcript_text && r.transcript_text.length > 0)
+    ),
     rawItem: r,
   }));
 }
@@ -46,14 +49,17 @@ export function mapDocuments(documents: any[]): AIContextItemData[] {
   }));
 }
 
-/** Mapea videos de YouTube — hasText=false hasta que el usuario obtenga captions */
+/** Mapea videos de YouTube — hasText=true si existe transcript_uri o transcript_text */
 export function mapVideos(videos: YouTubeVideo[]): AIContextItemData[] {
   return videos.map((v, i) => ({
     id: `vid_${v.id ?? i}`,
     label: v.title || 'Video de YouTube',
     thumbnailUrl: v.thumbnail_url || undefined,
     type: 'video' as AIContextItemType,
-    hasText: false, // se actualiza tras obtener captions en VideoDetail
+    hasText: !!(
+      (v.transcript_uri && v.transcript_uri.length > 0) ||
+      (v.transcript_text && v.transcript_text.length > 0)
+    ),
     rawItem: v,
   }));
 }

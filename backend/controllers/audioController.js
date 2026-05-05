@@ -7,7 +7,7 @@ exports.getAudioRecordings = (req, res) => {
   const { userId } = req.params;
   const query = `
     SELECT ar.*, s.name as subject_name, s.color as subject_color, s.icon as subject_icon,
-           at.transcript_uri, at.summary_uri
+           at.transcript_uri, at.transcript_text, at.summary_uri
     FROM audio_recordings ar
     LEFT JOIN subjects s ON ar.subject_id = s.id
     LEFT JOIN audio_transcripts at ON ar.id = at.recording_id

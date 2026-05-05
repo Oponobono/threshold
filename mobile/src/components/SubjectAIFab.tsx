@@ -131,12 +131,24 @@ export const SubjectAIFab: React.FC<SubjectAIFabProps> = ({
 
     setIsBuildingCtx(true);
     try {
-      // Llamar al endpoint POST /api/ai/build-context
-      const payload = selectedItems.map(item => ({
-        id:    item.rawItem?.id ?? item.id,
-        type:  item.type,
-        label: item.label,
-      }));
+      // Construir payload con IDs correctos para cada tipo de recurso
+      const payload = selectedItems.map(item => {
+        // El rawItem es el objeto original (Recording, Photo, Document, Video)
+        // que tiene el campo 'id' que es el que el backend espera
+        const id = item.rawItem?.id;
+        
+        if (!id) {
+          console.warn(`[buildAIContext] Item ${item.type} "${item.label}" no tiene ID. rawItem:`, item.rawItem);
+        }
+
+        return {
+          id: id,
+          type: item.type,
+          label: item.label,
+        };
+      });
+
+      console.log('[buildAIContext] Payload:', payload);
 
       const result = await buildAIContext(payload);
 

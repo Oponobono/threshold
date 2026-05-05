@@ -70,6 +70,37 @@ router.delete('/scanned_documents/:documentId', scannedDocumentsController.delet
 
 /**
  * @swagger
+ * /api/scanned_documents/{documentId}:
+ *   put:
+ *     summary: Actualiza un documento escaneado (ej. agregar ocr_text)
+ *     tags: [Scanned Documents]
+ *     parameters:
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               ocr_text:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Documento actualizado exitosamente
+ *       404:
+ *         description: Documento no encontrado
+ */
+router.put('/scanned_documents/:documentId', scannedDocumentsController.updateScannedDocument);
+
+/**
+ * @swagger
  * /api/ocr:
  *   post:
  *     summary: Extrae texto de una imagen base64 usando Groq Vision AI
