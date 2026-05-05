@@ -21,11 +21,31 @@ const aiController = require('../controllers/aiController');
  *                 type: array
  *                 items:
  *                   type: object
+ *               session_id:
+ *                 type: integer
  *     responses:
  *       200:
  *         description: Respuesta del tutor
  */
 router.post('/ai/chat', aiController.aiChat);
+
+/**
+ * @swagger
+ * /api/ai/chat/history/{userId}/{subjectId}:
+ *   get:
+ *     summary: Obtiene el historial de chat de una materia
+ *     tags: [AI]
+ */
+router.get('/ai/chat/history/:userId/:subjectId', aiController.getChatHistory);
+
+/**
+ * @swagger
+ * /api/ai/chat/clear/{userId}/{subjectId}:
+ *   post:
+ *     summary: Limpia el historial de chat (crea nueva sesión)
+ *     tags: [AI]
+ */
+router.post('/ai/chat/clear/:userId/:subjectId', aiController.clearChatHistory);
 
 /**
  * @swagger

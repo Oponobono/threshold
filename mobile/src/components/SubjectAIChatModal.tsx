@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { sendAIChatMessage } from '../services/api/ai';
+import { sendAIChatMessage, getChatHistory, clearChatHistory } from '../services/api/ai';
 
 // ─── Tokens de color (misma paleta que SubjectAIContextModal) ─────────────────
 const PRIMARY  = '#7B72FF';
@@ -43,6 +43,10 @@ export interface SubjectAIChatModalProps {
   isVisible: boolean;
   /** Callback para cerrar el modal */
   onClose: () => void;
+  /** ID de la materia */
+  subjectId?: number;
+  /** ID del usuario */
+  userId?: number;
   /** Nombre de la materia para el encabezado */
   subjectName: string;
   /** Contexto académico ensamblado por el backend */
@@ -122,7 +126,7 @@ const TypingIndicator: React.FC = () => {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
-  isVisible, onClose, subjectName, contextText, contextItemCount,
+  isVisible, onClose, subjectName, subjectId, userId, contextText, contextItemCount,
 }) => {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -130,6 +134,21 @@ export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
   const [messages, setMessages]   = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<number | undefined>();
+
+  /** Cargar historial cuando se abre el modal */
+  useEffect(() => {
+    if (isVisible && subjectId && userId) {
+      setIsLoading(true);
+      getChatHistory(userId, subjectId)
+        .then(data => {
+          setSessionId(data.session_id);
+          setMessages(data.messages || []);
+        })
+        .catch(err => console.warn('[AIChat] Error cargando historial:', err))
+        .finally(() => setIsLoading(false));
+    }
+  }, [isVisible, subjectId, userId]);
 
   /** Scroll automático al último mensaje */
   const scrollToBottom = useCallback(() => {
@@ -160,8 +179,8 @@ export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
     setIsLoading(true);
 
     try {
-      // Enviar al backend con el contexto y el historial completo
-      const data = await sendAIChatMessage(contextText, updatedMessages);
+      // Enviar al backend con el contexto, historial y session_id
+      const data = await sendAIChatMessage(contextText, updatedMessages, sessionId);
       const aiMsg: Message = {
         role: 'assistant',
         content: data?.reply?.content || 'Lo siento, no pude procesar tu pregunta.',
@@ -177,7 +196,26 @@ export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [inputText, isLoading, messages, contextText]);
+  }, [inputText, isLoading, messages, contextText, sessionId]);
+
+  /** Limpiar la conversación actual y crear una nueva */
+  const handleClearHistory = useCallback(async () => {
+    if (!subjectId || !userId) {
+      setMessages([]);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const data = await clearChatHistory(userId, subjectId);
+      setSessionId(data.session_id);
+      setMessages([]);
+    } catch (err) {
+      console.warn('[AIChat] Error limpiando historial:', err);
+      setMessages([]); // fallback
+    } finally {
+      setIsLoading(false);
+    }
+  }, [subjectId, userId]);
 
   return (
     <Modal
@@ -221,7 +259,8 @@ export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
               {messages.length > 0 && (
                 <TouchableOpacity
                   style={s.clearBtn}
-                  onPress={() => setMessages([])}
+                  onPress={handleClearHistory}
+                  disabled={isLoading}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="refresh-outline" size={16} color={TXT_SEC} />

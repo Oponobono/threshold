@@ -30,6 +30,8 @@ import { buildAIContext } from '../services/api/ai';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 export interface SubjectAIFabProps {
+  subjectId?: number;
+  userId?: number;
   subjectName: string;
   recordings?: RecordingItem[];
   photos?: any[];
@@ -81,6 +83,8 @@ const o = StyleSheet.create({
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export const SubjectAIFab: React.FC<SubjectAIFabProps> = ({
+  subjectId,
+  userId,
   subjectName,
   recordings,
   photos = [],
@@ -207,6 +211,8 @@ export const SubjectAIFab: React.FC<SubjectAIFabProps> = ({
         isVisible={isChatVisible}
         onClose={() => setIsChatVisible(false)}
         subjectName={subjectName}
+        subjectId={subjectId}
+        userId={userId}
         contextText={builtContext}
         contextItemCount={builtContextCount}
       />

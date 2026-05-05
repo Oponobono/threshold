@@ -58,9 +58,78 @@ ${context_text || 'El estudiante no proporcionó contexto específico para esta 
     const groqData = await response.json();
     const reply = groqData.choices[0].message;
 
+    // Guardar en el historial si se proporciona session_id
+    const { session_id } = req.body;
+    if (session_id && messages.length > 0) {
+      const lastUserMsg = messages[messages.length - 1];
+      if (lastUserMsg.role === 'user') {
+        db.run('INSERT INTO ai_chat_messages (session_id, role, content) VALUES (?, ?, ?)', [session_id, 'user', lastUserMsg.content]);
+      }
+      db.run('INSERT INTO ai_chat_messages (session_id, role, content) VALUES (?, ?, ?)', [session_id, 'assistant', reply.content]);
+    }
+
     res.json({ reply });
   } catch (err) {
     res.status(500).json({ error: 'Error en el chat de IA', details: err.message });
+  }
+};
+
+/**
+ * Obtiene el historial de chat para una materia y usuario
+ */
+exports.getChatHistory = async (req, res) => {
+  const { userId, subjectId } = req.params;
+  
+  try {
+    const session = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM ai_chat_sessions WHERE user_id = ? AND subject_id = ? ORDER BY created_at DESC LIMIT 1',
+        [userId, subjectId],
+        (err, row) => err ? reject(err) : resolve(row)
+      );
+    });
+
+    if (!session) {
+      db.run(
+        'INSERT INTO ai_chat_sessions (user_id, subject_id, title) VALUES (?, ?, ?)',
+        [userId, subjectId, 'Nueva Sesión'],
+        function(err) {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ session_id: this.lastID, messages: [] });
+        }
+      );
+      return;
+    }
+
+    db.all(
+      'SELECT role, content FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC',
+      [session.id],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ session_id: session.id, messages: rows });
+      }
+    );
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Limpia el historial actual creando una nueva sesión
+ */
+exports.clearChatHistory = async (req, res) => {
+  const { userId, subjectId } = req.params;
+  try {
+    db.run(
+      'INSERT INTO ai_chat_sessions (user_id, subject_id, title) VALUES (?, ?, ?)',
+      [userId, subjectId, 'Nueva Sesión'],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ session_id: this.lastID, messages: [] });
+      }
+    );
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 

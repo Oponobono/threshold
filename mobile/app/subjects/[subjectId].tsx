@@ -449,6 +449,8 @@ export default function SubjectDetailScreen() {
 
       {selectedSubject && (
         <SubjectAIFab
+          subjectId={subjectId || undefined}
+          userId={profile?.id || undefined}
           subjectName={selectedSubject.name}
           recordings={allSubjectRecordings}
           photos={imagePhotos}

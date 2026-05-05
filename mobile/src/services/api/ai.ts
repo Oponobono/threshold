@@ -11,8 +11,9 @@ import { fetchWithFallback, parseJsonSafely } from './client';
  * Envía un mensaje al LLM junto con el contexto académico del usuario.
  * @param contextText - Texto fuente (transcripción, resumen, OCR) que alimenta el sistema prompt.
  * @param messages - Historial de la conversación en formato `{ role, content }[]`.
+ * @param sessionId - Opcional. ID de la sesión actual para guardar el historial.
  */
-export const sendAIChatMessage = async (contextText: string, messages: any[]) => {
+export const sendAIChatMessage = async (contextText: string, messages: any[], sessionId?: number) => {
   try {
     const response = await fetchWithFallback('/ai/chat', {
       method: 'POST',
@@ -22,6 +23,7 @@ export const sendAIChatMessage = async (contextText: string, messages: any[]) =>
       body: JSON.stringify({
         context_text: contextText,
         messages: messages,
+        session_id: sessionId,
       }),
     });
     
@@ -32,6 +34,40 @@ export const sendAIChatMessage = async (contextText: string, messages: any[]) =>
     return data;
   } catch (error: any) {
     throw new Error(error.message || 'Error de red al intentar chatear con la IA');
+  }
+};
+
+/**
+ * Obtiene el historial de chat de una materia para un usuario.
+ */
+export const getChatHistory = async (userId: string | number, subjectId: string | number) => {
+  try {
+    const response = await fetchWithFallback(`/ai/chat/history/${userId}/${subjectId}`);
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Error al obtener el historial de chat');
+    }
+    return data;
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al obtener historial');
+  }
+};
+
+/**
+ * Limpia el historial actual (inicia nueva sesión).
+ */
+export const clearChatHistory = async (userId: string | number, subjectId: string | number) => {
+  try {
+    const response = await fetchWithFallback(`/ai/chat/clear/${userId}/${subjectId}`, {
+      method: 'POST'
+    });
+    const data = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Error al limpiar el historial');
+    }
+    return data;
+  } catch (error: any) {
+    throw new Error(error.message || 'Error de red al limpiar historial');
   }
 };
 
