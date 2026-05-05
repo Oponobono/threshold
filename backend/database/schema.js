@@ -238,6 +238,7 @@ const tableSchema = {
         name TEXT,
         local_uri TEXT NOT NULL,
         ocr_text TEXT,
+        extracted_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL
@@ -251,11 +252,13 @@ const tableSchema = {
         name TEXT,
         local_uri TEXT NOT NULL,
         ocr_text TEXT,
+        extracted_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `,
     columns: [
-      { name: 'ocr_text', type: 'TEXT' }
+      { name: 'ocr_text', type: 'TEXT' },
+      { name: 'extracted_at', type: 'TIMESTAMP' }
     ]
   },
   audio_recordings: {

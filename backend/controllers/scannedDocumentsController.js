@@ -4,16 +4,32 @@ const pdfParse = require('pdf-parse');
 /**
  * Obtener documentos escaneados por materia
  */
-exports.getScannedDocumentsBySubject = (req, res) => {
+exports.getScannedDocumentsBySubject = async (req, res) => {
   const { subjectId } = req.params;
-  db.all(
-    `SELECT * FROM scanned_documents WHERE subject_id = ? ORDER BY created_at DESC`,
-    [subjectId],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
-    }
-  );
+  try {
+    const dateLimit = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    const sqlDateLimit = dateLimit.toISOString().replace('T', ' ').substring(0, 19);
+
+    // Limpiar textos viejos
+    await new Promise((resolve) => {
+      db.run(
+        `UPDATE scanned_documents SET ocr_text = NULL WHERE subject_id = ? AND extracted_at < ?`,
+        [subjectId, sqlDateLimit],
+        () => resolve()
+      );
+    });
+
+    db.all(
+      `SELECT * FROM scanned_documents WHERE subject_id = ? ORDER BY created_at DESC`,
+      [subjectId],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+      }
+    );
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /**
@@ -27,7 +43,11 @@ exports.saveScannedDocument = (req, res) => {
     return res.status(400).json({ error: 'Faltan campos requeridos (user_id, local_uri)' });
   }
 
-  const query = `
+  const hasOcr = ocr_text && ocr_text.trim().length > 0;
+  const query = hasOcr ? `
+    INSERT INTO scanned_documents (user_id, subject_id, name, local_uri, ocr_text, extracted_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  ` : `
     INSERT INTO scanned_documents (user_id, subject_id, name, local_uri, ocr_text)
     VALUES (?, ?, ?, ?, ?)
   `;
@@ -85,6 +105,11 @@ exports.updateScannedDocument = (req, res) => {
   if (ocr_text !== undefined) {
     updates.push('ocr_text = ?');
     values.push(ocr_text);
+    if (ocr_text) {
+      updates.push('extracted_at = CURRENT_TIMESTAMP');
+    } else {
+      updates.push('extracted_at = NULL');
+    }
   }
 
   if (updates.length === 0) {

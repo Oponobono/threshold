@@ -81,6 +81,15 @@ exports.getChatHistory = async (req, res) => {
   const { userId, subjectId } = req.params;
   
   try {
+    // Limpieza de seguridad: eliminar mensajes más antiguos de 24 horas
+    // Esto evita saturar el contexto de la IA y limpiar la base de datos
+    const dateLimit = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sqlDateLimit = dateLimit.toISOString().replace('T', ' ').substring(0, 19);
+    
+    await new Promise((resolve) => {
+      db.run('DELETE FROM ai_chat_messages WHERE created_at < ?', [sqlDateLimit], () => resolve());
+    });
+
     const session = await new Promise((resolve, reject) => {
       db.get(
         'SELECT * FROM ai_chat_sessions WHERE user_id = ? AND subject_id = ? ORDER BY created_at DESC LIMIT 1',

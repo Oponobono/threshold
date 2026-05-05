@@ -5,7 +5,7 @@ import { theme } from '../styles/theme';
 import { subjectDetailStyles as sectionStyles } from '../styles/SubjectDetail.styles';
 import { documentListStyles as styles } from '../styles/SubjectDocumentsList.styles';
 import { useCustomAlert } from './CustomAlert';
-import { deleteScannedDocument, updateScannedDocument, extractTextFromImage } from '../services/api';
+import { deleteScannedDocument, updateScannedDocument, extractTextFromImage, extractTextFromPDF } from '../services/api';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +44,7 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number | string>>(new Set());
   const [ocrInProgress, setOcrInProgress] = useState<Set<string | number>>(new Set());
+  const [isRescanningAll, setIsRescanningAll] = useState(false);
 
   if (documents.length === 0) return null;
 
@@ -168,8 +169,13 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Llamar a la API de OCR
-      const ocrText = await extractTextFromImage(fileContent);
+      // Llamar a la API de OCR o extracción de PDF según el tipo de archivo
+      let ocrText = '';
+      if (doc.local_uri.toLowerCase().endsWith('.pdf')) {
+        ocrText = await extractTextFromPDF(fileContent);
+      } else {
+        ocrText = await extractTextFromImage(fileContent);
+      }
 
       if (!ocrText) {
         showAlert({
@@ -207,6 +213,70 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
     }
   };
 
+  const handleRescanSelected = async () => {
+    // Filtramos solo los seleccionados
+    const docsToRescan = documents.filter(d => {
+      const docId = d.id || documents.indexOf(d);
+      return selectedIds.has(docId);
+    });
+    
+    if (docsToRescan.length === 0) return;
+
+    setIsRescanningAll(true);
+    let successCount = 0;
+    
+    // Procesamos secuencialmente para no saturar la memoria o el backend
+    for (const doc of docsToRescan) {
+      const docId = doc.id || documents.indexOf(doc);
+      try {
+        setOcrInProgress(prev => new Set([...prev, docId]));
+        const fileContent = await FileSystem.readAsStringAsync(doc.local_uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        let text = '';
+        if (doc.local_uri.toLowerCase().endsWith('.pdf')) {
+          text = await extractTextFromPDF(fileContent);
+        } else {
+          text = await extractTextFromImage(fileContent);
+        }
+        
+        if (text && text.trim().length > 0) {
+          await updateScannedDocument(docId as any, { ocr_text: text });
+          successCount++;
+        }
+      } catch (err) {
+        console.warn(`Error rescaneando doc ${docId}:`, err);
+      } finally {
+        setOcrInProgress(prev => {
+          const next = new Set(prev);
+          next.delete(docId);
+          return next;
+        });
+      }
+    }
+    
+    setIsRescanningAll(false);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    
+    if (successCount > 0) {
+      showAlert({
+        title: 'Reescaneo completado',
+        message: `Se extrajo texto exitosamente de ${successCount} documento(s).`,
+        type: 'success',
+      });
+      // Llamamos a la función para recargar todo, simulando una eliminación para forzar el refetch del padre
+      onDocumentDeleted?.(-1); 
+    } else {
+      showAlert({
+        title: 'Error',
+        message: 'No se pudo extraer texto de los documentos pendientes. Verifica que no estén corruptos.',
+        type: 'error',
+      });
+    }
+  };
+
   return (
     <View style={sectionStyles.sectionBlock}>
       <View style={sectionStyles.sectionHeaderRow}>
@@ -214,19 +284,27 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
           <Text style={sectionStyles.sectionTitle}>{t('subjects.scannedDocuments')}</Text>
           <Text style={sectionStyles.sectionHint}>{t('subjects.scannedDocumentsHint')}</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (selectionMode) {
+                setSelectionMode(false);
+                setSelectedIds(new Set());
+              } else {
+                setSelectionMode(true);
+              }
+            }} 
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons 
+              name={selectionMode ? "document-text" : "document-text-outline"} 
+              size={22} 
+              color={selectionMode ? theme.colors.primary : theme.colors.text.secondary} 
+            />
+          </TouchableOpacity>
           {onOpenImportPDF && (
             <TouchableOpacity onPress={onOpenImportPDF} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
-            </TouchableOpacity>
-          )}
-          {selectionMode ? (
-            <TouchableOpacity onPress={() => { setSelectionMode(false); setSelectedIds(new Set()); }}>
-              <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.cancel')}</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => setSelectionMode(true)}>
-              <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('modals.select')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -257,15 +335,11 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
 
       {selectionMode && selectedIds.size > 0 && (
         <View style={styles.actionBottomBar}>
-          <Text style={styles.actionText}>{selectedIds.size} seleccionados</Text>
+          <Text style={styles.actionText}>{selectedIds.size} documento(s)</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleExport}>
-              <Ionicons name="document-text-outline" size={20} color="white" />
-              <Text style={styles.actionBtnText}>{t('subjects.pdf')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]} onPress={handleGenerate}>
-              <Ionicons name="flash-outline" size={20} color="white" />
-              <Text style={styles.actionBtnText}>{t('subjects.flashcards')}</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleRescanSelected}>
+              <Ionicons name="document-text" size={16} color={theme.colors.primary} />
+              <Text style={styles.actionBtnText}>Reescanear</Text>
             </TouchableOpacity>
           </View>
         </View>

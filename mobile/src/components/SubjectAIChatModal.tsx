@@ -138,9 +138,10 @@ export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
 
   /** Cargar historial cuando se abre el modal */
   useEffect(() => {
-    if (isVisible && subjectId && userId) {
+    const effectiveUserId = userId || 1; // Fallback para desarrollo/testing
+    if (isVisible && subjectId) {
       setIsLoading(true);
-      getChatHistory(userId, subjectId)
+      getChatHistory(effectiveUserId, subjectId)
         .then(data => {
           setSessionId(data.session_id);
           setMessages(data.messages || []);
@@ -200,13 +201,14 @@ export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
 
   /** Limpiar la conversación actual y crear una nueva */
   const handleClearHistory = useCallback(async () => {
-    if (!subjectId || !userId) {
+    const effectiveUserId = userId || 1;
+    if (!subjectId) {
       setMessages([]);
       return;
     }
     try {
       setIsLoading(true);
-      const data = await clearChatHistory(userId, subjectId);
+      const data = await clearChatHistory(effectiveUserId, subjectId);
       setSessionId(data.session_id);
       setMessages([]);
     } catch (err) {
@@ -281,6 +283,14 @@ export const SubjectAIChatModal: React.FC<SubjectAIChatModalProps> = ({
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
+              {/* Banner de seguridad 24hrs */}
+              <View style={s.infoBanner}>
+                <Ionicons name="information-circle-outline" size={14} color={TXT_SEC} />
+                <Text style={s.infoBannerText}>
+                  Por seguridad y rendimiento, los mensajes de más de 24 horas se eliminan automáticamente.
+                </Text>
+              </View>
+
               {messages.length === 0 ? (
                 /* Estado vacío — sugerencias iniciales */
                 <View style={s.emptyState}>
@@ -417,6 +427,15 @@ const s = StyleSheet.create({
   messageList: {
     paddingHorizontal: 16, paddingBottom: 12, paddingTop: 4,
     flexGrow: 1,
+  },
+  infoBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 8, paddingHorizontal: 16, marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 12, alignSelf: 'center',
+  },
+  infoBannerText: {
+    fontSize: 11, color: TXT_SEC, textAlign: 'center', flexShrink: 1,
   },
 
   // Estado vacío
