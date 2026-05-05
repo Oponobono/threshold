@@ -11,6 +11,8 @@ export interface AIContextItemData {
   uri?: string;
   thumbnailUrl?: string;
   type: AIContextItemType;
+  /** true si el item tiene texto procesado (transcript/OCR) en la BD — listo para el contexto IA */
+  hasText?: boolean;
   rawItem?: any;
 }
 

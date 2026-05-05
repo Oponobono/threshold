@@ -46,8 +46,20 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
 
   const openDocument = async (uri: string) => {
     try {
+      // Verificar si el archivo existe antes de intentar abrirlo
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) {
+        showAlert({
+          title: 'Archivo no disponible',
+          message: 'El archivo fue eliminado del almacenamiento local del dispositivo. ' +
+                   'Puedes volver a escanearlo desde el botón "+" de la materia.',
+          type: 'warning',
+        });
+        return;
+      }
+
       if (Platform.OS === 'android') {
-        // En Android, necesitamos obtener un content URI y usar IntentLauncher
+        // En Android: obtener content URI y usar IntentLauncher
         const contentUri = await FileSystem.getContentUriAsync(uri);
         await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
           data: contentUri,
@@ -55,12 +67,28 @@ export const SubjectDocumentsList: React.FC<SubjectDocumentsListProps> = ({
           type: 'application/pdf',
         });
       } else {
-        // En iOS, Linking puede abrir archivos locales (o webview)
+        // En iOS: Linking puede abrir archivos locales
         await Linking.openURL(uri);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error opening document:', error);
-      alert(t('common.errors.pdfViewerNeeded') || 'No se pudo abrir el documento. Asegúrate de tener un visor de PDF instalado.');
+      // Detectar el error específico de directorio/cache inexistente
+      const msg: string = error?.message || '';
+      if (msg.includes("doesn't exist") || msg.includes('Directory') || msg.includes('cache')) {
+        showAlert({
+          title: 'Archivo no disponible',
+          message: 'El archivo fue eliminado de la caché del dispositivo. ' +
+                   'Vuelve a escanear el documento para restaurarlo.',
+          type: 'warning',
+        });
+      } else {
+        showAlert({
+          title: 'No se pudo abrir',
+          message: t('common.errors.pdfViewerNeeded') ||
+                   'Asegúrate de tener un visor de PDF instalado.',
+          type: 'error',
+        });
+      }
     }
   };
 

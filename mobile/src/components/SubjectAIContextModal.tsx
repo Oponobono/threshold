@@ -101,6 +101,20 @@ export const SubjectAIContextModal: React.FC<SubjectAIContextModalProps> = ({
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const badgeScale = useRef(new Animated.Value(1)).current;
 
+  // ── Toast de advertencia ────────────────────────────────────────────────────
+  const [toastMsg, setToastMsg] = useState('');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  /** Muestra un toast que se desvanece automáticamente en ~3 segundos */
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.delay(2600),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 380, useNativeDriver: true }),
+    ]).start();
+  }, [toastOpacity]);
+
   // Map raw data to unified format
   const allItems = useMemo<AIContextItemData[]>(() => [
     ...mapDocuments(documents),
@@ -139,13 +153,50 @@ export const SubjectAIContextModal: React.FC<SubjectAIContextModalProps> = ({
 
   const handleClose = () => { setSelectedIds(new Set()); setActiveFilter('all'); onClose(); };
 
+  /**
+   * Valida que los ítems seleccionados tengan texto procesado.
+   * Retorna 'all_empty' si ninguno tiene texto, 'some_empty' si algunos no,
+   * o 'ok' si todos tienen texto.
+   */
+  const checkTextReadiness = useCallback((selected: AIContextItemData[]) => {
+    const withoutText = selected.filter(i => i.hasText === false);
+    if (withoutText.length === 0) return { status: 'ok' as const, items: [] };
+    if (withoutText.length === selected.length) return { status: 'all_empty' as const, items: withoutText };
+    return { status: 'some_empty' as const, items: withoutText };
+  }, []);
+
+  /** Genera el mensaje de toast según los tipos de ítems sin texto */
+  const getToastMessage = useCallback((items: AIContextItemData[]) => {
+    const hasAudioVideo = items.some(i => i.type === 'recording' || i.type === 'video');
+    const hasDocPhoto   = items.some(i => i.type === 'document'  || i.type === 'photo');
+    if (hasAudioVideo && hasDocPhoto)
+      return '⚠️ Transcribe los audios/videos y analiza con OCR los documentos/fotos antes de continuar.';
+    if (hasAudioVideo)
+      return '⚠️ Primero debes transcribir los archivos de audio o video antes de usarlos como contexto.';
+    return '⚠️ Primero debes analizar los documentos o fotos con OCR antes de usarlos como contexto.';
+  }, []);
+
   const handleAsk = useCallback(() => {
-    onAskQuestions?.(allItems.filter(i => selectedIds.has(i.id)));
-  }, [allItems, selectedIds, onAskQuestions]);
+    const selected = allItems.filter(i => selectedIds.has(i.id));
+    const { status, items } = checkTextReadiness(selected);
+    if (status === 'all_empty') {
+      showToast(getToastMessage(items));
+      return; // bloquear — no hay texto con que responder
+    }
+    if (status === 'some_empty') showToast(getToastMessage(items)); // advertir pero continuar
+    onAskQuestions?.(selected);
+  }, [allItems, selectedIds, onAskQuestions, checkTextReadiness, getToastMessage, showToast]);
 
   const handleFlashcards = useCallback(() => {
-    onGenerateFlashcards?.(allItems.filter(i => selectedIds.has(i.id)));
-  }, [allItems, selectedIds, onGenerateFlashcards]);
+    const selected = allItems.filter(i => selectedIds.has(i.id));
+    const { status, items } = checkTextReadiness(selected);
+    if (status === 'all_empty') {
+      showToast(getToastMessage(items));
+      return; // bloquear — sin texto no se pueden generar flashcards
+    }
+    if (status === 'some_empty') showToast(getToastMessage(items)); // advertir pero continuar
+    onGenerateFlashcards?.(selected);
+  }, [allItems, selectedIds, onGenerateFlashcards, checkTextReadiness, getToastMessage, showToast]);
 
   return (
     <Modal visible={isVisible} animationType="slide" transparent onRequestClose={handleClose}>
@@ -283,6 +334,11 @@ export const SubjectAIContextModal: React.FC<SubjectAIContextModalProps> = ({
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Toast de advertencia — se desvanece automáticamente */}
+          <Animated.View style={[s.toast, { opacity: toastOpacity }]} pointerEvents="none">
+            <Text style={s.toastText}>{toastMsg}</Text>
+          </Animated.View>
 
         </View>
       </View>
@@ -433,5 +489,31 @@ const s = StyleSheet.create({
     opacity: 0.35,
     shadowOpacity: 0,
     elevation: 0,
+  },
+
+  // Toast de advertencia
+  toast: {
+    position: 'absolute',
+    bottom: 120,
+    left: PAD,
+    right: PAD,
+    backgroundColor: 'rgba(20,20,36,0.97)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,200,60,0.40)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 14,
+  },
+  toastText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFD96A',
+    lineHeight: 19,
+    textAlign: 'center',
   },
 });
