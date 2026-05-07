@@ -36,6 +36,10 @@ ${context_text || 'El estudiante no proporcionó contexto específico para esta 
   const apiMessages = [systemMessage, ...messages];
 
   try {
+    console.log('🤖 Iniciando llamada a Groq API...');
+    console.log('📋 Mensajes:', messages.length);
+    console.log('🔑 API Key presente:', !!groqApiKey);
+    
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -50,13 +54,26 @@ ${context_text || 'El estudiante no proporcionó contexto específico para esta 
       }),
     });
 
+    console.log('📡 Estado de respuesta Groq:', response.status);
+
     if (!response.ok) {
       const errorData = await response.json();
-      return res.status(500).json({ error: 'Error al llamar a Groq API', details: errorData });
+      console.error('❌ Error de Groq:', {
+        status: response.status,
+        error: errorData,
+        headers: Object.fromEntries(response.headers)
+      });
+      return res.status(500).json({ 
+        error: 'Error al llamar a Groq API',
+        status: response.status,
+        details: errorData 
+      });
     }
 
     const groqData = await response.json();
     const reply = groqData.choices[0].message;
+
+    console.log('✅ Respuesta exitosa de Groq');
 
     // Guardar en el historial si se proporciona session_id
     const { session_id } = req.body;
@@ -70,6 +87,7 @@ ${context_text || 'El estudiante no proporcionó contexto específico para esta 
 
     res.json({ reply });
   } catch (err) {
+    console.error('💥 Error crítico en aiChat:', err);
     res.status(500).json({ error: 'Error en el chat de IA', details: err.message });
   }
 };
